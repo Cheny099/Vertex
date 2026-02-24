@@ -1,0 +1,13 @@
+{
+    "titles": {
+        "auto_trade_notice": "自动交易风险告知书",
+        "terms": "服务条款",
+        "privacy": "隐私政策"
+    },
+    "disclosure_desc": "版本: {{version}}",
+    "i_have_read_and_agree": "我已阅读并同意",
+    "scroll_to_read_all": "请滑动阅读到底部",
+    "accept_and_continue": "签署并继续",
+    "accept_success": "签署成功",
+    "high_risk_warning": "高风险提示"
+}

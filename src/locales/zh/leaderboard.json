@@ -1,0 +1,28 @@
+{
+    "title": "排行榜",
+    "subtitle": "查看全站表现优秀的用户和策略",
+    "scopes": {
+        "daily": "日榜",
+        "total": "总榜",
+        "strategies": "策略榜"
+    },
+    "descriptions": {
+        "daily": "按日收益统计（上一自然日UTC口径，数据每日 00:00 UTC 刷新）",
+        "total": "按累计收益统计（数据每日 00:00 UTC 刷新）",
+        "strategies": "按全站实盘订阅人数统计"
+    },
+    "titles": {
+        "revenue_rank": "收益排行榜",
+        "hot_strategies": "热门策略榜"
+    },
+    "table": {
+        "rank": "排名",
+        "user": "用户",
+        "strategy": "策略名称",
+        "pnl": "收益(PnL)",
+        "subscribers": "订阅人数",
+        "empty_strategies": "暂无数据",
+        "empty_users": "暂无排行数据"
+    },
+    "subscribers_unit": "人订阅"
+}

@@ -1,0 +1,88 @@
+{
+    "brand": "Vertex Quant",
+    "tagline": "Copy Trading · Automated Execution · Risk First",
+    "hero": {
+        "feature_risk": "Risk First",
+        "feature_speed": "Millisecond Latency",
+        "feature_viz": "Performance Viz",
+        "title_prefix": "Strategy Driven Trading",
+        "title_highlight": "Automated Execution",
+        "description": "Browse hot strategies and performance curves. Sign up/Login to subscribe, configure positions, and view orders.",
+        "actions": {
+            "dashboard": "Console",
+            "login": "Login",
+            "register": "Sign Up",
+            "register_now": "Join Now",
+            "have_account": "Login Instead",
+            "view_strategies": "Strategies (Login)"
+        }
+    },
+    "hot_strategies": {
+        "title": "Hot Strategies",
+        "subscribe_btn": "Login to Subscribe",
+        "view_detail_btn": "View Details",
+        "metrics": {
+            "roi": "30d ROI",
+            "roi_all": "ROI (All)",
+            "max_dd": "Max DD",
+            "drawdown": "Drawdown",
+            "active": "Active",
+            "protected": "Protected",
+            "win_rate": "Win Rate",
+            "subscribers": "Subscribers",
+            "last_signal": "Last Signal"
+        }
+    },
+    "curve": {
+        "title": "Performance Forecast",
+        "subtitle": "Forecast bands (p10~p90) are for demonstration only and do not represent future returns."
+    },
+    "leaderboard": {
+        "title": "Leaderboard",
+        "subtitle": "Top 5 preview if the backend endpoint is public.",
+        "no_data": "No data available (or login required).",
+        "view_full": "Full Leaderboard",
+        "login_more": "Login for More"
+    },
+    "footer": {
+        "risk_label": "Risk Warning:",
+        "risk_text": "Quantitative trading involves risk. Historical performance does not guarantee future results. Set stop-loss and leverage wisely.",
+        "terms": "Terms",
+        "privacy": "Privacy"
+    },
+    "tags": {
+        "oscillator": "Oscillator",
+        "mean_reversion": "Mean Reversion",
+        "hft": "HFT",
+        "scalping": "Scalping",
+        "trends": "Trends",
+        "fast": "Fast",
+        "risk_control": "Risk Control",
+        "stable": "Stable",
+        "xauusd": "Gold (XAUUSD)"
+    },
+    "chart": {
+        "global_market": "Global Market V1",
+        "performance": "Performance",
+        "strategy": "Strategy",
+        "benchmark": "Benchmark"
+    },
+    "about": {
+        "title": "Who We Are",
+        "subtitle": "Long-termism · Structured Cognition · Rigorous Verification",
+        "description": "Vertex Quant is a strategy-sharing and automated execution platform serving global markets, dedicated to connecting systematic trading strategies, rigorous research methodologies, and stable technical execution capabilities to real-world market environments.",
+        "philosophy": {
+            "title": "Our Philosophy",
+            "text": "We believe that sustainable trading performance does not originate from intuition or emotion, but from structured cognition, verifiable logic, and disciplined risk control. At Vertex Quant, we do not pursue short-term hype, but focus on building a strategy ecosystem that withstands the test of time."
+        },
+        "team": {
+            "title": "Our Team",
+            "text": "We are a cross-disciplinary team with members from diverse academic backgrounds including mathematics, computer science, finance, and economics, bringing together practitioners from investment institutions and the tech industry."
+        },
+        "beliefs": {
+            "models": "Models should be understood, not mythologized",
+            "strategies": "Strategies should be verified, not packaged",
+            "tech": "Technology solves real problems, stably and long-term"
+        }
+    }
+}

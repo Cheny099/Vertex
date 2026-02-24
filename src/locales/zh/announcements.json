@@ -1,0 +1,11 @@
+{
+    "title": "公告中心",
+    "subtitle": "极值量化官方公告",
+    "no_data": "暂无公告",
+    "pinned": "置顶",
+    "read_more": "查看详情",
+    "back": "返回",
+    "detail": {
+        "title": "公告详情"
+    }
+}

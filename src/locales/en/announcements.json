@@ -1,0 +1,11 @@
+{
+    "title": "Announcement Center",
+    "subtitle": "Vertex Quant Official Announcements",
+    "no_data": "No announcements yet",
+    "pinned": "Pinned",
+    "read_more": "Read More",
+    "back": "Back",
+    "detail": {
+        "title": "Announcement Detail"
+    }
+}

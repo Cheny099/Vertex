@@ -1,0 +1,79 @@
+{
+    "title": "仪表盘",
+    "subtitle": "欢迎回来，查看您的交易概况",
+    "stats": {
+        "today_orders": "今日订单",
+        "processing": "处理中",
+        "strategies": "运行策略",
+        "active_accounts": "活跃账户",
+        "unit_orders": "单",
+        "unit_items": "个",
+        "completed": "完成 {{count}} 单",
+        "pending": "待处理 {{count}} 单",
+        "configured": "已配置策略",
+        "total_accounts": "共 {{count}} 个账户"
+    },
+    "alerts": {
+        "failed_orders": "今日有 <strong>{{count}}</strong> 单订单失败，请检查账户状态"
+    },
+    "popularity": {
+        "title": "热门策略排行",
+        "subscribe_count": "{{count}} 订阅",
+        "no_data": "暂无排名数据"
+    },
+    "recent_trades": {
+        "title": "最近交易",
+        "table": {
+            "time": "时间",
+            "pair": "交易对",
+            "type": "类型",
+            "price": "成交价",
+            "volume": "成交量",
+            "pnl": "实盘收益",
+            "buy": "买入",
+            "sell": "卖出"
+        },
+        "view_all": "查看全部交易记录 →"
+    },
+    "strategies_list": {
+        "title": "我的活跃订阅",
+        "subtitle_count": "共 {{count}} 个活跃订阅",
+        "subtitle_empty": "暂无订阅",
+        "browse_btn": "+ 浏览策略",
+        "mode_ratio": "账户比例: {{percent}}%",
+        "mode_fixed": "固定金额: {{amount}}U",
+        "mode_deprecated": "倍率已下线",
+        "status_active": "信号在线",
+        "status_maintenance": "信号维护中",
+        "need_adjust": "需调整",
+        "pair_not_configured": "未配置",
+        "empty_text": "您还没有订阅任何策略",
+        "subscribe_link": "去订阅"
+    },
+    "account_status": {
+        "title": "账户连接状态",
+        "refreshing": "刷新中...",
+        "derived": {
+            "error": "错误",
+            "need_login": "需要登录",
+            "not_ready": "未就绪",
+            "ok": "正常",
+            "uid_mismatch": "UID 不匹配",
+            "config_missing": "配置缺失",
+            "need_verify": "需验证",
+            "unknown": "未知"
+        },
+        "hints": {
+            "need_login": "请重新连接/登录账户",
+            "not_ready": "请先验证/初始化账户",
+            "uid_mismatch": "API Key 对应的 UID 不匹配",
+            "need_verify": "需验证 API Key",
+            "config_missing": "账户配置信息不全",
+            "unknown": "尚未获取状态"
+        },
+        "last_active": "最后活动: {{time}}",
+        "never_active": "从无",
+        "inactive_badge": "已停用",
+        "empty_text": "暂无绑定账户"
+    }
+}

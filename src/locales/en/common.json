@@ -1,0 +1,137 @@
+{
+  "ok": "OK",
+  "app_name": "Vertex Quant",
+  "feature_coming_soon": "This feature is coming soon",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "save": "Save",
+  "loading": "Loading…",
+  "success": "Success",
+  "error": "Error",
+  "delete": "Delete",
+  "edit": "Edit",
+  "preview": "Preview",
+  "copy": "Copy",
+  "paste": "Paste",
+  "paste_success": "Pasted successfully",
+  "paste_empty": "Clipboard is empty",
+  "error_clipboard_blocked": "Browser blocked clipboard access. Please use Ctrl+V to paste.",
+  "error_clipboard_denied": "Clipboard permission denied. Please paste manually.",
+  "copied": "Copied!",
+  "copy_success": "Email copied to clipboard!",
+  "refresh": "Refresh",
+  "validation": {
+    "required": "Required"
+  },
+  "status": {
+    "success": "Success",
+    "failed": "Failed",
+    "pending": "Pending",
+    "running": "Running",
+    "cancelled": "Cancelled"
+  },
+  "unknown_error": "Unknown Error",
+  "please_login": "Please Login",
+  "and": "and",
+  "version": "Version",
+  "effective_at": "Effective Date",
+  "close": "Close",
+  "error_loading": "Failed to load content…",
+  "back_to_list": "Back to List",
+  "notifications": {
+    "title": "Notifications",
+    "no_unread": "No unread messages",
+    "unread_count": "{{count}} unread messages",
+    "mark_all_read": "Mark all as read",
+    "empty": "No notifications",
+    "view_all": "View all notifications"
+  },
+  "backend_errors": {
+    "Email already registered": "Email already registered",
+    "Incorrect email or password": "Incorrect email or password",
+    "Email not verified": "Email not verified",
+    "Too many login attempts": "Too many login attempts",
+    "Invalid or expired code": "Invalid or expired code",
+    "User not found": "User not found",
+    "Account not found": "Account not found",
+    "Account with same name already exists": "Account with same name already exists",
+    "turboflow uid must be digits only": "TurboFlow UID must be digits only",
+    "turboflow requires api_key and api_secret": "TurboFlow requires API Key and Secret",
+    "binance_futures requires api_key and api_secret": "Binance requires API Key and Secret",
+    "gate_futures requires api_key and api_secret": "Gate requires API Key and Secret",
+    "position_pct must be between 0.02 and 1.0 (2%~100%)": "Position ratio must be between 2% and 100%",
+    "position_value must be >= 1 for fixed_amount mode": "Fixed amount must be at least 1 USDT",
+    "leverage must be between 1 and 200": "Leverage must be between 1 and 200",
+    "Account is inactive or deleted": "Account is inactive or deleted",
+    "connect not completed (timeout or still need login)": "Connection incomplete (timeout or login required)",
+    "binance_futures exchange is disabled": "Binance exchange is disabled",
+    "gate_futures exchange is disabled": "Gate exchange is disabled",
+    "active doc cannot be edited; create a new version instead": "Active version cannot be edited; please publish a new version"
+  },
+  "exchanges": {
+    "binance_futures": "Binance",
+    "gate_futures": "Gate",
+    "week": "Weex",
+    "turboflow": "TurboFlow"
+  },
+  "finance": {
+    "available": "Available",
+    "equity": "Equity",
+    "wallet_balance": "Wallet Balance"
+  },
+  "audit": {
+    "missing_price": "Missing Price",
+    "missing_price_desc": "Order completed but missing execution price. May affect PnL stats.",
+    "missing_notional": "Missing Notional",
+    "missing_notional_desc": "Missing execution notional (USD value).",
+    "missing_external_id": "External ID Missing",
+    "missing_external_id_desc": "Order filled on exchange but external order ID not recorded locally."
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "strategies": "Strategies",
+    "announcements": "Announcements",
+    "leaderboard": "Leaderboard",
+    "history": "History",
+    "settings": "Settings",
+    "help": "Help",
+    "positions": "Positions",
+    "profile": "Profile"
+  },
+  "not_found": {
+    "title": "Page Not Found",
+    "desc": "Sorry, the page you are looking for does not exist or has been removed.",
+    "back": "Go Back",
+    "home": "Return to Login",
+    "register": "Register",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "mascot_lost": "Vertex is lost too..."
+  },
+  "risk_disclosure": {
+    "title": "Automatic Execution Risk",
+    "desc": "Before enabling auto-trading, please read the risk disclosure carefully.",
+    "checkbox_label": "I have read and understood the risks above and voluntarily assume all consequences.",
+    "confirm_btn": "Confirm & Start",
+    "confirm_loading": "Starting...",
+    "cancel_btn": "Cancel"
+  },
+  "legal": {
+    "accepted": "Agreement Accepted",
+    "risk_disclosure_title": "Risk Disclosure Required",
+    "agree_checkbox": "I have read and agree to the Risk Disclosure",
+    "confirm_agree": "Confirm & Continue"
+  },
+  "invite": {
+    "title": "Unlock with Invite Code",
+    "description": "This platform is currently in closed beta. You need a valid invite code to unlock copy-trading features.",
+    "placeholder": "Enter invite code (e.g. VTX-XXXX)",
+    "redeem_button": "Redeem & Unlock",
+    "success_redeemed": "Successfully redeemed! You can now use all copy-trading features.",
+    "invalid_code": "Invalid invite code or already used",
+    "modal_title": "Access Invite Required",
+    "modal_desc": "Please enter your invite code to unlock live trading capabilities and strategy subscriptions.",
+    "submitting": "Verifying...",
+    "submit_btn": "Redeem Code"
+  }
+}

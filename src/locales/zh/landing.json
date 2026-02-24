@@ -1,0 +1,88 @@
+{
+    "brand": "极值量化",
+    "tagline": "策略跟单 · 自动化执行 · 风控优先",
+    "hero": {
+        "feature_risk": "风控优先",
+        "feature_speed": "毫秒级信号入队",
+        "feature_viz": "策略绩效可视化",
+        "title_prefix": "让策略驱动交易",
+        "title_highlight": "把执行交给系统",
+        "description": "浏览热门策略与收益曲线预览。注册/登录后即可订阅策略、配置仓位、查看订单与盈亏。",
+        "actions": {
+            "dashboard": "进入控制台",
+            "login": "登录",
+            "register": "免费注册",
+            "register_now": "立即注册",
+            "have_account": "已有账号，去登录",
+            "view_strategies": "看看策略（需登录）"
+        }
+    },
+    "hot_strategies": {
+        "title": "热门策略",
+        "subscribe_btn": "登录后订阅",
+        "view_detail_btn": "登录后查看详情",
+        "metrics": {
+            "roi": "近30天",
+            "roi_all": "全期收益",
+            "max_dd": "最大回撤",
+            "drawdown": "最大回撤",
+            "active": "运行中",
+            "protected": "风控保护",
+            "win_rate": "胜率",
+            "subscribers": "订阅人数",
+            "last_signal": "最近信号"
+        }
+    },
+    "curve": {
+        "title": "收益预测曲线预览",
+        "subtitle": "预测带为示例（p10~p90），不代表未来收益；仅用于展示页面结构。"
+    },
+    "leaderboard": {
+        "title": "收益榜预览",
+        "subtitle": "若你后端排行榜接口是公开的，这里会显示 Top 5；否则也不影响落地页加载。",
+        "no_data": "暂无数据（或接口需要登录）。你也可以把这里改成“策略榜 Top 5”。",
+        "view_full": "查看完整排行榜（需登录）",
+        "login_more": "登录查看更多"
+    },
+    "footer": {
+        "risk_label": "风险提示：",
+        "risk_text": "量化交易存在亏损风险，历史表现不代表未来收益。建议合理设置止损、杠杆与最大回撤限制。",
+        "terms": "服务条款",
+        "privacy": "隐私政策"
+    },
+    "tags": {
+        "oscillator": "震荡策略",
+        "mean_reversion": "均值回归",
+        "hft": "高频",
+        "scalping": "剥头皮",
+        "trends": "趋势跟踪",
+        "fast": "极速",
+        "risk_control": "风控",
+        "stable": "稳健",
+        "xauusd": "黄金"
+    },
+    "chart": {
+        "global_market": "全球市场 V1",
+        "performance": "表现",
+        "strategy": "策略",
+        "benchmark": "基准"
+    },
+    "about": {
+        "title": "关于我们",
+        "subtitle": "长期主义 · 结构化认知 · 严谨验证",
+        "description": "极值量化（Vertex Quant）是一个面向全球市场的策略共享与自动化执行平台，致力于将系统化交易策略、严谨的研究方法与稳定的技术执行能力，连接到真实的市场环境中。",
+        "philosophy": {
+            "title": "我们的理念",
+            "text": "我们相信，长期有效的交易并非来自直觉或情绪，而来自结构化的认知、可验证的逻辑与严格的风险控制。在极值量化，我们不追求短期的喧哗与承诺，而是专注于构建一个经得起时间与市场检验的策略生态与技术平台。"
+        },
+        "team": {
+            "title": "我们的团队",
+            "text": "我们是一支跨专业、跨文化、跨行业的团队，成员涵盖数学、计算机、工程、金融、经济学等背景，汇聚了来自投资机构、咨询公司与科技行业的一线实践者。"
+        },
+        "beliefs": {
+            "models": "模型需要被理解，而不是被神话",
+            "strategies": "策略需要被验证，而不是被包装",
+            "tech": "技术的价值，在于长期稳定地解决真实问题"
+        }
+    }
+}

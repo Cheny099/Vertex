@@ -1,0 +1,122 @@
+{
+    "title": "Help Center",
+    "subtitle": "Learn how to use Vertex Quant",
+    "search_placeholder": "Search...",
+    "sections": {
+        "tutorials": "Tutorials",
+        "faq": "FAQ",
+        "contact": "Contact Us"
+    },
+    "categories": {
+        "basic": "Basic",
+        "strategy": "Strategies",
+        "api": "API Binding",
+        "security": "Security"
+    },
+    "contact": {
+        "email": "Support Email",
+        "email_value": "249227740+Cheny099@users.noreply.github.com",
+        "chat": "Live Chat",
+        "chat_desc": "24/7 Online",
+        "response": "Response Time",
+        "response_desc": "Usually within 2 hours"
+    },
+    "faq_items": {
+        "basic_1_q": "What is quantitative trading?",
+        "basic_1_a": "Quantitative trading uses mathematical models and algorithms to automatically execute trades based on preset rules, eliminating emotional interference and enabling 24/7 trading.",
+        "basic_2_q": "What is Vertex Quant?",
+        "basic_2_a": "Vertex Quant is a professional quantitative trading platform that helps users trade cryptocurrencies automatically using strategies. We offer strategy templates, backtesting, and real-time monitoring.",
+        "basic_3_q": "Do I need coding skills?",
+        "basic_3_a": "No! We provide a visual configuration interface. You just need to set parameters to start strategies. We have built-in classic templates suitable for beginners.",
+        "strategy_1_q": "What is Grid Trading?",
+        "strategy_1_a": "Grid Trading automates buying low and selling high within a set price range. It profits from market volatility and is suitable for ranging markets.",
+        "strategy_2_q": "What is Trend Following?",
+        "strategy_2_a": "Trend Following strategies trade along with the market trend. They buy in uptrends and sell in downtrends, capturing large price movements.",
+        "strategy_3_q": "Does it trade automatically?",
+        "strategy_3_a": "Yes, once started, the strategy executes trades automatically based on your parameters. You can pause or stop it anytime, or set stop-loss/take-profit for protection.",
+        "strategy_4_q": "How to choose a strategy?",
+        "strategy_4_a": "Based on market conditions: Grid for ranging markets, Trend Following for trending markets. We recommend backtesting first, then testing with small funds.",
+        "api_1_q": "How to bind Exchange API?",
+        "api_1_a": "Go to Settings → API Management → Add API Key → Select Exchange → Enter Key and Secret. Ensure only 'Trade' permission is enabled, and 'Withdraw' is DISABLED.",
+        "api_2_q": "How to set API permissions?",
+        "api_2_a": "Strongly recommended: ✅ Enable 'Trade', ❌ Disable 'Withdraw'. This ensures your funds remain safe even if keys are leaked.",
+        "api_3_q": "Which exchanges are supported?",
+        "api_3_a": "Currently supporting WEEX and TurboFlow protocol. Binance and OKX support is coming soon.",
+        "security_1_q": "Are my funds safe?",
+        "security_1_a": "Funds always remain in your exchange account. We only execute trades via API and cannot withdraw your funds.",
+        "security_2_q": "Do you store my keys?",
+        "security_2_a": "API keys are encrypted and stored on our backend servers using bank-grade encryption technology.",
+        "security_3_q": "How to manage risk?",
+        "security_3_a": "Each strategy has risk parameters like stop-loss percentage, max position size, etc. Set them according to your risk tolerance."
+    },
+    "tutorials": {
+        "count_prefix": "Total",
+        "count_suffix": "articles",
+        "quick_start": {
+            "title": "Quick Start Guide",
+            "desc": "5 mins to learn basics",
+            "duration": "5 min",
+            "steps": [
+                "Register",
+                "Bind API",
+                "Select Strategy",
+                "Start Trading"
+            ]
+        },
+        "grid_strategy": {
+            "title": "Grid Strategy Tutorial",
+            "desc": "How to configure grid parameters",
+            "duration": "10 min",
+            "steps": [
+                "Select Pair",
+                "Set Range",
+                "Grid Number",
+                "Stop Loss"
+            ]
+        },
+        "api_binding": {
+            "title": "API Binding Guide",
+            "desc": "Detailed steps to bind exchange",
+            "duration": "8 min",
+            "steps": [
+                "Login Exchange",
+                "Create API",
+                "Set Permission",
+                "Bind Platform"
+            ]
+        },
+        "backtest": {
+            "title": "Backtesting Guide",
+            "desc": "Verify strategy with history",
+            "duration": "6 min",
+            "steps": [
+                "Select Strategy",
+                "Config Params",
+                "Run Backtest",
+                "Analyze Result"
+            ]
+        },
+        "risk_control": {
+            "title": "Risk Management",
+            "desc": "Stop loss and risk control tips",
+            "duration": "7 min",
+            "steps": [
+                "Understand Risk",
+                "Set Stop Loss",
+                "Take Profit",
+                "Monitor"
+            ]
+        },
+        "data_analysis": {
+            "title": "Data Analysis",
+            "desc": "Reading charts and stats",
+            "duration": "5 min",
+            "steps": [
+                "View Profit",
+                "Win Rate",
+                "Optimize",
+                "Improve"
+            ]
+        }
+    }
+}

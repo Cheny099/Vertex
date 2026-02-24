@@ -1,0 +1,81 @@
+{
+    "title": "系统设置",
+    "subtitle": "管理您的账户和应用偏好",
+    "section": {
+        "profile": "个人信息",
+        "security": "安全设置",
+        "appearance": "外观设置",
+        "accounts": "账户管理",
+        "notifications": "通知设置",
+        "general": "通用设置",
+        "management": "管理后台"
+    },
+    "appearance": {
+        "theme": "主题模式",
+        "light": "浅色",
+        "dark": "深色",
+        "system": "跟随系统",
+        "language": "系统语言",
+        "language_desc": "选择您偏好的显示语言"
+    },
+    "accounts": {
+        "add": "添加账户",
+        "no_accounts": "尚未绑定任何交易账户",
+        "is_ready": "已就绪",
+        "not_ready": "未就绪",
+        "active": "活跃",
+        "disabled": "禁用",
+        "status_active": "正常",
+        "status_disabled": "已禁用",
+        "limit_warning": "已达最大数量限制，无法继续创建",
+        "verify": "验证",
+        "verifying": "验证中...",
+        "connect": "连接",
+        "delete_confirm": "确认删除该账户吗？",
+        "reset_session": "重置会话",
+        "browser_session": "浏览器会话",
+        "dialog": {
+            "title": "添加交易账户",
+            "desc": "请输入您的 API 密钥以连接交易所。您的密钥将通过加密存储。",
+            "name_label": "账户名称",
+            "name_placeholder": "例如：主账户 / TurboFlow Bot",
+            "exchange_label": "交易所",
+            "exchange_placeholder": "选择交易所",
+            "weex_note": "WEEX 账户不需要 API 密钥。创建后，请在账户列表中点击“连接”以启动浏览器扫码登录。",
+            "cancel": "取消",
+            "confirm": "确认添加",
+            "submitting": "提交中..."
+        },
+        "toast": {
+            "add_success": "账户添加成功",
+            "add_failed": "账户添加失败",
+            "verify_loading": "正在验证 API 密钥...",
+            "verify_success": "验证成功，API 已就绪",
+            "verify_failed": "验证失败",
+            "check_key": "请检查密钥",
+            "status_updated": "账户状态已更新",
+            "deleted": "账户已删除",
+            "limit_reached": "创建失败：该交易所账户数量已达上限 (Limit Reached)",
+            "connect_started": "连接流程已启动",
+            "connect_failed": "启动失败",
+            "reset_success": "会话重置成功",
+            "reset_failed": "重置失败"
+        }
+    },
+    "profile": {
+        "email": "邮箱",
+        "user_id": "用户ID",
+        "created_at": "注册时间",
+        "status": "账户状态",
+        "password_change": "密码修改",
+        "password_desc": "如需修改密码，请使用忘记密码功能",
+        "developing": "待开发",
+        "role": "账户角色",
+        "role_admin": "管理员",
+        "role_user": "用户"
+    },
+    "notifications": {
+        "developing": "功能开发中",
+        "desc": "通知功能正在开发中，敬请期待。"
+    }
+}

@@ -1,0 +1,28 @@
+{
+    "title": "Leaderboard",
+    "subtitle": "View top performing users and strategies",
+    "scopes": {
+        "daily": "Daily",
+        "total": "Total",
+        "strategies": "Strategies"
+    },
+    "descriptions": {
+        "daily": "Ranked by daily PnL (Previous UTC day, refreshes at 00:00 UTC)",
+        "total": "Ranked by cumulative PnL (Refreshes at 00:00 UTC)",
+        "strategies": "Ranked by total active subscribers"
+    },
+    "titles": {
+        "revenue_rank": "Revenue Leaderboard",
+        "hot_strategies": "Hot Strategies"
+    },
+    "table": {
+        "rank": "Rank",
+        "user": "User",
+        "strategy": "Strategy Name",
+        "pnl": "PnL",
+        "subscribers": "Subscribers",
+        "empty_strategies": "No data available",
+        "empty_users": "No ranking data"
+    },
+    "subscribers_unit": "Subscribers"
+}

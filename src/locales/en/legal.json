@@ -1,0 +1,13 @@
+{
+    "titles": {
+        "auto_trade_notice": "Auto-Trading Risk Disclosure",
+        "terms": "Terms of Service",
+        "privacy": "Privacy Policy"
+    },
+    "disclosure_desc": "Version: {{version}}",
+    "i_have_read_and_agree": "I have read and agree",
+    "scroll_to_read_all": "Please scroll to the bottom",
+    "accept_and_continue": "Sign and Continue",
+    "accept_success": "Signed successfully",
+    "high_risk_warning": "High Risk Warning"
+}

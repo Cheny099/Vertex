@@ -1,0 +1,91 @@
+{
+    "title": "Trade History",
+    "subtitle": "View all historical orders",
+    "stats": {
+        "total_orders": "Total Orders",
+        "total_volume": "Total Volume",
+        "buy": "Buy",
+        "sell": "Sell",
+        "pnl": "Est. P/L",
+        "pnl_holding": "Unrealized P/L",
+        "pnl_closed": "Realized P/L",
+        "count": "Orders",
+        "total": "Total",
+        "unit_orders": "Orders",
+        "unit_items": "Items"
+    },
+    "filters": {
+        "search_placeholder": "Search pair or strategy...",
+        "account_placeholder": "Select Account",
+        "all_accounts": "All Accounts",
+        "status_placeholder": "Status",
+        "pair_placeholder": "Pair",
+        "type_placeholder": "Type",
+        "status": {
+            "holding": "Holding",
+            "closed": "Closed"
+        },
+        "all": "All",
+        "buy": "Buy",
+        "sell": "Sell",
+        "clear": "Clear"
+    },
+    "table": {
+        "time": "Time",
+        "pair": "Pair",
+        "side": "Side",
+        "account": "Account",
+        "price": "Price",
+        "amount": "Amount",
+        "pnl": "P/L",
+        "status": "Status",
+        "action": "Action",
+        "empty": "No matching records found",
+        "status_map": {
+            "filled": "Filled",
+            "canceled": "Canceled",
+            "failed": "Failed",
+            "expired": "Expired",
+            "pending": "Pending",
+            "holding": "Holding",
+            "closed": "Closed",
+            "blocked": "Blocked"
+        },
+        "failure_map": {
+            "UID_MISMATCH": "UID does not match API Key",
+            "INSUFFICIENT_BALANCE": "Insufficient available balance/margin",
+            "MIN_NOTIONAL": "Order value below minimum notional",
+            "NO_ASSETS": "Failed to fetch assets (Empty list), check API permissions",
+            "RATE_LIMIT": "Rate limit exceeded",
+            "EXPIRED": "Order expired (Network/Asset check required)",
+            "FAILED": "Order failed",
+            "SUBSCRIPTION_BLOCKED": "Order Blocked",
+            "UNKNOWN": "Unknown error"
+        },
+        "errors": {
+            "blocked_frozen": "Subscription frozen, order blocked",
+            "blocked_open": "Opening blocked by subscription rules"
+        }
+    },
+    "pagination": {
+        "showing": "Showing {{start}}-{{end}} of {{total}} records",
+        "per_page": "Per page",
+        "prev": "Prev",
+        "next": "Next"
+    },
+    "actions": {
+        "suggested_action": "Suggested Action",
+        "retry": "Retry",
+        "cancel": "Cancel",
+        "cancel_confirm_title": "Cancel this order?",
+        "cancel_confirm_desc": "Order ID: {{id}}",
+        "cancel_confirm_btn": "Confirm",
+        "cancel_cancel_btn": "Dismiss",
+        "debug": "Debug Info",
+        "export": "Export"
+    },
+    "tabs": {
+        "system": "Execution Log",
+        "turboflow": "Real Accounts"
+    }
+}

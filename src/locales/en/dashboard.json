@@ -1,0 +1,79 @@
+{
+    "title": "Dashboard",
+    "subtitle": "Welcome back, here is your trading overview",
+    "stats": {
+        "today_orders": "Today's Orders",
+        "processing": "Processing",
+        "strategies": "Active Strategies",
+        "active_accounts": "Active Accounts",
+        "unit_orders": "orders",
+        "unit_items": "items",
+        "completed": "{{count}} Completed",
+        "pending": "{{count}} Pending",
+        "configured": "Configured",
+        "total_accounts": "Total {{count}}"
+    },
+    "alerts": {
+        "failed_orders": "<strong>{{count}}</strong> orders failed today. Please check account status."
+    },
+    "popularity": {
+        "title": "Top Strategies",
+        "subscribe_count": "{{count}} Subs",
+        "no_data": "No ranking data available"
+    },
+    "recent_trades": {
+        "title": "Recent Trades",
+        "table": {
+            "time": "Time",
+            "pair": "Pair",
+            "type": "Type",
+            "price": "Price",
+            "volume": "Volume",
+            "pnl": "Realized P/L",
+            "buy": "Buy",
+            "sell": "Sell"
+        },
+        "view_all": "View All History →"
+    },
+    "strategies_list": {
+        "title": "My Active Subscriptions",
+        "subtitle_count": "{{count}} active subscriptions",
+        "subtitle_empty": "No active subscriptions",
+        "browse_btn": "Browse Strategies",
+        "mode_ratio": "Ratio: {{percent}}%",
+        "mode_fixed": "Fixed: {{amount}}U",
+        "mode_deprecated": "Multiplier deprecated",
+        "status_active": "Signal Active",
+        "status_maintenance": "Maintenance",
+        "need_adjust": "Adjust Needed",
+        "pair_not_configured": "No Pair",
+        "empty_text": "You have not subscribed to any strategies yet",
+        "subscribe_link": "Subscribe Now"
+    },
+    "account_status": {
+        "title": "Account Status",
+        "refreshing": "Refreshing...",
+        "derived": {
+            "error": "Error",
+            "need_login": "Need Login",
+            "not_ready": "Not Ready",
+            "ok": "Normal",
+            "uid_mismatch": "UID Mismatch",
+            "config_missing": "Config Missing",
+            "need_verify": "Need Verify",
+            "unknown": "Unknown"
+        },
+        "hints": {
+            "need_login": "Please reconnect/login",
+            "not_ready": "Please verify/init account",
+            "uid_mismatch": "API Key UID does not match account",
+            "need_verify": "API Key requires verification",
+            "config_missing": "Account configuration is incomplete",
+            "unknown": "Status unavailable"
+        },
+        "last_active": "Last active: {{time}}",
+        "never_active": "Never",
+        "inactive_badge": "Inactive",
+        "empty_text": "No linked account"
+    }
+}
