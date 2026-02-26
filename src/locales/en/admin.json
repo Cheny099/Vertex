@@ -14,11 +14,15 @@
         "account_id": "Account ID",
         "symbol": "Symbol",
         "symbol_placeholder": "e.g. BTCUSDT",
+        "symbol_optional": "Symbol (Optional if inferred)",
+        "symbol_hint": "Target symbol for the new positions.",
         "from_sub_id": "From Sub ID",
         "to_sub_id": "To Sub ID",
         "handover_mode": "Handover Mode",
         "mode_flat": "Flat Then Switch",
         "mode_adopt": "Keep Position & Adopt",
+        "reason_manual_single": "Manual Admin Switch",
+        "reason_manual_bulk": "Manual Admin Bulk Switch",
         "btn_preview": "Preview",
         "btn_execute": "Execute",
         "preview_result": "Preview Result",
@@ -234,13 +238,18 @@
         "positions.close": "Force Close",
         "subscriptions.freeze": "Freeze/Unfreeze",
         "users.update": "Update User",
-        "users.login": "Admin Login"
+        "users.login": "Admin Login",
+        "strategy_switch.execute.create_run": "Execute Strategy Switch",
+        "strategy_switch.cancel": "Cancel Strategy Switch",
+        "strategy_switch.bulk.execute.create_campaign": "Create Bulk Migration Campaign"
     },
     "log_targets": {
         "order": "Order",
         "account": "Account",
         "subscription": "Subscription",
-        "user": "User"
+        "user": "User",
+        "strategy_switch_run": "Switch Run",
+        "strategy_switch_campaign": "Switch Campaign"
     },
     "log_detail_title": "Audit Log Detail #{{id}}",
     "meta_data": "Meta Data:",

@@ -13,12 +13,16 @@
         "campaign_started": "批量迁移任务已启动。",
         "account_id": "账户 ID",
         "symbol": "交易对",
+        "symbol_optional": "交易对 (若推导则可选)",
+        "symbol_hint": "目标持仓的交易对。",
         "symbol_placeholder": "例如: BTCUSDT",
         "from_sub_id": "原订阅 ID",
         "to_sub_id": "新订阅 ID",
         "handover_mode": "切换模式",
         "mode_flat": "先平仓再切换",
         "mode_adopt": "保留持仓直接接管",
+        "reason_manual_single": "管理员手动切换",
+        "reason_manual_bulk": "管理员手动批量切换",
         "btn_preview": "预览",
         "btn_execute": "执行",
         "preview_result": "预览结果",
@@ -238,13 +242,18 @@
         "positions.close": "强制平仓",
         "subscriptions.freeze": "订阅冻结/解冻",
         "users.update": "更新用户",
-        "users.login": "管理员登录"
+        "users.login": "管理员登录",
+        "strategy_switch.execute.create_run": "执行策略切换",
+        "strategy_switch.cancel": "取消策略切换",
+        "strategy_switch.bulk.execute.create_campaign": "创建批量迁移任务"
     },
     "log_targets": {
         "order": "订单",
         "account": "账户",
         "subscription": "订阅关系",
-        "user": "用户"
+        "user": "用户",
+        "strategy_switch_run": "切换记录",
+        "strategy_switch_campaign": "迁移任务"
     },
     "log_detail_title": "审计日志详情 #{{id}}",
     "meta_data": "元数据:",

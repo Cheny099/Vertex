@@ -8,6 +8,7 @@
         "FINALIZE_STATE": "Finalize State",
         "SUCCESS": "Success",
         "FAILED": "Failed",
+        "CANCELLED": "Cancelled",
         "LOCK_RELEASE": "Release Lock"
     },
     "title": "Strategy Market",

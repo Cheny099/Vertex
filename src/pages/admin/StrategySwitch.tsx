@@ -146,7 +146,7 @@ const StrategySwitch = () => {
         executeMutation.mutate({
             ...singleForm,
             request_id: reqId,
-            reason: 'Manual Admin Switch'
+            reason: t('admin:strategy_switch.reason_manual_single')
         });
     };
 
@@ -177,7 +177,7 @@ const StrategySwitch = () => {
             // If we had CSV, we'd parse account_ids here. 
             // Currently simplified to "Switch All" for the demo unless file logic added.
             request_id: reqId,
-            reason: 'Manual Admin Bulk Switch'
+            reason: t('admin:strategy_switch.reason_manual_bulk')
         });
     };
 
@@ -371,14 +371,14 @@ const StrategySwitch = () => {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label>{t('admin:strategy_switch.symbol')} (Optional if inferred)</Label>
+                                        <Label>{t('admin:strategy_switch.symbol_optional')}</Label>
                                         <Input
                                             value={bulkForm.symbol || ''}
                                             onChange={e => setBulkForm({ ...bulkForm, symbol: e.target.value.toUpperCase() })}
-                                            placeholder="e.g. BTCUSDT"
+                                            placeholder={t('admin:strategy_switch.symbol_placeholder')}
                                         />
                                         <p className="text-[10px] text-muted-foreground">
-                                            {t('admin:strategy_switch.symbol_hint', 'Target symbol for the new positions.')}
+                                            {t('admin:strategy_switch.symbol_hint')}
                                         </p>
                                     </div>
 

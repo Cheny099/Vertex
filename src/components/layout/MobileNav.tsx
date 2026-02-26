@@ -24,7 +24,9 @@ import {
     Terminal,
     FileText,
     ClipboardCheck,
-    BarChart
+    BarChart,
+    ArrowRightLeft,
+    Ticket
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -89,12 +91,14 @@ export const MobileNavDrawer = () => {
 
     const adminItems = [
         { title: t('admin:announcements'), url: '/admin/announcements', icon: Megaphone },
-        { title: t('admin:strategies'), url: '/admin/strategies', icon: Workflow },
         { title: t('admin:legal'), url: '/admin/legal', icon: Scale },
+        { title: t('admin:strategies'), url: '/admin/strategies', icon: Workflow },
+        { title: t('admin:strategy_switch.title'), url: '/admin/strategy-switch', icon: ArrowRightLeft },
         { title: t('admin:ops'), url: '/admin/ops', icon: Terminal },
         { title: t('admin:system_logs'), url: '/admin/system-logs', icon: FileText },
         { title: t('admin:trade_audit'), url: '/admin/trade-audit', icon: ClipboardCheck },
         { title: t('admin:trade_performance'), url: '/admin/trade-performance', icon: BarChart },
+        { title: t('admin:invites.title'), url: '/admin/invites', icon: Ticket },
     ];
 
     return (

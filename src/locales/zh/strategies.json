@@ -260,6 +260,17 @@
         "fixed_amount_desc": "* 无论信号量大小，每次固定开仓 {{amount}} USDT。",
         "ratio_desc": "* 每次开仓将动用账户可用余额的 {{percent}}% 作为保证金。"
     },
+    "switch_step": {
+        "PRECHECK_API": "API 预检",
+        "CREATE_RUN": "创建运行记录",
+        "LOCK_ACQUIRE": "获取执行锁",
+        "FREEZE_BOTH": "冻结原/新订阅",
+        "HANDOVER": "执行策略切换",
+        "FINALIZE_STATE": "更新订阅状态",
+        "SUCCESS": "执行成功",
+        "FAILED": "执行失败",
+        "CANCELLED": "已取消"
+    },
     "periods": {
         "1m": "1月",
         "3m": "3月",
