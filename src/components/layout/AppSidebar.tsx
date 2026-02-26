@@ -17,7 +17,8 @@ import {
   ClipboardCheck, // For TurboFlow Audit
   BarChart,       // For Order Stats
   ArrowRightLeft, // For Strategy Switch
-  Ticket          // For Invite Codes
+  Ticket,          // For Invite Codes
+  Sparkles         // For AI Assistant
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,6 +31,7 @@ const AppSidebar = () => {
 
   const menuItems = [
     { title: t('common:nav.dashboard'), url: '/dashboard', icon: LayoutDashboard },
+    { title: t('common:nav.ai_assistant'), url: '/ai-assistant', icon: Sparkles },
     { title: t('common:nav.strategies'), url: '/strategies', icon: Bot },
     { title: t('common:nav.announcements'), url: '/announcements', icon: Megaphone },
     { title: t('common:nav.history'), url: '/history', icon: History },

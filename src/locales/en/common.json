@@ -1,5 +1,6 @@
 {
   "ok": "OK",
+  "view_details": "View Details",
   "app_name": "Vertex Quant",
   "feature_coming_soon": "This feature is coming soon",
   "cancel": "Cancel",
@@ -89,7 +90,8 @@
   },
   "nav": {
     "dashboard": "Dashboard",
-    "strategies": "Strategies",
+    "ai_assistant": "AI Assistant",
+    "strategies": "Quant Strategies",
     "announcements": "Announcements",
     "leaderboard": "Leaderboard",
     "history": "History",

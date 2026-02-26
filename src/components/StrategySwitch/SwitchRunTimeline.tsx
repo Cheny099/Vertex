@@ -15,18 +15,31 @@ interface SwitchRunTimelineProps {
     run: StrategySwitchRun;
 }
 
+interface SwitchRunAction {
+    step: string;
+    status?: string;
+    at?: string;
+    error?: string;
+    message?: string;
+    details?: Record<string, unknown>;
+}
+
 export const SwitchRunTimeline = ({ run }: SwitchRunTimelineProps) => {
     const { t } = useTranslation(['admin', 'strategies', 'common']);
 
     // Extract actions from meta
-    // Expected format: run.meta.actions = [{ step: string, status: string, at: string, ... }]
-    const actions: any[] = Array.isArray(run.meta?.actions) ? run.meta.actions : [];
+    const actions: SwitchRunAction[] = Array.isArray(run.meta?.actions) ? run.meta.actions : [];
 
-    // If no actions recorded yet, but run is created
+    // If no actions recorded yet
     if (actions.length === 0) {
         return (
-            <div className="text-sm text-muted-foreground p-4 text-center">
-                {t('admin:strategy_switch.waiting_for_steps', 'Waiting for execution steps...')}
+            <div className="text-sm text-muted-foreground p-4 text-center space-y-2">
+                <div>{t('admin:strategy_switch.waiting_for_steps', 'Waiting for execution steps...')}</div>
+                {(run.status === 'FAILED' || run.status === 'CANCELLED') && (
+                    <div className="text-xs text-destructive font-mono bg-destructive/5 p-2 rounded border border-destructive/10">
+                        {run.error_message || `Task ${run.status}`}
+                    </div>
+                )}
             </div>
         );
     }

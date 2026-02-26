@@ -1,5 +1,6 @@
 {
     "ok": "确定",
+    "view_details": "查看详情",
     "app_name": "极值量化",
     "feature_coming_soon": "该功能正在开发中，敬请期待",
     "cancel": "取消",
@@ -98,6 +99,7 @@
     },
     "nav": {
         "dashboard": "仪表盘",
+        "ai_assistant": "AI 策略助手",
         "strategies": "量化策略",
         "announcements": "公告中心",
         "leaderboard": "排行榜",

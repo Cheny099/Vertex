@@ -25,6 +25,7 @@ import Leaderboard from "./pages/Leaderboard";
 import Settings from "./pages/Settings";
 import Accounts from "./pages/Accounts";
 import Help from "./pages/Help";
+import AiAssistant from "./pages/AiAssistant";
 
 import AppLayout from "./components/layout/AppLayout";
 import NotFound from "./pages/NotFound";
@@ -77,6 +78,7 @@ const App = () => (
                 {/* Alias: account management (opened from Dashboard gear) */}
                 <Route path="/accounts" element={<Accounts />} />
                 <Route path="/help" element={<Help />} />
+                <Route path="/ai-assistant" element={<AiAssistant />} />
               </Route>
 
               {/* ✅ Admin Module */}

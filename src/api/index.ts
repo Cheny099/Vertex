@@ -77,6 +77,8 @@ import {
     StrategySwitchRun,
     StrategySwitchBulkPreviewRequest,
     StrategySwitchBulkExecuteRequest,
+    StrategySwitchBulkExecuteResponse,
+    StrategySwitchBulkPreviewResponse,
     StrategySwitchCampaign, // Phase 132
     // Phase 16: Invite Codes
     InviteRedeemRequest,
@@ -1125,8 +1127,8 @@ export const adminApi = {
         cancelRun: (id: number) => request<void>(`/admin/strategy-switch/runs/${id}/cancel`, { method: 'POST' }),
 
         // Bulk Campaign
-        bulkPreview: (data: StrategySwitchBulkPreviewRequest) => request<any>('/admin/strategy-switch/bulk/preview', { method: 'POST', body: JSON.stringify(data) }),
-        bulkExecute: (data: StrategySwitchBulkExecuteRequest) => request<{ campaign_id: number; request_id: string }>('/admin/strategy-switch/bulk/execute', { method: 'POST', body: JSON.stringify(data) }),
+        bulkPreview: (data: StrategySwitchBulkPreviewRequest) => request<StrategySwitchBulkPreviewResponse>('/admin/strategy-switch/bulk/preview', { method: 'POST', body: JSON.stringify(data) }),
+        bulkExecute: (data: StrategySwitchBulkExecuteRequest) => request<StrategySwitchBulkExecuteResponse>('/admin/strategy-switch/bulk/execute', { method: 'POST', body: JSON.stringify(data) }),
         getCampaign: (id: number) => request<StrategySwitchCampaign>(`/admin/strategy-switch/bulk/${id}`),
     },
 

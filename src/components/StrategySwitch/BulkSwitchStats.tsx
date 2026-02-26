@@ -94,7 +94,15 @@ export const BulkSwitchStats = ({ campaign }: BulkSwitchStatsProps) => {
     );
 };
 
-const StatCard = ({ title, count, icon, bg, textColor }: any) => (
+interface StatCardProps {
+    title: string;
+    count: number;
+    icon: React.ReactNode;
+    bg: string;
+    textColor: string;
+}
+
+const StatCard = ({ title, count, icon, bg, textColor }: StatCardProps) => (
     <div className={`p-3 rounded-lg flex flex-col items-center justify-center gap-1 ${bg}`}>
         <div className="flex items-center gap-1.5 opacity-80">
             {icon}

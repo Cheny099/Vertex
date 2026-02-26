@@ -923,7 +923,7 @@ export interface StrategySwitchRun {
     finished_at?: string;
     error_message?: string;
     failed_step?: string;
-    meta?: any;
+    meta?: Record<string, unknown>;
     account?: Account;
     from_subscription?: Subscription;
     to_subscription?: Subscription;
@@ -941,36 +941,54 @@ export interface StrategySwitchBulkFailedRun {
 // Bulk types
 export interface StrategySwitchBulkPreviewRequest {
     request_id?: string;
-    symbol?: string;
+    symbol: string;
     from_strategy_id: number;
     to_strategy_id: number;
     handover_mode: 'FLAT_THEN_SWITCH' | 'KEEP_POSITION_ADOPT';
+    reason: string;
 }
 
 export interface StrategySwitchBulkExecuteRequest {
     request_id: string;
-    symbol?: string;
+    symbol: string;
     from_strategy_id: number;
     to_strategy_id: number;
     handover_mode: 'FLAT_THEN_SWITCH' | 'KEEP_POSITION_ADOPT';
-    reason?: string;
-    account_ids?: number[];
-    exclude_account_ids?: number[];
+    reason: string;
+}
+
+export interface StrategySwitchBulkExecuteResponse {
+    campaign_id: number;
+    status: string;
+    idempotent_reused: boolean;
+}
+
+export interface StrategySwitchBulkPreviewSample {
+    account_id: number;
+    user_id: number;
+    from_sub_id: number;
+    to_sub_id: number | null;
+    params_digest: string;
+}
+
+export interface StrategySwitchBulkPreviewResponse {
+    total_candidates: number;
+    will_create_to_sub: number;
+    will_update_to_sub_params: number;
+    will_create_runs: number;
+    will_reuse_runs: number;
+    sample: StrategySwitchBulkPreviewSample[];
 }
 
 export interface StrategySwitchCampaign {
-    id: number;
+    campaign_id: number;
     status: string;
     request_id: string;
-    from_strategy_id: number;
-    to_strategy_id: number;
-    handover_mode: string;
-    total_runs: number;
     counts: Record<string, number>;
-    created_at: string;
-    updated_at: string;
+    created_at: string | null;
+    updated_at: string | null;
     finished_at?: string;
-    meta?: any;
+    meta?: Record<string, unknown>;
     runs?: StrategySwitchRun[];
     recent_failed_runs?: StrategySwitchBulkFailedRun[];
 }
