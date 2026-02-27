@@ -57,12 +57,11 @@ export interface Strategy {
     strategy_key: string;
     name: string;
     description?: string;
-    status: 'active' | 'inactive';
+    status: string;
     config?: any; // JSON 格式的策略配置
     public_stats?: StrategyPublicStats; // ✅ Phase 75: Metrics from CSV import
     created_at: string;
     updated_at: string;
-    user_id: number; // Owner ID
 
     // ✅ Security Fields (Backend Sync)
     has_webhook_secret?: boolean;
@@ -330,12 +329,6 @@ export interface WebhookEventRead {
     is_duplicate?: boolean;
     // Frontend helpers
     status?: 'active' | 'closed' | 'failed';
-    // ✅ Phase 132: New fields
-    skipped?: any[];
-    subscriptions_matched?: number;
-    orders_created?: number;
-    skipped_frozen?: number;
-    skipped_block_open?: number;
 }
 
 // Previously defined Trade interface is now merged into Order or we keep a mapping
@@ -737,13 +730,6 @@ export interface AdminSubscriptionFreezeRequest {
 
 // --- Admin Ops (Optional) ---
 // --- Admin Ops (Optional) ---
-
-export interface AdminSubscriptionListResponse {
-    items: Subscription[];
-    total: number;
-    limit: number;
-    offset: number;
-}
 
 // =============================================
 // Phase 12: Audit & Stats Types

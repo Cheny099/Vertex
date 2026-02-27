@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Copy, RefreshCw, Eye, EyeOff, ShieldCheck, Key, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { strategyApi, StrategyWebhookSecretResponse } from '@/api';
+import { adminApi, StrategyWebhookSecretResponse } from '@/api';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -25,6 +25,7 @@ interface WebhookSecretDialogProps {
     onOpenChange: (open: boolean) => void;
     strategyId: number;
     strategyName: string;
+    isAdmin?: boolean;
 }
 
 export const WebhookSecretDialog = ({
@@ -32,20 +33,21 @@ export const WebhookSecretDialog = ({
     onOpenChange,
     strategyId,
     strategyName,
+    isAdmin = false,
 }: WebhookSecretDialogProps) => {
-    const { t } = useTranslation(['strategies', 'common']);
+    const { t } = useTranslation(['strategies', 'common', 'admin']);
     const queryClient = useQueryClient();
     const [showSecret, setShowSecret] = useState(false);
 
     const { data, isLoading, isError } = useQuery({
         queryKey: ['strategy', strategyId, 'secret'],
-        queryFn: () => strategyApi.getWebhookSecret(strategyId),
-        enabled: open && !!strategyId,
+        queryFn: () => adminApi.strategies.getWebhookSecret(strategyId),
+        enabled: open && !!strategyId && isAdmin,
         staleTime: 0, // Always fetch fresh secret on open
     });
 
     const rotateMutation = useMutation({
-        mutationFn: () => strategyApi.rotateWebhookSecret(strategyId),
+        mutationFn: () => adminApi.strategies.rotateWebhookSecret(strategyId),
         onSuccess: (newData: StrategyWebhookSecretResponse) => {
             queryClient.setQueryData(['strategy', strategyId, 'secret'], newData);
             toast.success(t('strategies:detail.webhook_secret_rotated'));
@@ -95,7 +97,7 @@ export const WebhookSecretDialog = ({
                             {/* Strategy Key Display */}
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                    Strategy Key (Required)
+                                    {t('strategies:detail.strategy_key')} {t('strategies:detail.required', '(Required)')}
                                 </Label>
                                 <div className="flex items-center gap-2 relative">
                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -167,13 +169,13 @@ export const WebhookSecretDialog = ({
                                 </AlertTitle>
                                 <AlertDescription>
                                     <pre className="text-[10px] font-mono whitespace-pre-wrap text-muted-foreground bg-background/50 p-2 rounded border border-border/50">
-                                        {JSON.stringify({
-                                            secret: "****************",
-                                            strategy_key: data?.strategy_key || "YOUR_KEY",
-                                            action: "long_entry",
-                                            price: "{{close}}",
-                                            ticker: "{{ticker}}"
-                                        }, null, 2)}
+                                        {`{
+  "secret": "${data?.secret || "YOUR_SECRET_KEY"}",
+  "strategy_key": "${data?.strategy_key || "YOUR_STRATEGY_KEY"}",
+  "symbol": "{{ticker}}",
+  "side": "buy",
+  "action": "open"
+}`}
                                     </pre>
                                 </AlertDescription>
                             </Alert>

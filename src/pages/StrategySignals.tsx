@@ -1,22 +1,15 @@
 
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Clock, CheckCircle, XCircle, Loader2, AlertTriangle, Fingerprint } from 'lucide-react';
+import { ArrowLeft, Clock, AlertTriangle, Fingerprint } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
 import { strategyApi, webhookEventsApi, WebhookEventRead } from '@/api';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
 
 const StrategySignals = () => {
     const { id = '' } = useParams();
@@ -24,14 +17,24 @@ const StrategySignals = () => {
     const { t } = useTranslation(['strategies', 'common']);
 
     // 1. 获取策略元数据（为了拿到 strategy_key）
-    const { data: strategyData, isLoading: isStrategyLoading } = useQuery({
+    const {
+        data: strategyData,
+        isLoading: isStrategyLoading,
+        isError: isStrategyError,
+        error: strategyError,
+    } = useQuery({
         queryKey: ['strategy', id],
         queryFn: () => strategyApi.get(Number(id)),
         enabled: !!id,
     });
 
     // 2. 获取 Webhook 信号数据 (Real API)
-    const { data: events, isLoading: isEventsLoading, isError } = useQuery({
+    const {
+        data: events,
+        isLoading: isEventsLoading,
+        isError: isEventsError,
+        error: eventsError,
+    } = useQuery({
         queryKey: ['webhook-events', strategyData?.strategy_key],
         queryFn: () => webhookEventsApi.list({ strategy_key: strategyData?.strategy_key || '' }),
         enabled: !!strategyData?.strategy_key,
@@ -40,16 +43,13 @@ const StrategySignals = () => {
 
     // 计算统计数据
     const stats = useMemo(() => {
-        if (!events) return { total: 0, distinct: 0, dups: 0, skipped: 0, frozen: 0, blocked: 0 };
+        if (!events) return { total: 0, distinct: 0, dups: 0 };
+        const distinctCount = events.length;
+        const dupsCount = events.reduce((acc, curr) => acc + (curr.duplicate_count || 0), 0);
         return {
-            total: events.length,
-            distinct: events.filter(e => e.duplicate_count === 0).length,
-            dups: events.reduce((acc, curr) => acc + (curr.duplicate_count || 0), 0),
-            // ✅ Phase 133: Count skipped items across all events
-            skipped: events.reduce((acc, curr) => acc + (curr.skipped?.length || 0), 0),
-            // ✅ Phase 140: New metrics
-            frozen: events.reduce((acc, curr) => acc + (curr.skipped_frozen || 0), 0),
-            blocked: events.reduce((acc, curr) => acc + (curr.skipped_block_open || 0), 0)
+            total: distinctCount + dupsCount,
+            distinct: distinctCount,
+            dups: dupsCount
         };
     }, [events]);
 
@@ -67,7 +67,33 @@ const StrategySignals = () => {
         );
     }
 
-    if (isError) {
+    const pageError = (eventsError || strategyError) as Error | null;
+    const msg = (pageError?.message || '').toLowerCase();
+    const isUnauthorized = msg.includes('unauthorized') || msg.includes('401');
+    const isForbidden = msg.includes('not allowed') || msg.includes('forbidden') || msg.includes('403');
+    const isNotFound = msg.includes('not found') || msg.includes('404');
+
+    if (isStrategyError || isEventsError) {
+        if (isNotFound) {
+            return (
+                <div className="p-6 lg:p-8 flex flex-col items-center justify-center min-h-[50vh]">
+                    <p className="text-muted-foreground">{t('strategies:signals.not_found_error')}</p>
+                    <Button variant="link" onClick={() => navigate('/strategies')}>{t('strategies:detail.back_list')}</Button>
+                </div>
+            );
+        }
+
+        if (isUnauthorized || isForbidden) {
+            return (
+                <div className="p-6 lg:p-8 flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+                    <AlertTriangle className="w-12 h-12 text-destructive" />
+                    <h2 className="text-xl font-bold">{t('strategies:signals.permission_title')}</h2>
+                    <p className="text-muted-foreground">{t('strategies:signals.permission_desc')}</p>
+                    <Button onClick={() => navigate('/strategies')}>{t('strategies:detail.back_list')}</Button>
+                </div>
+            );
+        }
+
         return (
             <div className="p-6 lg:p-8 flex flex-col items-center justify-center min-h-[60vh] space-y-4">
                 <AlertTriangle className="w-12 h-12 text-destructive" />
@@ -121,43 +147,6 @@ const StrategySignals = () => {
                     <p className="text-xs text-muted-foreground uppercase">{t('strategies:signals.duplicate_filtered')}</p>
                     <p className="text-2xl font-bold font-mono mt-1 text-yellow-500">{stats.dups}</p>
                 </div>
-                {/* ✅ Phase 133 & 140: Skipped Stats Breakdown */}
-                <div className="bg-card p-4 rounded-xl border border-border/50 shadow-sm">
-                    <p className="text-xs text-muted-foreground uppercase">{t('strategies:signals.skipped_validations')}</p>
-                    <div className="flex items-baseline gap-2 mt-1">
-                        <p className={cn("text-2xl font-bold font-mono", stats.skipped > 0 ? "text-orange-500" : "text-muted-foreground")}>
-                            {stats.skipped}
-                        </p>
-                        {(stats.frozen > 0 || stats.blocked > 0) && (
-                            <div className="flex gap-1.5 ml-auto">
-                                {stats.frozen > 0 && (
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-orange-500/20 text-orange-600 bg-orange-500/5">
-                                                    {stats.frozen}
-                                                </Badge>
-                                            </TooltipTrigger>
-                                            <TooltipContent>{t('strategies:signals.skipped_frozen')}</TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                )}
-                                {stats.blocked > 0 && (
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-rose-500/20 text-rose-600 bg-rose-500/5">
-                                                    {stats.blocked}
-                                                </Badge>
-                                            </TooltipTrigger>
-                                            <TooltipContent>{t('strategies:signals.skipped_block_open')}</TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </div>
             </div>
 
             {/* Logs List */}
@@ -181,61 +170,22 @@ const StrategySignals = () => {
                                     <div className="flex items-center gap-4">
                                         <div className={cn(
                                             "w-2 h-2 rounded-full",
-                                            event.duplicate_count > 0 ? "bg-yellow-500" : "bg-green-500"
+                                            (event.is_duplicate || event.duplicate_count > 0) ? "bg-yellow-500" : "bg-green-500"
                                         )} />
 
                                         <div className="space-y-1">
                                             <div className="flex items-center gap-2">
-                                                <span className="font-mono text-xs text-muted-foreground">ID: {event.id}</span>
+                                                <span className="font-mono text-xs text-muted-foreground">{t('strategies:signals.event_id', 'ID')}: {event.id}</span>
                                                 {event.duplicate_count > 0 && (
                                                     <Badge variant="secondary" className="text-[10px] h-4 px-1 text-yellow-600 bg-yellow-500/10 border-yellow-500/20">
                                                         {event.duplicate_count} {t('strategies:signals.dups_abbr')}
                                                     </Badge>
                                                 )}
-                                                {/* ✅ Phase 133: Matched / Created Badges */}
-                                                {event.subscriptions_matched !== undefined && (
-                                                    <Badge variant="outline" className="text-[10px] h-4 px-1 text-blue-500 border-blue-500/20">
-                                                        {t('strategies:signals.matched')}: {event.subscriptions_matched}
-                                                    </Badge>
-                                                )}
-                                                {event.orders_created !== undefined && (
-                                                    <Badge variant="outline" className="text-[10px] h-4 px-1 text-green-500 border-green-500/20">
-                                                        {t('strategies:signals.ordered')}: {event.orders_created}
-                                                    </Badge>
-                                                )}
-                                                {/* ✅ Phase 140: New Badges */}
-                                                {(event.skipped_frozen || 0) > 0 && (
-                                                    <Badge variant="outline" className="text-[10px] h-4 px-1 text-orange-500 border-orange-500/20">
-                                                        {t('strategies:signals.skipped_frozen')}: {event.skipped_frozen}
-                                                    </Badge>
-                                                )}
-                                                {(event.skipped_block_open || 0) > 0 && (
-                                                    <Badge variant="outline" className="text-[10px] h-4 px-1 text-rose-500 border-rose-500/20">
-                                                        {t('strategies:signals.skipped_block_open')}: {event.skipped_block_open}
-                                                    </Badge>
-                                                )}
                                             </div>
-                                            <div className="flex items-center gap-1 text-xs text-muted-foreground" title="Payload Hash">
+                                            <div className="flex items-center gap-1 text-xs text-muted-foreground" title={t('strategies:signals.payload_hash_title', 'Payload Hash')}>
                                                 <Fingerprint className="w-3 h-3" />
                                                 <span className="font-mono">{event.payload_hash.substring(0, 8)}...</span>
                                             </div>
-                                            {/* ✅ Phase 140: Visual Hints */}
-                                            {((event.skipped_frozen || 0) > 0 || (event.skipped_block_open || 0) > 0) && (
-                                                <div className="flex flex-wrap gap-2 mt-1">
-                                                    {(event.skipped_frozen || 0) > 0 && (
-                                                        <div className="flex items-center gap-1.5 text-[10px] text-orange-600 bg-orange-500/5 px-2 py-0.5 rounded-sm">
-                                                            <AlertTriangle className="w-3 h-3" />
-                                                            {t('strategies:signals.skipped_frozen_hint')}
-                                                        </div>
-                                                    )}
-                                                    {(event.skipped_block_open || 0) > 0 && (
-                                                        <div className="flex items-center gap-1.5 text-[10px] text-rose-600 bg-rose-500/5 px-2 py-0.5 rounded-sm">
-                                                            <AlertTriangle className="w-3 h-3" />
-                                                            {t('strategies:signals.skipped_block_open_hint')}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
 
@@ -246,25 +196,11 @@ const StrategySignals = () => {
                                         <p className="text-xs text-muted-foreground">
                                             {new Date(event.created_at).toLocaleDateString()}
                                         </p>
+                                        <p className="text-[10px] text-muted-foreground">
+                                            {t('strategies:signals.last_seen', { defaultValue: 'Last seen' })}: {new Date(event.last_seen_at || event.created_at).toLocaleString()}
+                                        </p>
                                     </div>
                                 </div>
-
-                                {/* ✅ Phase 133: Skipped Details */}
-                                {event.skipped && event.skipped.length > 0 && (
-                                    <div className="mt-3 ml-6 p-2 bg-orange-500/5 border border-orange-500/10 rounded-md text-xs">
-                                        <div className="flex items-center gap-2 mb-1 text-orange-600 font-medium">
-                                            <AlertTriangle className="w-3 h-3" />
-                                            <span>{t('strategies:signals.skipped_subs')} ({event.skipped.length})</span>
-                                        </div>
-                                        <div className="space-y-1 pl-5">
-                                            {event.skipped.map((skip: any, i: number) => (
-                                                <div key={i} className="text-muted-foreground font-mono">
-                                                    {t('strategies:signals.sub_prefix')}{skip.subscription_id || skip.id || '?'}: {skip.reason || t('strategies:signals.no_reason')}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
                             </motion.div>
                         ))}
                     </div>
@@ -274,7 +210,7 @@ const StrategySignals = () => {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 

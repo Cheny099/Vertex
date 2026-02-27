@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import {
   Plus, Play, Pause, Settings2, MoreVertical,
   Search, History as HistoryIcon, BarChart3, LineChart,
-  Zap, Edit2, Copy, CheckCircle, ArrowUpDown, ArrowDownAz, ArrowUpAz
+  Zap, Edit2, Copy, CheckCircle, ArrowUpDown, ArrowDownAz, ArrowUpAz, AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -25,30 +25,52 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { strategyApi, subscriptionApi, type Strategy } from '@/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Tab 类型定义
 type TabType = 'running' | 'library' | 'my';
 type SortField = 'newest' | 'roi' | 'drawdown' | 'win_rate' | 'profit_factor';
 type SortOrder = 'asc' | 'desc';
+type StatusTone = 'active' | 'warning' | 'danger' | 'muted';
 
 const Strategies = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { t } = useTranslation(['strategies', 'common']); // Add namespaces
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('running');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortField>('newest');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
   const typeMap: Record<string, string> = {
-    'grid': t('strategies:types.grid'),
-    'trend': t('strategies:types.trend'),
-    'martingale': t('strategies:types.martingale'),
-    'fixed': t('strategies:types.fixed'),
+    grid: t('strategies:types.grid'),
+    trend: t('strategies:types.trend'),
+    dca: t('strategies:types.dca'),
+    martingale: t('strategies:types.dca'),
+    arbitrage: t('strategies:types.arbitrage'),
+    signal: t('strategies:types.signal'),
+  };
+
+  const getStatusLabel = (statusRaw?: string) => {
+    const status = String(statusRaw || '').toLowerCase();
+    if (status === 'active') return t('strategies:card.online');
+    if (status) return t(`strategies:detail.status_${status}`, { defaultValue: statusRaw });
+    return t('strategies:detail.status_inactive');
+  };
+
+  const normalizeStatus = (statusRaw?: string) => String(statusRaw || '').trim().toLowerCase();
+  const isActiveStatus = (statusRaw?: string) => normalizeStatus(statusRaw) === 'active';
+
+  const getStatusTone = (statusRaw?: string): StatusTone => {
+    const status = normalizeStatus(statusRaw);
+    if (status === 'active') return 'active';
+    if (status === 'inactive' || status === 'paused' || status === 'maintenance') return 'warning';
+    if (status === 'blocked' || status === 'frozen' || status === 'error') return 'danger';
+    return 'muted';
   };
 
   // 使用 React Query 获取策略列表和订阅列表
@@ -81,8 +103,8 @@ const Strategies = () => {
 
     // Tab 筛选
     if (activeTab === 'running') {
-      // 运行中 = 已订阅 且 策略状态为活跃/非活跃
-      result = result.filter(s => isSubscribed(s.id) && (s.status === 'active' || s.status === 'inactive'));
+      // 运行中 = 已订阅 且 策略状态为活跃
+      result = result.filter(s => isSubscribed(s.id) && isActiveStatus(s.status));
     } else if (activeTab === 'library') {
       // 策略库 = 所有策略
       result = [...allStrategies];
@@ -184,7 +206,7 @@ const Strategies = () => {
             <span className="font-medium text-sm sm:text-base">{tab.label}</span>
             <Badge variant="secondary" className="ml-1 text-[10px] sm:text-xs h-5 px-1.5 min-w-[1.25rem] flex items-center justify-center">
               {allStrategies.filter(s =>
-                tab.id === 'running' ? (isSubscribed(s.id) && (s.status === 'active' || s.status === 'inactive')) :
+                tab.id === 'running' ? (isSubscribed(s.id) && isActiveStatus(s.status)) :
                   tab.id === 'library' ? true :
                     isSubscribed(s.id)
               ).length}
@@ -239,8 +261,25 @@ const Strategies = () => {
 
       {/* Strategy Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
-        {filteredStrategies.map((strategy, index) => (
-          <motion.div
+        {filteredStrategies.map((strategy, index) => {
+          const tone = getStatusTone(strategy.status);
+          const iconBgClass = cn(
+            "w-10 h-10 rounded-lg flex items-center justify-center",
+            tone === 'active' && "bg-profit/10",
+            tone === 'warning' && "bg-warning/10",
+            tone === 'danger' && "bg-destructive/10",
+            tone === 'muted' && "bg-muted"
+          );
+          const badgeClass = cn(
+            "text-xs",
+            tone === 'active' && "bg-profit/10 text-profit border-profit/20",
+            tone === 'warning' && "bg-warning/10 text-warning border-warning/20",
+            tone === 'danger' && "bg-destructive/10 text-destructive border-destructive/20",
+            tone === 'muted' && "bg-muted/50 text-muted-foreground border-border"
+          );
+
+          return (
+            <motion.div
             key={strategy.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -252,14 +291,11 @@ const Strategies = () => {
               {/* Header */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "w-10 h-10 rounded-lg flex items-center justify-center",
-                    strategy.status === 'active' && "bg-profit/10",
-                    strategy.status === 'inactive' && "bg-warning/10",
-                    !strategy.status && "bg-muted"
-                  )}>
-                    {strategy.status === 'active' ? (
+                  <div className={iconBgClass}>
+                    {tone === 'active' ? (
                       <Play className="w-4 h-4 text-profit fill-profit" />
+                    ) : tone === 'danger' ? (
+                      <AlertTriangle className="w-4 h-4 text-destructive" />
                     ) : (
                       <Pause className="w-4 h-4 text-warning" />
                     )}
@@ -273,33 +309,31 @@ const Strategies = () => {
                         </Badge>
                       )}
                       <Badge
-                        variant={strategy.status === 'active' ? 'default' : 'secondary'}
-                        className={cn(
-                          "text-xs",
-                          strategy.status === 'active' && "bg-profit/10 text-profit border-profit/20",
-                          strategy.status === 'inactive' && "bg-warning/10 text-warning border-warning/20"
-                        )}
+                        variant={tone === 'active' ? 'default' : 'secondary'}
+                        className={badgeClass}
                       >
-                        {strategy.status === 'active' ? t('strategies:card.online') : t('strategies:card.maintenance')}
+                        {getStatusLabel(strategy.status)}
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-1">{strategy.description}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <button className="p-2 rounded-lg hover:bg-secondary transition-colors">
-                        <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenuItem onClick={() => navigate(`/strategies/${strategy.id}/signals`)}>
-                        <HistoryIcon className="w-4 h-4 mr-2" />
-                        {t('strategies:card.menu.history')}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {(isAdmin || isSubscribed(strategy.id)) && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <button className="p-2 rounded-lg hover:bg-secondary transition-colors">
+                          <MoreVertical className="w-4 h-4 text-muted-foreground" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuItem onClick={() => navigate(`/strategies/${strategy.id}/signals`)}>
+                          <HistoryIcon className="w-4 h-4 mr-2" />
+                          {t('strategies:card.menu.history')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
               </div>
 
@@ -342,7 +376,10 @@ const Strategies = () => {
                   <span>{strategy.pair || strategy.config?.pair || '-'}</span>
                 </div>
                 <div className="w-px h-3 bg-border"></div>
-                <div>{typeMap[strategy.type || ''] || typeMap[strategy.config?.type || ''] || strategy.type || '-'}</div>
+                {(() => {
+                  const rawType = String(strategy.type || strategy.config?.type || '').toLowerCase();
+                  return <div>{rawType ? (typeMap[rawType] || rawType) : '-'}</div>;
+                })()}
                 <div className="w-px h-3 bg-border"></div>
                 <div>{new Date(strategy.created_at).toLocaleDateString()}</div>
               </div>
@@ -394,8 +431,9 @@ const Strategies = () => {
                 </div>
               </div>
             </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          );
+        })}
       </div>
 
       {/* Empty State */}

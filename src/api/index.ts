@@ -400,15 +400,6 @@ export const userApi = {
 // 策略 API (Strategies)
 // ===============================================
 // ===== Strategy helpers: config + metrics normalization =====
-const DEFAULT_METRIC_ITEM: StrategyMetricsItem = {
-    return_pct: 0,
-    profit_factor: null,
-    win_rate: 0,
-    max_drawdown_pct: 0,
-};
-
-const PERIOD_PREFERENCE: PeriodKey[] = ['all', '1m', '3m', '6m', '1y'];
-
 function toNumber(v: any): number | null {
     if (v === null || v === undefined || v === '') return null;
     const n = typeof v === 'number' ? v : Number(v);
@@ -417,15 +408,11 @@ function toNumber(v: any): number | null {
 
 function normalizeMetricItem(raw: any): StrategyMetricsItem {
     const obj = raw && typeof raw === 'object' ? raw : {};
-    let return_pct = toNumber((obj as any).return_pct) ?? 0;
-    let win_rate = toNumber((obj as any).win_rate) ?? 0;
-    let max_drawdown_pct = toNumber((obj as any).max_drawdown_pct) ?? 0;
+    const return_pct = toNumber((obj as any).return_pct) ?? 0;
+    const win_rate = toNumber((obj as any).win_rate) ?? 0;
+    const max_drawdown_pct = toNumber((obj as any).max_drawdown_pct) ?? 0;
     const profit_factor = toNumber((obj as any).profit_factor);
-    // 兼容：后端可能给 0~1 的比例，这里自动转成百分比
-    if (Math.abs(return_pct) <= 1) return_pct *= 100;
-    if (win_rate >= 0 && win_rate <= 1) win_rate *= 100;
-    if (Math.abs(max_drawdown_pct) <= 1) max_drawdown_pct *= 100;
-
+    // 保持后端原始比例，不在前端自动做 0~1 到 0~100 的换算。
     return {
         return_pct,
         win_rate,
@@ -436,7 +423,7 @@ function normalizeMetricItem(raw: any): StrategyMetricsItem {
 
 function normalizeMetrics(raw: any): Record<string, StrategyMetricsItem> {
     if (!raw || typeof raw !== 'object') {
-        return { all: { ...DEFAULT_METRIC_ITEM } };
+        return {};
     }
 
     const out: Record<string, StrategyMetricsItem> = {};
@@ -451,14 +438,6 @@ function normalizeMetrics(raw: any): Record<string, StrategyMetricsItem> {
     }
 
     // 关键：确保一定有 all（否则卡片/详情默认 all 会拿不到）
-    if (!out.all) {
-        const fallback =
-            PERIOD_PREFERENCE.map(p => out[p]).find(Boolean) ||
-            Object.values(out)[0] ||
-            { ...DEFAULT_METRIC_ITEM };
-        out.all = fallback;
-    }
-
     return out;
 }
 
@@ -485,9 +464,9 @@ export const strategyApi = {
 
             return {
                 ...s,
-                pair: config.pair || config.symbol || config.contract || 'Unknown',
-                type: config.type || config.trend || 'Unknown',
-                investment: config.investment || config.amount || '0',
+                pair: config.pair ?? config.symbol ?? config.contract,
+                type: config.type ?? config.trend,
+                investment: config.investment ?? config.amount,
                 metrics,
                 config
             };
@@ -502,9 +481,9 @@ export const strategyApi = {
 
         return {
             ...s,
-            pair: config.pair || config.symbol || config.contract || 'Unknown',
-            type: config.type || config.trend || 'Unknown',
-            investment: config.investment || config.amount || '0',
+            pair: config.pair ?? config.symbol ?? config.contract,
+            type: config.type ?? config.trend,
+            investment: config.investment ?? config.amount,
             metrics,
             config
         };
@@ -535,11 +514,13 @@ export const strategyApi = {
 
     // ... Webhook Secret methods
     getWebhookSecret: async (id: number) => {
-        return request<StrategyWebhookSecretResponse>(`/strategies/${id}/webhook-secret`);
+        // Admin-only endpoint on backend
+        return request<StrategyWebhookSecretResponse>(`/admin/strategies/${id}/webhook-secret`);
     },
 
     rotateWebhookSecret: async (id: number) => {
-        return request<StrategyWebhookSecretResponse>(`/strategies/${id}/webhook-secret/rotate`, {
+        // Admin-only endpoint on backend
+        return request<StrategyWebhookSecretResponse>(`/admin/strategies/${id}/webhook-secret/rotate`, {
             method: 'POST'
         });
     }
