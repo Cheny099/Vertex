@@ -13,7 +13,6 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { turboflowApi, accountApi } from '@/api';
 import { useTranslation } from 'react-i18next';
-import { Badge } from '@/components/ui/badge';
 import { AlertTriangle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -72,7 +71,9 @@ const RecentTrades = () => {
           <tbody className="divide-y divide-border">
             {trades.map((trade: any, index: number) => {
               const side = trade.order_way === 1 ? 'buy' : 'sell';
-              const profit = parseFloat(trade.done_pnl || '0');
+              const rawPnl = trade.done_pnl;
+              const parsed = rawPnl != null && rawPnl !== '' ? parseFloat(rawPnl) : null;
+              const profit = parsed !== null && Number.isFinite(parsed) ? parsed : null;
 
               return (
                 <motion.tr
@@ -103,8 +104,8 @@ const RecentTrades = () => {
                   </td>
                   <td className="p-4 text-sm text-right font-mono">
                     <div className="flex flex-col items-end">
-                      <span>{trade.executed_price || trade.deal_price || trade.price || '--'}</span>
-                      {trade.status === 'COMPLETED' && !trade.executed_price && (
+                      <span>{trade.deal_price || trade.price || '--'}</span>
+                      {['Filled', 'Finished'].includes(trade.order_status) && !trade.deal_price && (
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -123,26 +124,16 @@ const RecentTrades = () => {
                   </td>
                   <td className="p-4 text-sm text-right font-mono">
                     <div className="flex flex-col items-end">
-                      <span>{trade.executed_qty || trade.done_vol || trade.vol || '--'}</span>
-                      {trade.status === 'COMPLETED' && !trade.executed_notional_usd && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge variant="outline" className="text-[8px] h-3 border-warning/50 text-warning px-1 mt-0.5 font-normal cursor-help">MISSING_NOTIONAL</Badge>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>{t('common:audit.missing_notional_desc')}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
+                      <span>{trade.done_vol || trade.vol || '--'}</span>
                     </div>
                   </td>
                   <td className={cn(
                     "p-4 text-sm text-right font-mono font-bold",
-                    (trade.realized_pnl ?? profit) > 0 ? "text-profit" : (trade.realized_pnl ?? profit) < 0 ? "text-loss" : "text-muted-foreground"
+                    profit !== null
+                      ? profit > 0 ? "text-profit" : profit < 0 ? "text-loss" : "text-muted-foreground"
+                      : "text-muted-foreground"
                   )}>
-                    {(trade.realized_pnl ?? profit) > 0 ? '+' : ''}{(trade.realized_pnl ?? profit).toFixed(2)}
+                    {profit !== null ? `${profit > 0 ? '+' : ''}${profit.toFixed(2)}` : '--'}
                   </td>
                 </motion.tr>
               );

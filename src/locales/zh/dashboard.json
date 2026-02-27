@@ -14,7 +14,7 @@
         "total_accounts": "共 {{count}} 个账户"
     },
     "alerts": {
-        "failed_orders": "今日有 <strong>{{count}}</strong> 单订单失败，请检查账户状态"
+        "failed_orders_html": "今日有 <strong>{{failed}}</strong> 单失败，<strong>{{expired}}</strong> 单过期，请检查账户状态"
     },
     "popularity": {
         "title": "热门策略排行",
@@ -61,6 +61,8 @@
             "uid_mismatch": "UID 不匹配",
             "config_missing": "配置缺失",
             "need_verify": "需验证",
+            "disabled": "已禁用",
+            "unknown_exchange": "未知的交易所",
             "unknown": "未知"
         },
         "hints": {
@@ -69,6 +71,7 @@
             "uid_mismatch": "API Key 对应的 UID 不匹配",
             "need_verify": "需验证 API Key",
             "config_missing": "账户配置信息不全",
+            "unknown_exchange": "API对应的交易所未对接",
             "unknown": "尚未获取状态"
         },
         "last_active": "最后活动: {{time}}",

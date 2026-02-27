@@ -6,7 +6,7 @@
  */
 
 import { motion } from 'framer-motion';
-import { Activity, CheckCircle, Clock, AlertCircle, XCircle, Users, TrendingUp } from 'lucide-react';
+import { Activity, CheckCircle, Clock, XCircle, Users, TrendingUp } from 'lucide-react';
 import StatCard from '@/components/dashboard/StatCard';
 import StrategiesList from '@/components/dashboard/StrategiesList';
 import RecentTrades from '@/components/dashboard/RecentTrades';
@@ -84,15 +84,23 @@ const Dashboard = () => {
 
         {/* ... (Error Alert logic remains unchanged) ... */}
 
-        {/* 今日订单状态明细 */}
-        {!isLoading && (stats?.todayFailed || 0) > 0 && (
+        {/* 今日订单明细提示 */}
+        {!isLoading && ((stats?.todayFailed || 0) > 0 || (stats?.todayExpired || 0) > 0) && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-3"
           >
             <XCircle className="w-5 h-5 text-destructive" />
-            <span className="text-sm" dangerouslySetInnerHTML={{ __html: t('dashboard:alerts.failed_orders', { count: stats?.todayFailed }) }} />
+            <span
+              className="text-sm"
+              dangerouslySetInnerHTML={{
+                __html: t('dashboard:alerts.failed_orders_html', {
+                  failed: stats?.todayFailed || 0,
+                  expired: stats?.todayExpired || 0
+                })
+              }}
+            />
           </motion.div>
         )}
 

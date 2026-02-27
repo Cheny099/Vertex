@@ -15,8 +15,6 @@ interface AccountStatusListProps {
     isLoading: boolean;
 }
 
-type StatusLevel = 'ok' | 'warning' | 'error';
-
 
 
 const AccountStatusList = ({ accounts: rawAccounts, isLoading }: AccountStatusListProps) => {
@@ -128,14 +126,33 @@ const AccountStatusList = ({ accounts: rawAccounts, isLoading }: AccountStatusLi
                                     hint: detail?.hint
                                 };
                             }
+                            if (status === 'need_login') {
+                                return {
+                                    level: 'warning',
+                                    label: t('account_status.derived.need_login'),
+                                    hint: t('account_status.hints.need_login')
+                                };
+                            }
+                            if (status === 'unknown_exchange') {
+                                return {
+                                    level: 'error',
+                                    label: t('account_status.derived.unknown_exchange'),
+                                    hint: t('account_status.hints.unknown_exchange')
+                                };
+                            }
+                            if (status === 'unknown') {
+                                return {
+                                    level: 'warning',
+                                    label: t('account_status.derived.unknown'),
+                                    hint: t('account_status.hints.unknown')
+                                };
+                            }
 
                             // Legacy / General Checks
                             const lastError = resp?.last_error;
-                            const weekStatus = detail?.week_status;
                             const isReady = detail?.is_ready;
 
                             if (lastError) return { level: 'error', label: t('account_status.derived.error'), hint: lastError };
-                            if (weekStatus === 'need_login') return { level: 'warning', label: t('account_status.derived.need_login'), hint: t('account_status.hints.need_login') };
                             if (status === 'inactive') return { level: 'warning', label: t('account_status.inactive_badge') };
                             if (isReady === false) return { level: 'warning', label: t('account_status.derived.not_ready'), hint: t('account_status.hints.not_ready') };
 
@@ -181,7 +198,7 @@ const AccountStatusList = ({ accounts: rawAccounts, isLoading }: AccountStatusLi
                                     ) : derived.level === 'error' ? (
                                         <Badge variant="destructive" className="text-[10px] h-5">
                                             <AlertCircle className="w-3 h-3 mr-1" />
-                                            {t('account_status.derived.error')}
+                                            {derived.label}
                                         </Badge>
                                     ) : derived.level === 'warning' ? (
                                         <Badge variant="secondary" className="text-[10px] h-5">

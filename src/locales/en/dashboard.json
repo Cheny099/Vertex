@@ -14,7 +14,7 @@
         "total_accounts": "Total {{count}}"
     },
     "alerts": {
-        "failed_orders": "<strong>{{count}}</strong> orders failed today. Please check account status."
+        "failed_orders_html": "<strong>{{failed}}</strong> orders failed, <strong>{{expired}}</strong> orders expired today. Please check account status."
     },
     "popularity": {
         "title": "Top Strategies",
@@ -61,6 +61,8 @@
             "uid_mismatch": "UID Mismatch",
             "config_missing": "Config Missing",
             "need_verify": "Need Verify",
+            "disabled": "Disabled",
+            "unknown_exchange": "Unknown Exchange",
             "unknown": "Unknown"
         },
         "hints": {
@@ -69,6 +71,7 @@
             "uid_mismatch": "API Key UID does not match account",
             "need_verify": "API Key requires verification",
             "config_missing": "Account configuration is incomplete",
+            "unknown_exchange": "Exchange not supported",
             "unknown": "Status unavailable"
         },
         "last_active": "Last active: {{time}}",

@@ -109,8 +109,6 @@ const StrategiesList = () => {
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {strategy.pair || t('strategies_list.pair_not_configured')}
-                        <span className="mx-2">|</span>
                         <span className='font-mono text-xs'>
                           {modeText}
                         </span>
