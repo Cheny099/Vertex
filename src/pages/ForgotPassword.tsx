@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Mail, ArrowLeft, Lock, KeyRound, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const ForgotPassword = () => {
+  const location = useLocation();
   // Step 1: Email
   const [email, setEmail] = useState("");
 
@@ -79,17 +80,17 @@ const ForgotPassword = () => {
 
     const trimmed = (email || "").trim();
     if (!trimmed || !EMAIL_RE.test(trimmed)) {
-      toast({ title: t('common:error'), description: t('auth.errors.email_format'), variant: "destructive" });
+      toast({ title: t('common:error'), description: t('errors.email_format'), variant: "destructive" });
       return;
     }
 
     if (!code || code.length !== 6) {
-      toast({ title: t('common:error'), description: t('auth.errors.code_length'), variant: "destructive" });
+      toast({ title: t('common:error'), description: t('errors.code_length'), variant: "destructive" });
       return;
     }
 
-    if (!newPassword || newPassword.length < 8) {
-      toast({ title: t('common:error'), description: t('auth.errors.password_length'), variant: "destructive" });
+    if (!newPassword || newPassword.length < 6) {
+      toast({ title: t('common:error'), description: t('errors.password_length'), variant: "destructive" });
       return;
     }
 
@@ -97,14 +98,14 @@ const ForgotPassword = () => {
     try {
       await authApi.resetPassword({ email: trimmed, code, new_password: newPassword });
       toast({
-        title: t('auth.errors.reset_success'),
-        description: t('auth.errors.reset_success'), // Reusing key for description or leave empty.
+        title: t('errors.reset_success'),
+        description: t('errors.reset_success'), // Reusing key for description or leave empty.
       });
-      navigate("/");
+      navigate("/login", { state: (location as any).state });
     } catch (error: any) {
       toast({
-        title: t('auth.errors.reset_failed'),
-        description: error.message || t('auth.errors.code_invalid'),
+        title: t('errors.reset_failed'),
+        description: error.message || t('errors.code_invalid'),
         variant: "destructive",
       });
     } finally {
@@ -133,7 +134,8 @@ const ForgotPassword = () => {
             <div className="absolute bottom-4 right-4 w-3 h-3 border-r-2 border-b-2 border-primary/40 rounded-br-sm" />
 
             <Link
-              to="/"
+              to="/login"
+              state={(location as any).state}
               className="absolute top-4 left-4 text-muted-foreground hover:text-foreground transition-colors z-10"
             >
               <ArrowLeft size={20} />

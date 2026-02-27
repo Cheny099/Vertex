@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { User, Lock, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { User, Lock, Eye, EyeOff, ShieldCheck, RefreshCcw, KeyRound, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,11 +18,13 @@ function normalizeErrorMessage(err: any): string {
 
   if (msg.includes("Unauthorized") || msg.includes("401")) return "errors.invalid_email_password";
   if (msg.includes("403")) return "errors.email_not_verified";
-  if (msg.includes("429")) return "errors.too_many_requests";
+  if (msg.includes("429") || msg.includes("Too many login attempts")) return "errors.too_many_requests";
   if (msg.includes("500")) return "errors.server_busy";
 
-  if (msg.includes("Incorrect email or password")) return "errors.invalid_email_password";
+  if (msg.includes("Incorrect email or password") || msg.includes("Invalid credentials")) return "errors.invalid_email_password";
   if (msg.includes("Email not verified")) return "errors.register_needed";
+  if (msg.includes("Invalid code")) return "errors.code_invalid";
+  if (msg.includes("Too many incorrect codes")) return "errors.too_many_requests";
 
   // Retain original message if no match, or return default key
   return msg || "errors.login_failed";
@@ -35,6 +37,44 @@ const LoginCard = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true); // 默认记住，更符合产品习惯
   const [isLoading, setIsLoading] = useState(false);
+
+  // OTP Login additional state
+  const [loginMode, setLoginMode] = useState<"password" | "otp">("password");
+  const [code, setCode] = useState("");
+  const [cooldown, setCooldown] = useState(0);
+  const [isSendingCode, setIsSendingCode] = useState(false);
+
+  // Cooldown effect
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const interval = setInterval(() => setCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(interval);
+  }, [cooldown]);
+
+  const handleSendCode = async () => {
+    if (!emailOk) {
+      toast({ title: t('common:error'), description: t('errors.email_format'), variant: "destructive" });
+      return;
+    }
+    setIsSendingCode(true);
+    try {
+      await authApi.sendLoginCode({ email: email.trim() });
+      setCooldown(60);
+      toast({
+        title: t('errors.code_sent'),
+        description: t('errors.code_sent_desc', { email: email.trim() }),
+      });
+    } catch (err: any) {
+      const errorKeyOrMsg = normalizeErrorMessage(err);
+      toast({
+        title: t('errors.send_failed'),
+        description: errorKeyOrMsg.startsWith('errors.') ? t(errorKeyOrMsg) : errorKeyOrMsg,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
 
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -81,11 +121,32 @@ const LoginCard = () => {
     setIsLoading(true);
 
     try {
-      // 1) OAuth2PasswordRequestForm：字段名仍然叫 username
-      const { access_token } = await authApi.login({
-        username: trimmedEmail,
-        password,
-      });
+      let access_token = "";
+
+      if (loginMode === "password") {
+        if (!password) {
+          toast({ title: t('common:error'), description: t('errors.input_required'), variant: "destructive" });
+          setIsLoading(false);
+          return;
+        }
+        const response = await authApi.login({
+          username: trimmedEmail,
+          password,
+        });
+        access_token = response.access_token;
+      } else {
+        if (!code || code.length !== 4) {
+          toast({ title: t('common:error'), description: t('login.enter_code_hint'), variant: "destructive" });
+          setIsLoading(false);
+          return;
+        }
+        const response = await authApi.loginWithCode({
+          email: trimmedEmail,
+          password: password, // The backend needs password too for this endpoint? Wait, backend says authenticate_user first. Yes, password + code.
+          code: code,
+        });
+        access_token = response.access_token;
+      }
 
       // 2) 记住我：决定存 localStorage 还是 sessionStorage
       // - rememberMe=true: 关闭浏览器也保持登录
@@ -184,13 +245,13 @@ const LoginCard = () => {
           </motion.p>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Email */}
+          {/* SHARED EMAIL INPUT */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3, duration: 0.4 }}
+            className="mt-6 mb-5"
           >
             <div className="relative">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -210,11 +271,13 @@ const LoginCard = () => {
             )}
           </motion.div>
 
-          {/* Password */}
+          {/* PASSWORD FIELD (FOR BOTH BUT LABELED DIFFERENTLY OR ALWAYS THERE?) */}
+          {/* Backend login-with-code REQUIRES password + code. So password is NOT optional. */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.4, duration: 0.4 }}
+            className="mb-5"
           >
             <div className="relative">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -237,11 +300,55 @@ const LoginCard = () => {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-
-            {password.length > 0 && !passwordOk && (
+            {loginMode === "password" && password.length > 0 && !passwordOk && (
               <p className="mt-2 text-xs text-muted-foreground">{t('login.password_length_hint')}</p>
             )}
           </motion.div>
+
+          {/* OTP FIELDS SECTION */}
+          {loginMode === "otp" && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-4 pt-1"
+            >
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    <KeyRound size={18} />
+                  </div>
+                  <Input
+                    type="text"
+                    placeholder={t('login.code_placeholder')}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                    className="pl-11 h-12 bg-input border-border/50 focus:border-primary"
+                    inputMode="numeric"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-12 border-border/50 min-w-[100px] hover:bg-secondary/20 transition-colors"
+                  onClick={handleSendCode}
+                  disabled={!emailOk || cooldown > 0 || isSendingCode}
+                >
+                  {isSendingCode ? (
+                    <RefreshCcw size={16} className="animate-spin" />
+                  ) : cooldown > 0 ? (
+                    `${cooldown}s`
+                  ) : (
+                    t('login.get_code')
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground/80 text-center">{t('login.enter_code_hint')}</p>
+            </motion.div>
+          )}
+
+
 
           {/* Remember & Forgot */}
           <motion.div
@@ -261,9 +368,23 @@ const LoginCard = () => {
               </label>
             </div>
 
-            <Link to="/forgot-password" className="text-sm text-primary hover:text-primary-light transition-colors">
-              {t('login.forgot_password')}
-            </Link>
+            <div className="flex items-center gap-4">
+              <Link
+                to="/forgot-password"
+                state={location.state}
+                className="text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
+                {t('login.forgot_password')}
+              </Link>
+              <button
+                type="button"
+                onClick={() => setLoginMode(loginMode === "password" ? "otp" : "password")}
+                className="text-xs text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1"
+              >
+                <Shield size={12} />
+                {loginMode === "password" ? t('login.mode_otp_subtle') : t('login.mode_password_subtle')}
+              </button>
+            </div>
           </motion.div>
 
           {/* Login Button */}
@@ -296,7 +417,7 @@ const LoginCard = () => {
             className="text-center text-sm text-muted-foreground"
           >
             {t('login.no_account')}
-            <Link to="/register" className="text-primary hover:text-primary-light transition-colors ml-1">
+            <Link to="/register" state={location.state} className="text-primary hover:text-primary-light transition-colors ml-1">
               {t('login.register_link')}
             </Link>
           </motion.p>
@@ -312,11 +433,11 @@ const LoginCard = () => {
               <ShieldCheck className="w-3.5 h-3.5 text-primary/60 shrink-0" />
               <span>{t('login.agreement_prefix')}</span>
               <div className="inline-flex gap-1">
-                <Link to="/terms" className="text-primary hover:underline hover:text-primary/80 transition-colors">
+                <Link to="/terms" state={location.state} className="text-primary hover:underline hover:text-primary/80 transition-colors">
                   {t('login.terms')}
                 </Link>
                 <span>{t('common:and')}</span>
-                <Link to="/privacy" className="text-primary hover:underline hover:text-primary/80 transition-colors">
+                <Link to="/privacy" state={location.state} className="text-primary hover:underline hover:text-primary/80 transition-colors">
                   {t('login.privacy')}
                 </Link>
               </div>

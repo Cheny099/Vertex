@@ -27,6 +27,7 @@
     "validation": {
         "required": "必填"
     },
+    "back": "返回",
     "status": {
         "success": "成功",
         "failed": "失败",
@@ -94,6 +95,12 @@
         "position_value must be >= 1 for fixed_amount mode": "固定金额跟单最小为 1 USDT",
         "leverage must be between 1 and 200": "杠杆倍数必须在 1 到 200 之间",
         "Account is inactive or deleted": "账户未激活或已删除",
+        "Too many requests, please wait": "请求过于频繁，请稍后再试",
+        "Too many requests from this IP": "该 IP 请求过多，请稍后再试",
+        "Too many incorrect codes": "验证码错误次数过多，账号已锁定",
+        "Invalid credentials": "邮箱或密码错误",
+        "Invalid code": "验证码错误",
+        "Failed to issue reset code": "重置码发送失败，请重试",
         "connect not completed (timeout or still need login)": "连接未完成（超时或仍需登录）",
         "active doc cannot be edited; create a new version instead": "当前版本已生效，无法编辑；请发布新版本"
     },
@@ -110,10 +117,11 @@
         "profile": "我的"
     },
     "not_found": {
-        "title": "页面未找到",
-        "desc": "抱歉，您访问的页面不存在或已被移除",
-        "back": "返回上页",
-        "home": "回到登录",
+        "title": "404 - 页面未找到",
+        "desc": "抱歉，您访问的页面不存在或已被移除。",
+        "home": "返回首页",
+        "login": "前往登录",
+        "back": "返回上一页",
         "register": "去注册",
         "terms": "服务条款",
         "privacy": "隐私政策",

@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { User, Lock, Eye, EyeOff, Mail, ArrowLeft, ShieldCheck, Send } from 'lucide-react';
 
@@ -50,6 +50,7 @@ function humanizeAuthError(err: any): string {
 }
 
 const Register = () => {
+  const location = useLocation();
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -93,7 +94,7 @@ const Register = () => {
   const canSendCode = emailOk && cooldown === 0 && !isSendingCode;
   const canSubmit =
     emailOk &&
-    formData.password.length >= 8 &&
+    formData.password.length >= 6 &&
     formData.password === formData.confirmPassword &&
     formData.code.length === 6 &&
     agreeTerms &&
@@ -139,18 +140,7 @@ const Register = () => {
       return;
     }
 
-    if (formData.password.length < 8) {
-      // Reusing password_length or create new password_min_8? Using password_length for now (says at least 6 in auth.json, but here check is 8. Let's stick to key or update key content. Key says 6. Register check says 8. I will use the generic key but its text says 6. I should probably update the key to be generic or create a new one. The alert says "at least 8". I will trust the key text "at least 6" is generic enough or update it. Actually I used "password_length" which says "at least 6". Let's stick to simple validation for now.)
-      // Wait, register specifically asks for 8. "password_length" says 6. I'll update "password_length" in json to be generic or create "password_length_8"
-      // For now, I'll use password_length and user might see "at least 6" when it requires 8. This is a minor inconsistency. 
-      // Better: Update json to just say "Invalid password length". Or just use "password_length" and accept 6 in frontend logic? 
-      // The frontend logic here `formData.password.length < 8` enforces 8. 
-      // I will update the json key `password_length` to `Password must be at least 8 characters` later or just ignore.
-      // Actually, I can pass a count variable if interpolation was supported for this key. 
-      // Let's just use `input_required` or `invalid_input` to be safe, or just use what we have. 
-      // I'll use `password_length` but I should update the JSON to say "6-8 characters" or similar.
-      // Actually `LoginCard` uses 6. `Register` uses 8. 
-      // Let's use `auth.errors.invalid_input` for simplicity to avoid conflict, or I'll just use the existing logic.
+    if (formData.password.length < 6) {
       toast({ title: t('common:error'), description: t('errors.password_length'), variant: 'destructive' });
       return;
     }
@@ -175,7 +165,7 @@ const Register = () => {
       });
 
       toast({ title: t('errors.register_success'), description: t('errors.register_success') });
-      window.setTimeout(() => navigate('/'), 900);
+      window.setTimeout(() => navigate('/login', { state: location.state }), 900);
     } catch (err: any) {
       const errorKey = humanizeAuthError(err);
       toast({
@@ -209,7 +199,11 @@ const Register = () => {
             <div className="absolute bottom-4 left-4 w-3 h-3 border-l-2 border-b-2 border-primary/40 rounded-bl-sm" />
             <div className="absolute bottom-4 right-4 w-3 h-3 border-r-2 border-b-2 border-primary/40 rounded-br-sm" />
 
-            <Link to="/" className="absolute top-4 left-4 text-muted-foreground hover:text-foreground transition-colors z-10">
+            <Link
+              to="/login"
+              state={location.state}
+              className="absolute top-4 left-4 text-muted-foreground hover:text-foreground transition-colors z-10"
+            >
               <ArrowLeft size={20} />
             </Link>
 
@@ -358,7 +352,7 @@ const Register = () => {
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
-                {formData.password.length > 0 && formData.password.length < 8 && (
+                {formData.password.length > 0 && formData.password.length < 6 && (
                   <p className="mt-2 text-xs text-destructive">{t('login.password_length_hint')}</p>
                 )}
               </motion.div>
@@ -390,9 +384,9 @@ const Register = () => {
                 <Checkbox id="terms" checked={agreeTerms} onCheckedChange={(checked) => setAgreeTerms(checked as boolean)} />
                 <label htmlFor="terms" className="text-sm text-muted-foreground cursor-pointer select-none leading-5">
                   {t('register.agree_terms_prefix')}
-                  <Link to="/terms" className="text-primary hover:underline">{t('login.terms')}</Link>
+                  <Link to="/terms" state={(location as any).state} className="text-primary hover:underline">{t('login.terms')}</Link>
                   {t('common:and')}
-                  <Link to="/privacy" className="text-primary hover:underline">{t('login.privacy')}</Link>
+                  <Link to="/privacy" state={(location as any).state} className="text-primary hover:underline">{t('login.privacy')}</Link>
                 </label>
               </motion.div>
 
@@ -415,7 +409,7 @@ const Register = () => {
 
               <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.4 }} className="text-center text-sm text-muted-foreground">
                 {t('register.has_account')}
-                <Link to="/" className="text-primary hover:text-primary-light transition-colors ml-1">{t('register.login_link')}</Link>
+                <Link to="/login" state={location.state} className="text-primary hover:text-primary-light transition-colors ml-1">{t('register.login_link')}</Link>
               </motion.p>
             </form>
           </div>

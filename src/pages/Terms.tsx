@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, FileText, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -13,6 +13,7 @@ import { legalApi, PublicLegalDoc } from "@/api";
 
 export default function Terms() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t, i18n } = useTranslation(['common', 'auth']);
   const [doc, setDoc] = useState<PublicLegalDoc | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,14 +51,14 @@ export default function Terms() {
               <ArrowLeft className="mr-2" size={18} />
               {t('common:back')}
             </Button>
-            <Link to="/register">
+            <Link to="/register" state={(location as any).state}>
               <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
                 {t('auth:login.register_btn')}
               </Button>
             </Link>
           </div>
 
-          <Link to="/">
+          <Link to="/login" state={(location as any).state}>
             <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
               {t('auth:login.go_login')}
             </Button>

@@ -75,6 +75,10 @@ const NotFound = () => {
                 <Home className="w-4 h-4 mr-2" />
                 {t('not_found.home')}
               </Button>
+              <Button variant="outline" onClick={() => navigate("/login")} className="border-border/60">
+                <UserPlus className="w-4 h-4 mr-2" />
+                {t('not_found.login')}
+              </Button>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

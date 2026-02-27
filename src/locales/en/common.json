@@ -8,6 +8,7 @@
   "save": "Save",
   "loading": "Loading…",
   "success": "Success",
+  "done": "Done",
   "error": "Error",
   "delete": "Delete",
   "edit": "Edit",
@@ -21,6 +22,7 @@
   "copied": "Copied!",
   "copy_success": "Email copied to clipboard!",
   "refresh": "Refresh",
+  "back": "Back",
   "validation": {
     "required": "Required"
   },
@@ -64,6 +66,12 @@
     "position_value must be >= 1 for fixed_amount mode": "Fixed amount must be at least 1 USDT",
     "leverage must be between 1 and 200": "Leverage must be between 1 and 200",
     "Account is inactive or deleted": "Account is inactive or deleted",
+    "Too many requests, please wait": "Too many requests, please wait",
+    "Too many requests from this IP": "Too many requests from this IP",
+    "Too many incorrect codes": "Too many incorrect codes, account locked",
+    "Invalid credentials": "Invalid email or password",
+    "Invalid code": "Invalid code",
+    "Failed to issue reset code": "Failed to issue reset code",
     "connect not completed (timeout or still need login)": "Connection incomplete (timeout or login required)",
     "binance_futures exchange is disabled": "Binance exchange is disabled",
     "gate_futures exchange is disabled": "Gate exchange is disabled",
@@ -101,10 +109,11 @@
     "profile": "Profile"
   },
   "not_found": {
-    "title": "Page Not Found",
-    "desc": "Sorry, the page you are looking for does not exist or has been removed.",
+    "title": "404 - Page Not Found",
+    "desc": "Sorry, the page you are looking for does not exist or has been moved.",
+    "home": "Return Home",
+    "login": "Go to Login",
     "back": "Go Back",
-    "home": "Return to Login",
     "register": "Register",
     "terms": "Terms of Service",
     "privacy": "Privacy Policy",
