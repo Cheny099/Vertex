@@ -18,7 +18,6 @@ import {
     getStrategySchema
 } from '@/api';
 import { useToast } from '@/components/ui/use-toast';
-import RiskDisclosureDialog from '@/components/RiskDisclosureDialog';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -58,7 +57,7 @@ const StrategyCreate = () => {
     const { t } = useTranslation(['strategies', 'common', 'admin']);
 
     const [showWebhookDialog, setShowWebhookDialog] = useState(false);
-    const [webhookData, setWebhookData] = useState<{ url: string, secret: string } | null>(null);
+    const [webhookData, setWebhookData] = useState<{ url: string, secret: string, strategy_key: string } | null>(null);
 
     const isCopy = searchParams.get('copy') === 'true';
     const isEditMode = !!id && !isCopy;
@@ -110,9 +109,6 @@ const StrategyCreate = () => {
         }
     }, [initialData, isCopyMode, reset]);
 
-    const [legalError, setLegalError] = useState<{ docKey: string, version: string } | null>(null);
-    const [pendingFormData, setPendingFormData] = useState<any | null>(null);
-
     const submitMutation = useMutation({
         mutationFn: async (data: any) => {
             let strat: any;
@@ -149,9 +145,13 @@ const StrategyCreate = () => {
         },
         onSuccess: (data: any) => {
             if (data.webhookSecret) {
+                const apiBase = (import.meta.env.VITE_API_URL as string)
+                    ? (import.meta.env.VITE_API_URL as string).replace(/\/$/, '')
+                    : `${window.location.protocol}//${window.location.host}/api/v1`;
                 setWebhookData({
-                    url: `${window.location.origin}/api/v1/webhook/${data.strategy_key}`,
-                    secret: data.webhookSecret.secret
+                    url: `${apiBase.replace(/\/api\/v1$/, '')}/api/v1/tradingview/webhook`,
+                    secret: data.webhookSecret.secret,
+                    strategy_key: data.strategy_key
                 });
                 setShowWebhookDialog(true);
             } else {
@@ -161,27 +161,12 @@ const StrategyCreate = () => {
             }
         },
         onError: (error: any) => {
-            if (error?.code === 'LEGAL_ACCEPTANCE_REQUIRED' && error.detail) {
-                setLegalError({
-                    docKey: error.detail.doc_key,
-                    version: error.detail.required_version || '1.0'
-                });
-                return;
-            }
-            toast({ title: t('strategies:detail.toast_error'), description: error.message || t('strategies:create.toast_failed'), variant: 'destructive' });
+            toast({ title: t('strategies:detail.toast_error'), description: error.message || t('strategies:create.toast_error'), variant: 'destructive' });
         }
     });
 
     const onSubmit = (data: any) => {
-        setPendingFormData(data);
         submitMutation.mutate(data);
-    };
-
-    const handleLegalAccepted = () => {
-        if (pendingFormData) {
-            submitMutation.mutate(pendingFormData);
-        }
-        setLegalError(null);
     };
 
     if (isInitialLoading) {
@@ -195,18 +180,6 @@ const StrategyCreate = () => {
 
     return (
         <>
-            <AnimatePresence>
-                {legalError && (
-                    <RiskDisclosureDialog
-                        open={!!legalError}
-                        onOpenChange={(open) => !open && setLegalError(null)}
-                        docKey={legalError.docKey as any}
-                        requiredVersion={legalError.version}
-                        onAccept={handleLegalAccepted}
-                    />
-                )}
-            </AnimatePresence>
-
             <motion.div
                 initial="hidden"
                 animate="visible"
@@ -341,7 +314,7 @@ const StrategyCreate = () => {
                                                 <div className="space-y-0.5">
                                                     <Label className="text-sm font-bold">{t('strategies:detail.signal_status')}</Label>
                                                     <p className="text-[10px] text-muted-foreground font-medium">
-                                                        {watchStatus === 'active' ? t('strategies:detail.status_active') : t('strategies:detail.status_maintenance')}
+                                                        {watchStatus === 'active' ? t('strategies:detail.status_active') : t('strategies:detail.status_inactive')}
                                                     </p>
                                                 </div>
                                             </div>
@@ -411,12 +384,14 @@ const StrategyCreate = () => {
                                 <pre className="bg-slate-900 text-slate-100 p-5 rounded-2xl text-[11px] font-mono overflow-x-auto whitespace-pre-wrap border shadow-2xl leading-relaxed">
                                     {`{
     "secret": "${webhookData?.secret}",
-    "action": "{{strategy.order.action}}",
-    "symbol": "{{ticker}}"
+    "strategy_key": "${webhookData?.strategy_key}",
+    "symbol": "{{ticker}}",
+    "side": "buy",
+    "action": "open"
 }`}
                                 </pre>
                                 <Button size="icon" variant="ghost" className="absolute top-4 right-4 h-9 w-9 hover:bg-white/10 text-white/40 hover:text-emerald-400 transition-colors" onClick={() => {
-                                    navigator.clipboard.writeText(`{\n    "secret": "${webhookData?.secret}",\n    "action": "{{strategy.order.action}}",\n    "symbol": "{{ticker}}"\n}`);
+                                    navigator.clipboard.writeText(`{\n  "secret": "${webhookData?.secret}",\n  "strategy_key": "${webhookData?.strategy_key}",\n  "symbol": "{{ticker}}",\n  "side": "buy",\n  "action": "open"\n}`);
                                     toast({ title: t('common:copied') });
                                 }}>
                                     <Copy className="w-4 h-4" />

@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
     Plus, MoreHorizontal, Key, Upload, Play, Pause, Copy, Check,
-    TrendingUp, BarChart2, Zap, Target, ShieldAlert, Trash2
+    TrendingUp, BarChart2, Zap, Target, ShieldAlert, AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -68,16 +68,14 @@ const itemVariants = {
 } as const;
 
 const StrategyManager = () => {
-    const { t } = useTranslation("admin");
+    const { t } = useTranslation(["admin", "strategies", "common"]);
     const queryClient = useQueryClient();
     const [secretDialogOpen, setSecretDialogOpen] = useState(false);
-    const [currentSecret, setCurrentSecret] = useState<{ strategy_key: string, secret: string, hint: string } | null>(null);
+    const [currentSecret, setCurrentSecret] = useState<{ strategy_id: number, strategy_key: string, secret: string, hint: string } | null>(null);
     const [csvFile, setCsvFile] = useState<File | null>(null);
     const [importDialogOpen, setImportDialogOpen] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const [selectedStrategyId, setSelectedStrategyId] = useState<number | null>(null);
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [purgeCsv, setPurgeCsv] = useState(true);
 
     // Drag and Drop handlers
     const onDragOver = (e: React.DragEvent) => {
@@ -101,7 +99,7 @@ const StrategyManager = () => {
     };
 
     // Queries
-    const { data: strategies, isLoading } = useQuery({
+    const { data: strategies, isLoading, isError } = useQuery({
         queryKey: ["strategies"],
         queryFn: strategyApi.getAll
     });
@@ -112,7 +110,8 @@ const StrategyManager = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["strategies"] });
             toast.success(t('strategies:create.toast_success'));
-        }
+        },
+        onError: (e: any) => toast.error(e.message || t('common:error'))
     });
 
     const unpublishMutation = useMutation({
@@ -120,7 +119,8 @@ const StrategyManager = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["strategies"] });
             toast.success(t('strategies:create.toast_success'));
-        }
+        },
+        onError: (e: any) => toast.error(e.message || t('common:error'))
     });
 
     const rotateSecretMutation = useMutation({
@@ -129,7 +129,8 @@ const StrategyManager = () => {
             setCurrentSecret(data);
             setSecretDialogOpen(true);
             toast.success(t("secret_rotated"));
-        }
+        },
+        onError: (e: any) => toast.error(e.message || t('common:error'))
     });
 
     const getSecretMutation = useMutation({
@@ -137,35 +138,20 @@ const StrategyManager = () => {
         onSuccess: (data) => {
             setCurrentSecret(data);
             setSecretDialogOpen(true);
-        }
+        },
+        onError: (e: any) => toast.error(e.message || t('common:error'))
     });
 
     const importStatsMutation = useMutation({
         mutationFn: async ({ id, file }: { id: number, file: File }) => {
             return adminApi.strategies.importStats(id, file);
         },
+        onError: (e: any) => toast.error(e.message || t('common:error')),
         onSuccess: () => {
             setImportDialogOpen(false);
             setCsvFile(null);
             toast.success(t("stats_imported"));
             queryClient.invalidateQueries({ queryKey: ["strategies"] });
-        },
-        onError: (err: any) => {
-            toast.error(err.message || "Import failed");
-        }
-    });
-
-    const deleteMutation = useMutation({
-        mutationFn: async ({ id, purgeTvCsv }: { id: number, purgeTvCsv: boolean }) => {
-            return strategyApi.delete(id, purgeTvCsv);
-        },
-        onSuccess: () => {
-            setDeleteDialogOpen(false);
-            toast.success(t("strategy_deleted", "Strategy deleted successfully"));
-            queryClient.invalidateQueries({ queryKey: ["strategies"] });
-        },
-        onError: (err: any) => {
-            toast.error(err.message || "Delete failed");
         }
     });
 
@@ -183,6 +169,24 @@ const StrategyManager = () => {
             case 'trend': return <Badge className="bg-emerald-500/10 text-emerald-600 border-none shadow-none">{t("strategy_types.trend")}</Badge>;
             case 'dca': return <Badge className="bg-orange-500/10 text-orange-600 border-none shadow-none">{t("strategy_types.dca")}</Badge>;
             default: return <Badge variant="outline" className="text-slate-400 border-slate-200">{type}</Badge>;
+        }
+    };
+
+    const getStatusBadge = (status: string) => {
+        switch (status) {
+            case 'active':
+                return <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-none px-3 py-1"><Check className="w-3 h-3 mr-1.5" /> {t(`admin:active`, "Active")}</Badge>;
+            case 'inactive':
+                return <Badge variant="outline" className="text-slate-400 border-slate-200 px-3 py-1"><Pause className="w-3 h-3 mr-1.5" /> {t(`admin:inactive`, "Inactive")}</Badge>;
+            // Add other potential fallback states just in case
+            case 'error':
+            case 'frozen':
+            case 'maintenance':
+            case 'blocked':
+            case 'paused':
+                return <Badge className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-none px-3 py-1"><AlertTriangle className="w-3 h-3 mr-1.5" /> {t(`strategies:detail.status_${status}`, status)}</Badge>;
+            default:
+                return <Badge variant="outline" className="text-slate-400 border-slate-200 px-3 py-1">{t(`strategies:detail.status_${status}`, status)}</Badge>;
         }
     };
 
@@ -240,9 +244,20 @@ const StrategyManager = () => {
                     </TableHeader>
                     <TableBody>
                         {strategies?.map((strategy) => {
-                            const config = typeof strategy.config === 'string' ? JSON.parse(strategy.config) : (strategy.config || {});
+                            let config = strategy.config || {};
+                            if (typeof strategy.config === 'string') {
+                                try {
+                                    config = JSON.parse(strategy.config);
+                                } catch (e) {
+                                    console.warn("Failed to parse strategy config", strategy.config);
+                                    config = {};
+                                }
+                            }
                             const sType = config.type || 'Signal';
                             const sPair = config.pair || t("all_pairs");
+
+                            // 归一化后保证存在 strategy.metrics.all
+                            const metrics = (strategy.metrics as any)?.all || {};
 
                             return (
                                 <TableRow key={strategy.id} className="group hover:bg-slate-50/80 transition-colors">
@@ -259,27 +274,21 @@ const StrategyManager = () => {
                                             {sPair}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-center">{formatPct((strategy as any).roi_all)}</TableCell>
+                                    <TableCell className="text-center">
+                                        {typeof metrics.return_pct === 'number' ? formatPct(metrics.return_pct) : '--'}
+                                    </TableCell>
                                     <TableCell className="text-center">
                                         <span className="text-xs font-semibold text-rose-500 underline decoration-rose-500/20 underline-offset-4">
-                                            {(strategy as any).max_drawdown ? `${Math.abs((strategy as any).max_drawdown).toFixed(2)}%` : '--'}
+                                            {typeof metrics.max_drawdown_pct === 'number' ? `${Math.abs(metrics.max_drawdown_pct).toFixed(2)}%` : '--'}
                                         </span>
                                     </TableCell>
                                     <TableCell className="text-center">
                                         <span className="text-xs font-bold text-slate-700">
-                                            {(strategy as any).win_rate ? `${((strategy as any).win_rate * 100).toFixed(1)}%` : '--'}
+                                            {typeof metrics.win_rate === 'number' ? `${metrics.win_rate.toFixed(1)}%` : '--'}
                                         </span>
                                     </TableCell>
                                     <TableCell>
-                                        {strategy.status === 'active' ? (
-                                            <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-none px-3 py-1">
-                                                <Check className="w-3 h-3 mr-1.5" /> {t("active")}
-                                            </Badge>
-                                        ) : (
-                                            <Badge variant="outline" className="text-slate-400 border-slate-200 px-3 py-1">
-                                                <Pause className="w-3 h-3 mr-1.5" /> {t("inactive")}
-                                            </Badge>
-                                        )}
+                                        {getStatusBadge(strategy.status)}
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <DropdownMenu>
@@ -326,28 +335,28 @@ const StrategyManager = () => {
                                                 }}>
                                                     <Upload className="mr-3 h-4 w-4 text-indigo-500" /> {t("import_csv")}
                                                 </DropdownMenuItem>
-
-                                                <DropdownMenuSeparator className="bg-slate-50" />
-
-                                                <DropdownMenuItem className="rounded-xl text-rose-600 focus:bg-rose-50 focus:text-rose-600 cursor-pointer" onClick={() => {
-                                                    setSelectedStrategyId(strategy.id);
-                                                    setPurgeCsv(true); // Reset to default true
-                                                    setDeleteDialogOpen(true);
-                                                }}>
-                                                    <Trash2 className="mr-3 h-4 w-4" /> {t("delete")}
-                                                </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
                                 </TableRow>
                             );
                         })}
-                        {(!strategies || strategies.length === 0) && !isLoading && (
+                        {(!strategies || strategies.length === 0) && !isLoading && !isError && (
                             <TableRow>
                                 <TableCell colSpan={9} className="h-64 text-center">
                                     <div className="flex flex-col items-center justify-center text-slate-400 gap-3">
                                         <BarChart2 className="w-12 h-12 opacity-20" />
                                         <p className="font-medium">{t("no_data")}</p>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        )}
+                        {isError && !isLoading && (
+                            <TableRow>
+                                <TableCell colSpan={9} className="h-64 text-center">
+                                    <div className="flex flex-col items-center justify-center text-rose-500 gap-3">
+                                        <AlertTriangle className="w-12 h-12 opacity-80" />
+                                        <p className="font-medium">{t("common:error")}</p>
                                     </div>
                                 </TableCell>
                             </TableRow>
@@ -371,17 +380,55 @@ const StrategyManager = () => {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-6 py-6 border-y border-slate-50 my-2">
-                        <div className="space-y-2">
-                            <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">{t("secret_key_label")}</Label>
-                            <div className="flex gap-2 group">
-                                <Input readOnly value={currentSecret?.secret || ''} className="h-12 bg-slate-50 border-none rounded-xl font-mono text-xs focus-visible:ring-primary/20" />
-                                <Button size="icon" variant="outline" className="h-12 w-12 rounded-xl border-slate-200" onClick={() => {
-                                    navigator.clipboard.writeText(currentSecret?.secret || '');
-                                    toast.success(t("copy"));
-                                }}>
-                                    <Copy className="h-4 w-4" />
-                                </Button>
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">{t("admin:filter_strategy_id", "Strategy ID")}</Label>
+                                <div className="flex gap-2 group">
+                                    <Input readOnly value={currentSecret?.strategy_id || ''} className="h-12 bg-slate-50 border-none rounded-xl font-mono text-xs focus-visible:ring-primary/20" />
+                                    <Button size="icon" variant="outline" className="h-12 w-12 rounded-xl border-slate-200" onClick={() => {
+                                        navigator.clipboard.writeText(String(currentSecret?.strategy_id || ''));
+                                        toast.success(t("copy"));
+                                    }}>
+                                        <Copy className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">{t("strategies:detail.strategy_key", "Strategy Key")}</Label>
+                                <div className="flex gap-2 group">
+                                    <Input readOnly value={currentSecret?.strategy_key || ''} className="h-12 bg-slate-50 border-none rounded-xl font-mono text-xs focus-visible:ring-primary/20" />
+                                    <Button size="icon" variant="outline" className="h-12 w-12 rounded-xl border-slate-200" onClick={() => {
+                                        navigator.clipboard.writeText(currentSecret?.strategy_key || '');
+                                        toast.success(t("copy"));
+                                    }}>
+                                        <Copy className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">{t("secret_key_label")}</Label>
+                                <div className="flex gap-2 group">
+                                    <Input readOnly value={currentSecret?.secret || ''} className="h-12 bg-slate-50 border-none rounded-xl font-mono text-xs focus-visible:ring-primary/20" />
+                                    <Button size="icon" variant="outline" className="h-12 w-12 rounded-xl border-slate-200" onClick={() => {
+                                        navigator.clipboard.writeText(currentSecret?.secret || '');
+                                        toast.success(t("copy"));
+                                    }}>
+                                        <Copy className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                            {currentSecret && (
+                                <div className="space-y-2 mt-4 p-4 bg-slate-50 rounded-xl">
+                                    <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t('strategies:detail.webhook_secret_hint_title')}</Label>
+                                    <pre className="text-[10px] text-slate-600 font-mono whitespace-pre-wrap mt-2">{`{
+  "secret": "${currentSecret.secret || "YOUR_SECRET_KEY"}",
+  "strategy_key": "YOUR_STRATEGY_KEY",
+  "symbol": "{{ticker}}",
+  "side": "buy",
+  "action": "open"
+}`}</pre>
+                                </div>
+                            )}
                         </div>
                     </div>
                     <DialogFooter>
@@ -442,56 +489,6 @@ const StrategyManager = () => {
                             disabled={!csvFile || importStatsMutation.isPending}
                         >
                             {importStatsMutation.isPending ? t("loading") : t("import_data_btn")}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-            {/* Delete Confirmation Dialog */}
-            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <DialogContent className="max-w-md rounded-[2.5rem] border-none shadow-2xl p-8">
-                    <DialogHeader>
-                        <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-3 text-rose-600">
-                            <div className="p-2 bg-rose-50 rounded-full">
-                                <ShieldAlert className="w-6 h-6 text-rose-500" />
-                            </div>
-                            {t("delete_strategy_title", "Delete Strategy")}
-                        </DialogTitle>
-                        <DialogDescription className="text-slate-500 font-medium pt-2">
-                            {t("delete_strategy_confirm", "Are you sure you want to delete this strategy? This action cannot be undone.")}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="py-6">
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-start gap-3">
-                            <input
-                                type="checkbox"
-                                id="purge-csv"
-                                checked={purgeCsv}
-                                onChange={(e) => setPurgeCsv(e.target.checked)}
-                                className="mt-1 h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
-                            />
-                            <label htmlFor="purge-csv" className="text-sm text-slate-700 cursor-pointer select-none">
-                                <span className="font-bold block text-slate-900 mb-0.5">{t("delete_purge_csv", "Delete associated CSV files")}</span>
-                                <span className="text-xs text-slate-500">{t("delete_purge_csv_desc", "Also remove uploaded TradingView history files from server.")}</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <DialogFooter className="gap-3 sm:gap-0">
-                        <Button variant="ghost" className="h-12 rounded-xl font-bold px-8" onClick={() => setDeleteDialogOpen(false)}>
-                            {t("form.cancel")}
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            className="h-12 rounded-xl font-bold px-10 shadow-button bg-rose-600 hover:bg-rose-700"
-                            onClick={() => {
-                                if (selectedStrategyId) {
-                                    deleteMutation.mutate({ id: selectedStrategyId, purgeTvCsv: purgeCsv });
-                                }
-                            }}
-                            disabled={deleteMutation.isPending}
-                        >
-                            {deleteMutation.isPending ? t("deleting", "Deleting...") : t("delete_confirm", "Delete Strategy")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
