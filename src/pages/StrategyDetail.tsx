@@ -52,6 +52,7 @@ const StrategyDetail = () => {
   const queryClient = useQueryClient();
   const { t } = useTranslation(['strategies', 'common']);
   const { user, isAdmin } = useAuth();
+  const SUPPORTED_META_EXCHANGES = ['binance_futures', 'gate_futures'] as const;
 
   const canQuery = Number.isFinite(strategyId) && strategyId > 0;
 
@@ -158,10 +159,14 @@ const StrategyDetail = () => {
   // ✅ New: Fetch Exchange Meta for min_notional validation
   const { data: exchangeMeta } = useQuery({
     queryKey: ['exchange-meta', strategy?.pair, selectedAccount?.exchange],
-    enabled: !!strategy?.pair && !!selectedAccount?.exchange && selectedAccount.exchange !== 'week',
+    enabled:
+      !!strategy?.pair &&
+      !!selectedAccount?.exchange &&
+      SUPPORTED_META_EXCHANGES.includes(selectedAccount.exchange as (typeof SUPPORTED_META_EXCHANGES)[number]),
     queryFn: async () => {
       const symbol = strategy!.pair!.replace('/', '');
-      const res = await exchangeApi.getSymbolsMeta(selectedAccount!.exchange, [symbol]);
+      const exchange = selectedAccount!.exchange as (typeof SUPPORTED_META_EXCHANGES)[number];
+      const res = await exchangeApi.getSymbolsMeta(exchange, [symbol]);
       return res.symbols?.find((s: any) => s.symbol === symbol) || null;
     },
     staleTime: 300_000
@@ -282,7 +287,7 @@ const StrategyDetail = () => {
   // ✅ Retry logic after legal acceptance
   const handleLegalAccepted = () => {
     setLegalError(null);
-    toast.success(t('legal:auth_success_retry'));
+    toast.success(t('strategies:detail.toast_auth_success', { defaultValue: 'Re-authenticating via credentials' }));
 
     // Automatically retry the last action
     if (editingSub) {
@@ -384,7 +389,10 @@ const StrategyDetail = () => {
 
   const getAccountDetail = (accountId: number) => accounts?.find((a) => a.id === accountId);
 
-  const webhookUrl = `${window.location.protocol}//${window.location.host}/api/v1/tradingview/webhook`;
+  const apiBase = (import.meta.env.VITE_API_URL as string)
+    ? (import.meta.env.VITE_API_URL as string).replace(/\/$/, '')
+    : `${window.location.protocol}//${window.location.host}/api/v1`;
+  const webhookUrl = `${apiBase.replace(/\/api\/v1$/, '')}/api/v1/tradingview/webhook`;
   const copyWebhook = () => {
     navigator.clipboard.writeText(webhookUrl);
     toast.success(t('strategies:detail.webhook_url'));
@@ -425,7 +433,7 @@ const StrategyDetail = () => {
     );
   }
 
-  const showWebhook = isAdmin || String(user?.id) === String(strategy?.user_id);
+  const showWebhook = isAdmin;
 
   const promotedKeys = ['risk_level', 'recommended_leverage', 'pair', 'type', 'strategy_key'];
   const displayParams = Object.entries(parsedConfig).filter(([key]) => !promotedKeys.includes(key));
@@ -443,16 +451,21 @@ const StrategyDetail = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {displayParams.map(([key, value]) => (
-          <div key={key} className="p-3.5 rounded-xl bg-secondary/20 border border-border/30 hover:border-primary/30 hover:bg-secondary/30 transition-all">
-            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider block mb-1">
-              {parameterLabels[key] || t(`strategies:detail.${key}`) || key.replace(/_/g, ' ')}
-            </span>
-            <span className="text-sm font-bold text-primary break-words leading-tight block">
-              {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-            </span>
-          </div>
-        ))}
+        {displayParams.map(([key, value]) => {
+          const translated = t(`strategies:detail.${key}`, { defaultValue: '' }).trim();
+          const label = parameterLabels[key] || translated || key.replace(/_/g, ' ');
+
+          return (
+            <div key={key} className="p-3.5 rounded-xl bg-secondary/20 border border-border/30 hover:border-primary/30 hover:bg-secondary/30 transition-all">
+              <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider block mb-1">
+                {label}
+              </span>
+              <span className="text-sm font-bold text-primary break-words leading-tight block">
+                {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </motion.div>
   ) : null;
@@ -474,12 +487,12 @@ const StrategyDetail = () => {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold">{strategy.name}</h1>
-              <Badge variant={strategy.status === 'active' ? 'default' : 'secondary'}>
-                {strategy.status === 'active' ? t('strategies:detail.status_active') : t('strategies:detail.status_maintenance')}
+              <Badge variant={strategy.status === 'active' ? 'default' : (strategy.status === 'inactive' ? 'secondary' : 'destructive')}>
+                {strategy.status === 'active' ? t('strategies:detail.status_active') : (strategy.status === 'inactive' ? t('strategies:detail.status_inactive') : t(`strategies:detail.status_${strategy.status}`, { defaultValue: strategy.status }))}
               </Badge>
             </div>
             <p className="text-muted-foreground flex items-center gap-2 text-sm mt-1">
-              <span>{strategy.pair || (parsedConfig as any)?.pair || strategy.strategy_key}</span>
+              <span>{strategy.pair || (parsedConfig as any)?.pair || '-'}</span>
               <span className="w-1 h-1 rounded-full bg-border" />
               <span>{t('strategies:detail.created_at')} {new Date(strategy.created_at).toLocaleDateString()}</span>
               {strategy.updated_at && (
@@ -495,10 +508,12 @@ const StrategyDetail = () => {
         </div>
 
         <div className="flex gap-2">
-          <Button variant="ghost" className="h-10" onClick={() => navigate(`/strategies/${id}/signals`)}>
-            <History className="w-4 h-4 mr-2" />
-            {t('strategies:detail.signal_history')}
-          </Button>
+          {(isAdmin || isSubscribed(strategyId)) && (
+            <Button variant="ghost" className="h-10" onClick={() => navigate(`/strategies/${id}/signals`)}>
+              <History className="w-4 h-4 mr-2" />
+              {t('strategies:detail.signal_history')}
+            </Button>
+          )}
 
           <Button
             className="gradient-primary px-6 h-10 shadow-lg shadow-primary/20"
@@ -623,7 +638,7 @@ const StrategyDetail = () => {
               <p className="text-sm text-foreground/90 leading-relaxed font-medium">{strategy.description}</p>
             ) : (
               <p className="text-sm text-muted-foreground leading-relaxed">
-                {t('strategies:detail.risk_desc_placeholder', { type: strategy.type || (parsedConfig as any)?.type || 'Auto', pair: strategy.pair || (parsedConfig as any)?.pair || 'Multi-Asset' }) || strategy.description}
+                {t('strategies:detail.no_description')}
               </p>
             )}
 
@@ -636,7 +651,7 @@ const StrategyDetail = () => {
                     if (raw && t(`strategies:risk_levels.${raw}`, { defaultValue: '' })) {
                       return t(`strategies:risk_levels.${raw}`);
                     }
-                    return raw || (strategy.status === 'active' ? t('strategies:detail.risk_medium') : t('strategies:detail.risk_none'));
+                    return raw || t('strategies:detail.risk_none');
                   })()}
                 </p>
               </div>
@@ -644,7 +659,7 @@ const StrategyDetail = () => {
               <div className="bg-secondary/20 p-3 rounded-xl border border-border/20">
                 <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">{t('strategies:detail.recommended_leverage')}</p>
                 <p className="text-sm font-bold text-primary">
-                  {(parsedConfig as any)?.recommended_leverage || '10x - 50x'}
+                  {(parsedConfig as any)?.recommended_leverage || '--'}
                 </p>
               </div>
             </div>
@@ -700,7 +715,7 @@ const StrategyDetail = () => {
                       {item.pnl > 0 ? '+' : ''}
                       {Number(item.pnl).toFixed(2)}
                     </p>
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-widest">Profit (USDT)</p>
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-widest">{t('strategies:detail.total_pnl')} (USDT)</p>
                   </div>
                 </div>
               ))
@@ -720,7 +735,7 @@ const StrategyDetail = () => {
               <LinkIcon className="w-5 h-5 text-primary" />
               <h3 className="text-lg font-bold">{t('strategies:detail.my_subscription')}</h3>
             </div>
-            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-primary/10 text-primary" onClick={handleAddSub}>
+            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-primary/10 text-primary" onClick={() => handleAddSub()}>
               <Plus className="w-5 h-5" />
             </Button>
           </div>
@@ -763,7 +778,9 @@ const StrategyDetail = () => {
                           <Badge variant="outline" className="text-[9px] h-4 px-1 px-1.5 font-mono border-primary/20 text-primary">
                             {label}
                           </Badge>
-                          <span className="text-[10px] text-muted-foreground font-mono">{sub.leverage}x</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {typeof sub.leverage === 'number' ? `${sub.leverage}x` : '--'}
+                          </span>
 
                           {/* ✅ Phase 136: Blocked/Frozen Status */}
                           {(sub.is_frozen || sub.block_open) && (
@@ -778,14 +795,14 @@ const StrategyDetail = () => {
                                     )}
                                   >
                                     {sub.is_frozen ? <Snowflake className="w-2.5 h-2.5" /> : <OctagonAlert className="w-2.5 h-2.5" />}
-                                    {sub.is_frozen ? t('strategies:status_frozen') : t('strategies:status_blocked')}
+                                    {sub.is_frozen ? t('strategies:detail.status_frozen') : t('strategies:detail.status_blocked')}
                                   </Badge>
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p className="text-xs font-medium">
                                     {sub.is_frozen
-                                      ? (sub.frozen_reason || t('strategies:freeze_reason'))
-                                      : (sub.block_open_reason || t('strategies:block_reason'))}
+                                      ? (sub.frozen_reason || t('strategies:detail.freeze_reason'))
+                                      : (sub.block_open_reason || t('strategies:detail.block_reason'))}
                                   </p>
                                 </TooltipContent>
                               </Tooltip>
@@ -839,7 +856,7 @@ const StrategyDetail = () => {
                   <h3 className="text-lg font-bold">{t('strategies:detail.signal_channel')}</h3>
                 </div>
                 <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary">
-                  TradingView Webhook
+                  {t('strategies:detail.webhook_channel_badge', 'TradingView Webhook')}
                 </Badge>
               </div>
 
@@ -1091,8 +1108,9 @@ const StrategyDetail = () => {
       <WebhookSecretDialog
         open={isSecretOpen}
         onOpenChange={setIsSecretOpen}
-        strategyId={strategyId}
-        strategyName={strategy?.name || ''}
+        strategyId={strategy.id}
+        strategyName={strategy.name}
+        isAdmin={isAdmin}
       />
 
       <RiskDisclosureDialog
