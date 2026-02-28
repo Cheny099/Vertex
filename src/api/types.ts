@@ -342,6 +342,10 @@ export interface OrderListResponse {
 }
 
 export interface TradeHistoryParams {
+    page_num?: number;
+    page_size?: number;
+    account_id?: number;
+    status?: string;
     page?: number;
     limit?: number;
     pair?: string;

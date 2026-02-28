@@ -58,6 +58,8 @@
     "Invalid or expired code": "Invalid or expired code",
     "User not found": "User not found",
     "Account not found": "Account not found",
+    "Not a turboflow account": "Not a TurboFlow account",
+    "TurboFlow api_key/api_secret missing": "TurboFlow API Key/Secret is missing",
     "Account with same name already exists": "Account with same name already exists",
     "turboflow uid must be digits only": "TurboFlow UID must be digits only",
     "turboflow requires api_key and api_secret": "TurboFlow requires API Key and Secret",
@@ -81,6 +83,8 @@
     "week exchange is disabled (set ENABLE_WEEK=1 to enable)": "Week exchange is disabled",
     "set ENABLE_WEEK=1 to enable week": "Set ENABLE_WEEK=1 to enable Week",
     "Accounts limit reached for exchange": "Accounts limit reached for exchange",
+    "TurboFlow http_status": "TurboFlow upstream HTTP error",
+    "TurboFlow errno": "TurboFlow upstream business error",
     "connect only works for week accounts": "Connect is only available for Week accounts",
     "connect only works for week accounts, exchange=turboflow": "Connect is only available for Week accounts",
     "connect only works for week accounts, exchange=binance_futures": "Connect is only available for Week accounts",
@@ -99,7 +103,12 @@
     "TurboFlow api_key is already used by another account. Please generate a new API key for this UID.": "TurboFlow API Key is already used by another account. Please generate a new API key for this UID.",
     "connect failed": "Connect failed",
     "unsupported exchange": "Unsupported exchange",
-    "call POST /accounts/{id}/verify to check api_key/api_secret": "Call verify endpoint to check API key and secret"
+    "call POST /accounts/{id}/verify to check api_key/api_secret": "Call verify endpoint to check API key and secret",
+    "Only pending/processing orders can be cancelled": "Only pending or processing orders can be cancelled",
+    "Only failed orders can be retried": "Only failed orders can be retried",
+    "Retry limit reached": "Retry limit reached",
+    "Failed to cancel order": "Failed to cancel order",
+    "Failed to retry order": "Failed to retry order"
   },
   "exchanges": {
     "binance_futures": "Binance",

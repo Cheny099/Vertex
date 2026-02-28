@@ -99,7 +99,7 @@ const TOKEN_KEY = 'auth_token';
 // 馃洝锔?API Client - Fully connected to production backend
 
 // 閫氱敤璇锋眰鍑芥暟
-function translateBackendErrorMessage(rawMsg: string): string {
+export function translateBackendErrorMessage(rawMsg: string): string {
     const directKey = `common:backend_errors.${rawMsg}`;
     if (i18n.exists(directKey)) return i18n.t(directKey);
 
@@ -112,6 +112,16 @@ function translateBackendErrorMessage(rawMsg: string): string {
         {
             prefix: 'Accounts limit reached for exchange=',
             key: 'common:backend_errors.Accounts limit reached for exchange',
+            preserveSuffix: true,
+        },
+        {
+            prefix: 'TurboFlow http_status=',
+            key: 'common:backend_errors.TurboFlow http_status',
+            preserveSuffix: true,
+        },
+        {
+            prefix: 'TurboFlow errno=',
+            key: 'common:backend_errors.TurboFlow errno',
             preserveSuffix: true,
         },
         { prefix: 'connect failed:', key: 'common:backend_errors.connect failed', preserveSuffix: true },
@@ -643,7 +653,7 @@ export const subscriptionApi = {
 // ===============================================
 export const orderApi = {
     list: async (params?: { page_num?: number, page_size?: number, status?: string, account_id?: number, strategy_id?: number, include_pnl?: boolean }) => {
-        const query = new URLSearchParams(params as any).toString();
+        const query = buildQuery(params as any);
         return request<OrderListResponse>(`/orders/?${query}`);
     },
 
@@ -677,11 +687,10 @@ export const orderApi = {
 
     // 鑾峰彇浜ゆ槗鍘嗗彶 (榛樿浣跨敤鏈湴绯荤粺璁㈠崟锛屽缓璁垏鎹㈠埌 turboflowApi.getOrders 浠ヨ幏鍙栨敹鐩?
     getHistory: async (params?: TradeHistoryParams & { include_pnl?: boolean }) => {
-        // 鉁?Pass include_pnl query param
-        const query = new URLSearchParams({
+        const query = buildQuery({
             ...(params as any),
-            ...(params?.include_pnl ? { include_pnl: 'true' } : {})
-        }).toString();
+            ...(params?.include_pnl ? { include_pnl: true } : {})
+        });
 
         const response = await request<OrderListResponse>(`/orders/?${query}`);
         const mappedItems = response.items.map(order => {
@@ -808,7 +817,7 @@ export const leaderboardApi = {
 // ===============================================
 export const turboflowApi = {
     getOrders: async (params: { account_id: number; status?: string; page_num?: number; page_size?: number; debug?: boolean }) => {
-        const query = new URLSearchParams(params as any).toString();
+        const query = buildQuery(params as any);
         try {
             const resp = await request<TurboFlowOrderListResponse>(`/turboflow/orders?${query}`);
             // 杩斿洖 data 瀵硅薄浠ヤ繚鐣?pagination 淇℃伅 (count, page_count)

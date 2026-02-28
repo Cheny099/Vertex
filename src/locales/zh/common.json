@@ -36,7 +36,7 @@
     "cancelled": "已取消"
   },
   "unknown_error": "未知错误",
-  "session_expired": "\u4f1a\u8bdd\u5df2\u8fc7\u671f\uff0c\u8bf7\u91cd\u65b0\u767b\u5f55",
+  "session_expired": "会话已过期，请重新登录",
   "admin": {
     "announcements": "公告管理",
     "announcements_desc": "管理全站公告与弹窗推送。",
@@ -87,6 +87,8 @@
     "Invalid or expired code": "验证码无效或已过期",
     "User not found": "用户不存在",
     "Account not found": "账户不存在",
+    "Not a turboflow account": "该账户不是 TurboFlow 账户",
+    "TurboFlow api_key/api_secret missing": "缺少 TurboFlow API Key 或 API Secret",
     "Account with same name already exists": "该账户名称已存在",
     "turboflow uid must be digits only": "TurboFlow UID 必须为纯数字",
     "turboflow requires api_key and api_secret": "TurboFlow 需要 API Key 和 Secret",
@@ -128,7 +130,14 @@
     "binance_futures exchange is disabled": "Binance 交易所已禁用",
     "gate_futures exchange is disabled": "Gate 交易所已禁用",
     "set ENABLE_WEEK=1 to enable week": "请设置 ENABLE_WEEK=1 以启用 Week",
-    "Accounts limit reached for exchange": "\u8be5\u4ea4\u6613\u6240\u8d26\u6237\u6570\u91cf\u5df2\u8fbe\u4e0a\u9650"
+    "Accounts limit reached for exchange": "该交易所账户数量已达上限",
+    "TurboFlow http_status": "TurboFlow 上游 HTTP 错误",
+    "TurboFlow errno": "TurboFlow 上游业务错误",
+    "Only pending/processing orders can be cancelled": "只能取消待成交或处理中的订单",
+    "Only failed orders can be retried": "只能重试失败状态的订单",
+    "Retry limit reached": "已达到重试次数上限",
+    "Failed to cancel order": "取消订单失败",
+    "Failed to retry order": "重试订单失败"
   },
   "nav": {
     "dashboard": "仪表盘",

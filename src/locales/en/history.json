@@ -11,6 +11,9 @@
         "pnl_closed": "Realized P/L",
         "count": "Orders",
         "total": "Total",
+        "scope_page": "Current page",
+        "scope_filtered_page": "Filtered (current page)",
+        "scope_server_total": "Server total",
         "unit_orders": "Orders",
         "unit_items": "Items"
     },
@@ -21,6 +24,12 @@
         "status_placeholder": "Status",
         "pair_placeholder": "Pair",
         "type_placeholder": "Type",
+        "tf_status": {
+            "pending": "Pending",
+            "filled": "Filled",
+            "cancelled": "Cancelled",
+            "rejected": "Rejected"
+        },
         "status": {
             "holding": "Holding",
             "closed": "Closed"
@@ -41,9 +50,14 @@
         "status": "Status",
         "action": "Action",
         "empty": "No matching records found",
+        "error_title": "Failed to load records",
+        "truncated_suffix": "...(truncated)",
+        "missing_usd": "MISSING_USD",
         "status_map": {
             "filled": "Filled",
+            "partially_filled": "Partially Filled",
             "canceled": "Canceled",
+            "partially_canceled": "Partially Canceled",
             "failed": "Failed",
             "expired": "Expired",
             "pending": "Pending",
@@ -62,6 +76,17 @@
             "SUBSCRIPTION_BLOCKED": "Order Blocked",
             "UNKNOWN": "Unknown error"
         },
+        "failure_action_map": {
+            "UID_MISMATCH": "Update account UID or regenerate matching API keys, then verify again.",
+            "INSUFFICIENT_BALANCE": "Deposit funds or reduce position ratio/leverage before retrying.",
+            "MIN_NOTIONAL": "Increase fixed amount or switch to a symbol with lower minimum notional.",
+            "NO_ASSETS": "Check account funding and API permissions, then retry.",
+            "RATE_LIMIT": "Wait a moment and retry after exchange rate limits reset.",
+            "EXPIRED": "Check network, exchange status, and account asset availability, then retry.",
+            "FAILED": "Open order details for cause, then retry when ready.",
+            "SUBSCRIPTION_BLOCKED": "Review subscription rules and unblock opening/frozen state first.",
+            "UNKNOWN": "Open order details and contact admin if the issue persists."
+        },
         "errors": {
             "blocked_frozen": "Subscription frozen, order blocked",
             "blocked_open": "Opening blocked by subscription rules"
@@ -74,6 +99,8 @@
         "next": "Next"
     },
     "actions": {
+        "cancel_success": "Order cancelled",
+        "retry_success": "Retry submitted",
         "suggested_action": "Suggested Action",
         "retry": "Retry",
         "cancel": "Cancel",
@@ -82,6 +109,7 @@
         "cancel_confirm_btn": "Confirm",
         "cancel_cancel_btn": "Dismiss",
         "debug": "Debug Info",
+        "debug_title": "Order Debug Info (ID: {{id}})",
         "export": "Export"
     },
     "tabs": {

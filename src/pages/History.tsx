@@ -2,7 +2,7 @@
  * @anchor-id HISTORY_PAGE
  * @module-type page
  * @disposable false
- * @mock-data trades 和 stats 数组为临时 Mock，后端对接时替换为 API 调用
+ * @mock-data trades and stats are temporary mocks until API data is fully connected.
  */
 
 import { useState, useMemo, useEffect } from 'react';
@@ -34,8 +34,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { orderApi, turboflowApi, accountApi, type Account, type Order } from '@/api';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { orderApi, turboflowApi, accountApi, translateBackendErrorMessage, type Order } from '@/api';
 import { toast } from 'sonner';
 
 import {
@@ -45,29 +45,55 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from 'react-i18next';
 
-const pairs = ['all', 'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT'];
 const types = ['all', 'buy', 'sell'];
 const pageSizeOptions = [5, 10, 20, 50];
+const tfOrderStatuses = ['all', 'Pending', 'Filled', 'Cancelled', 'Rejected'] as const;
 
 const HistoryPage = () => {
-  const { t } = useTranslation(['history', 'common']); // Add namespaces
+  const { t, i18n } = useTranslation(['history', 'common']); // Add namespaces
 
   // State
+  const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPair, setSelectedPair] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
   const [viewMode, setViewMode] = useState<'system' | 'turboflow'>('system');
-  const [selectedAccount, setSelectedAccount] = useState('all');
-  const [tfStatus, setTfStatus] = useState<string>('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [selectedSystemAccount, setSelectedSystemAccount] = useState('all');
+  const [selectedTfAccount, setSelectedTfAccount] = useState('');
+  const [tfStatus, setTfStatus] = useState<(typeof tfOrderStatuses)[number]>('all');
+  const [systemPage, setSystemPage] = useState(1);
+  const [systemPageSize, setSystemPageSize] = useState(20);
+  const [tfPage, setTfPage] = useState(1);
+  const [tfPageSize, setTfPageSize] = useState(20);
   const [debugOrder, setDebugOrder] = useState<any>(null);
 
   const queryClient = useQueryClient();
+
+  const getToastErrorMessage = (error: any) => {
+    const rawMessage = typeof error?.message === 'string' ? error.message : t('common:unknown_error');
+    return translateBackendErrorMessage(rawMessage);
+  };
+
+  const getFailureCode = (trade: Order): string | undefined => {
+    return trade.failure_code || trade.public_error?.code;
+  };
+
+  const getMappedFailureMessage = (trade: Order): string | undefined => {
+    const code = getFailureCode(trade);
+    if (!code) return undefined;
+    const key = `history:table.failure_map.${code}`;
+    return i18n.exists(key) ? t(key) : undefined;
+  };
+
+  const getMappedFailureAction = (trade: Order): string | undefined => {
+    const code = getFailureCode(trade);
+    if (!code) return undefined;
+    const key = `history:table.failure_action_map.${code}`;
+    return i18n.exists(key) ? t(key) : undefined;
+  };
 
   // Queries
   const { data: accounts = [] } = useQuery({
@@ -75,25 +101,107 @@ const HistoryPage = () => {
     queryFn: accountApi.list,
   });
 
-  const { data: systemOrdersData, isLoading: isSystemLoading } = useQuery({
-    queryKey: ['orders', 'history'],
-    queryFn: () => orderApi.getHistory({ include_pnl: true }),
+  const turboflowAccounts = useMemo(
+    () => accounts.filter((acc) => acc.exchange === 'turboflow'),
+    [accounts]
+  );
+
+  useEffect(() => {
+    if (viewMode !== 'turboflow') return;
+    if (turboflowAccounts.length === 0) {
+      if (selectedTfAccount !== '') setSelectedTfAccount('');
+      return;
+    }
+    const exists = turboflowAccounts.some((acc) => acc.id.toString() === selectedTfAccount);
+    if (!selectedTfAccount || !exists) {
+      setSelectedTfAccount(turboflowAccounts[0].id.toString());
+      setTfPage(1);
+    }
+  }, [viewMode, turboflowAccounts, selectedTfAccount]);
+
+  const {
+    data: systemOrdersData,
+    isLoading: isSystemLoading,
+    isError: isSystemError,
+    error: systemError,
+  } = useQuery({
+    queryKey: ['orders', 'history', selectedSystemAccount, systemPage, systemPageSize],
+    queryFn: () =>
+      orderApi.getHistory({
+        include_pnl: true,
+        page_num: systemPage,
+        page_size: systemPageSize,
+        account_id: selectedSystemAccount === 'all' ? undefined : Number(selectedSystemAccount),
+      }),
+    placeholderData: keepPreviousData,
     enabled: viewMode === 'system',
   });
 
-  // TurboFlow Orders (Mock/Real)
-  const { data: tfOrdersData, isLoading: isTfLoading } = useQuery({
-    queryKey: ['turboflow-orders', selectedAccount, tfStatus],
+  // TurboFlow Orders
+  const {
+    data: tfOrdersData,
+    isLoading: isTfLoading,
+    isError: isTfError,
+    error: tfError,
+  } = useQuery({
+    queryKey: ['turboflow-orders', selectedTfAccount, tfStatus, tfPage, tfPageSize],
     queryFn: async () => {
-      if (selectedAccount === 'all') return { data: [] }; // TF API usually needs account_id
+      if (!selectedTfAccount) {
+        return { data: [], count: 0, page_count: 0, page_num: tfPage, page_size: tfPageSize };
+      }
       return turboflowApi.getOrders({
-        account_id: Number(selectedAccount),
-        status: tfStatus === 'all' ? undefined : tfStatus as any,
-        page_size: 100
+        account_id: Number(selectedTfAccount),
+        status: tfStatus === 'all' ? undefined : tfStatus,
+        page_num: tfPage,
+        page_size: tfPageSize,
       });
     },
-    enabled: viewMode === 'turboflow' && selectedAccount !== 'all',
+    placeholderData: keepPreviousData,
+    enabled: viewMode === 'turboflow' && !!selectedTfAccount,
   });
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearchTerm(searchInput);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    if (viewMode !== 'system') return;
+    if (!systemOrdersData?.has_more) return;
+
+    const nextPage = systemPage + 1;
+    queryClient.prefetchQuery({
+      queryKey: ['orders', 'history', selectedSystemAccount, nextPage, systemPageSize],
+      queryFn: () =>
+        orderApi.getHistory({
+          include_pnl: true,
+          page_num: nextPage,
+          page_size: systemPageSize,
+          account_id: selectedSystemAccount === 'all' ? undefined : Number(selectedSystemAccount),
+        }),
+    });
+  }, [queryClient, viewMode, systemOrdersData?.has_more, systemPage, systemPageSize, selectedSystemAccount]);
+
+  useEffect(() => {
+    if (viewMode !== 'turboflow') return;
+    if (!selectedTfAccount) return;
+    const pageCount = tfOrdersData?.page_count ?? 0;
+    if (pageCount === 0 || tfPage >= pageCount) return;
+
+    const nextPage = tfPage + 1;
+    queryClient.prefetchQuery({
+      queryKey: ['turboflow-orders', selectedTfAccount, tfStatus, nextPage, tfPageSize],
+      queryFn: () =>
+        turboflowApi.getOrders({
+          account_id: Number(selectedTfAccount),
+          status: tfStatus === 'all' ? undefined : tfStatus,
+          page_num: nextPage,
+          page_size: tfPageSize,
+        }),
+    });
+  }, [queryClient, viewMode, selectedTfAccount, tfOrdersData?.page_count, tfPage, tfPageSize, tfStatus]);
 
   // Mutations
   const cancelMutation = useMutation({
@@ -102,7 +210,7 @@ const HistoryPage = () => {
       toast.success(t('history:actions.cancel_success'));
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     },
-    onError: (error: any) => toast.error(error.message)
+    onError: (error: any) => toast.error(getToastErrorMessage(error))
   });
 
   const retryMutation = useMutation({
@@ -111,13 +219,13 @@ const HistoryPage = () => {
       toast.success(t('history:actions.retry_success'));
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     },
-    onError: (error: any) => toast.error(error.message)
+    onError: (error: any) => toast.error(getToastErrorMessage(error))
   });
 
   const debugMutation = useMutation({
     mutationFn: orderApi.debug,
     onSuccess: (data) => setDebugOrder(data),
-    onError: (error: any) => toast.error(error.message)
+    onError: (error: any) => toast.error(getToastErrorMessage(error))
   });
 
   // Reorder is complex, just placeholder for now or reuse retry
@@ -152,7 +260,7 @@ const HistoryPage = () => {
           updated_at: item.updated_at || item.open_time,
           symbol: item.symbol || item.pair || item.pair_id || '--',
           side: sideMap(),
-          account_id: Number(selectedAccount),
+          account_id: Number(selectedTfAccount || item.account_id || 0),
           price: parseNum(item.deal_price ?? item.price ?? item.avg_price),
           quantity: parseNum(item.done_vol ?? item.quantity ?? item.amount ?? item.done_amount),
           realized_pnl: parseNum(item.done_pnl ?? item.realized_pnl ?? item.profit),
@@ -160,16 +268,20 @@ const HistoryPage = () => {
         };
       }) as Order[];
     }
-  }, [viewMode, systemOrdersData, tfOrdersData, selectedAccount]);
+  }, [viewMode, systemOrdersData, tfOrdersData, selectedTfAccount]);
 
   const isLoading = viewMode === 'system' ? isSystemLoading : isTfLoading;
+  const isError = viewMode === 'system' ? isSystemError : isTfError;
+  const queryError = viewMode === 'system' ? systemError : tfError;
+  const queryErrorMessage = isError ? getToastErrorMessage(queryError) : '';
 
 
-  // Filters logic - update for 'all'
   // Filters logic
   const filteredTrades = useMemo(() => {
+    const activeAccount = viewMode === 'system' ? selectedSystemAccount : selectedTfAccount;
     return allTrades.filter((trade: Order) => {
-      const matchAccount = selectedAccount === 'all' || trade.account_id === Number(selectedAccount);
+      const matchAccount =
+        activeAccount === 'all' || activeAccount === '' || trade.account_id === Number(activeAccount);
       const matchPair = selectedPair === 'all' || String(trade.symbol).replace('/', '').includes(selectedPair.replace('/', ''));
       const matchType =
         selectedType === 'all' ||
@@ -182,21 +294,49 @@ const HistoryPage = () => {
 
       return matchAccount && matchPair && matchType && matchSearch;
     });
-  }, [allTrades, selectedAccount, selectedPair, selectedType, searchTerm]);
+  }, [allTrades, selectedSystemAccount, selectedTfAccount, selectedPair, selectedType, searchTerm, viewMode]);
 
-  // Pagination logic
-  const totalPages = Math.ceil(filteredTrades.length / pageSize);
-  const paginatedTrades = filteredTrades.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  // Use current server page data only (no extra local slicing)
+  const displayedTrades = filteredTrades;
+
+  const pairOptions = useMemo(() => {
+    const set = new Set<string>();
+    displayedTrades.forEach((trade) => {
+      const symbol = String(trade.symbol || '').trim();
+      if (symbol && symbol !== '--') set.add(symbol);
+    });
+    return ['all', ...Array.from(set)];
+  }, [displayedTrades]);
+
+  const hasLocalFilters = selectedPair !== 'all' || selectedType !== 'all' || searchTerm.trim() !== '';
 
   // Stats - Translate labels
   const stats = useMemo(() => {
-    const buyTrades = filteredTrades.filter((t: Order) => t.side === 'buy');
-    const totalProfit = filteredTrades.reduce((acc: number, t: Order) => acc + (Number(t.realized_pnl) || 0), 0);
+    const tfServerTotal = tfOrdersData?.count ?? 0;
+    const totalCount =
+      viewMode === 'turboflow'
+        ? hasLocalFilters
+          ? displayedTrades.length
+          : tfServerTotal
+        : displayedTrades.length;
+    const totalScope =
+      viewMode === 'turboflow'
+        ? hasLocalFilters
+          ? t('history:stats.scope_filtered_page')
+          : t('history:stats.scope_server_total')
+        : t('history:stats.scope_page');
+
+    const buyTrades = displayedTrades.filter((t: Order) => t.side === 'buy');
+    const totalProfit = displayedTrades.reduce((acc: number, t: Order) => acc + (Number(t.realized_pnl) || 0), 0);
 
     return [
-      { label: viewMode === 'system' ? t('history:stats.total_orders') : t('history:stats.total_volume'), value: `${filteredTrades.length} ${t('history:stats.count')}`, subValue: t('history:stats.total') },
-      { label: t('history:stats.buy'), value: `${buyTrades.length} ${t('history:stats.count')}`, subValue: t('history:stats.buy') },
-      { label: t('history:stats.sell'), value: `${filteredTrades.length - buyTrades.length} ${t('history:stats.count')}`, subValue: t('history:stats.sell') },
+      {
+        label: viewMode === 'system' ? t('history:stats.total_orders') : t('history:stats.total_volume'),
+        value: `${totalCount} ${t('history:stats.count')}`,
+        subValue: totalScope
+      },
+      { label: t('history:stats.buy'), value: `${buyTrades.length} ${t('history:stats.count')}`, subValue: t('history:stats.scope_page') },
+      { label: t('history:stats.sell'), value: `${displayedTrades.length - buyTrades.length} ${t('history:stats.count')}`, subValue: t('history:stats.scope_page') },
       {
         label: t('history:stats.pnl'),
         value: totalProfit.toFixed(2),
@@ -204,18 +344,52 @@ const HistoryPage = () => {
         color: totalProfit > 0 ? 'text-profit' : totalProfit < 0 ? 'text-loss' : ''
       },
     ];
-  }, [filteredTrades, viewMode, tfStatus, t]);
+  }, [displayedTrades, hasLocalFilters, tfOrdersData?.count, viewMode, t]);
 
   const clearFilters = () => {
     setSelectedPair('all');
     setSelectedType('all');
+    setSearchInput('');
     setSearchTerm('');
-    setCurrentPage(1);
+    if (viewMode === 'system') {
+      setSystemPage(1);
+    } else {
+      setTfPage(1);
+    }
   };
 
-  const hasFilters = selectedPair !== 'all' || selectedType !== 'all' || searchTerm !== '';
+  const hasFilters = selectedPair !== 'all' || selectedType !== 'all' || searchInput !== '';
 
-  // ... (isLoading - unchanged)
+  const currentPage = viewMode === 'system' ? systemPage : tfPage;
+  const currentPageSize = viewMode === 'system' ? systemPageSize : tfPageSize;
+  const setCurrentPage = (value: number | ((prev: number) => number)) => {
+    if (viewMode === 'system') {
+      setSystemPage((prev) => (typeof value === 'function' ? value(prev) : value));
+    } else {
+      setTfPage((prev) => (typeof value === 'function' ? value(prev) : value));
+    }
+  };
+  const setCurrentPageSize = (size: number) => {
+    if (viewMode === 'system') {
+      setSystemPageSize(size);
+      setSystemPage(1);
+    } else {
+      setTfPageSize(size);
+      setTfPage(1);
+    }
+  };
+
+  const tfTotal = tfOrdersData?.count ?? 0;
+  const tfPageCount = tfOrdersData?.page_count ?? 0;
+  const systemHasMore = !!systemOrdersData?.has_more;
+  const showingStart = displayedTrades.length === 0 ? 0 : (currentPage - 1) * currentPageSize + 1;
+  const showingEnd = displayedTrades.length === 0 ? 0 : showingStart + displayedTrades.length - 1;
+  const showingTotal =
+    viewMode === 'turboflow'
+      ? tfTotal
+      : systemHasMore
+        ? `${showingEnd}+`
+        : showingEnd;
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
@@ -271,9 +445,9 @@ const HistoryPage = () => {
           <Input
             placeholder={t('history:filters.search_placeholder')}
             className="pl-4"
-            value={searchTerm}
+            value={searchInput}
             onChange={(e) => {
-              setSearchTerm(e.target.value);
+              setSearchInput(e.target.value);
               setCurrentPage(1);
             }}
           />
@@ -281,36 +455,57 @@ const HistoryPage = () => {
 
         <div className="flex gap-2 flex-wrap">
           <Select
-            value={selectedAccount}
-            onValueChange={(v) => { setSelectedAccount(v); setCurrentPage(1); }}
+            value={viewMode === 'system' ? selectedSystemAccount : selectedTfAccount}
+            onValueChange={(v) => {
+              if (viewMode === 'system') {
+                setSelectedSystemAccount(v);
+                setSystemPage(1);
+              } else {
+                setSelectedTfAccount(v);
+                setTfPage(1);
+              }
+            }}
           >
             <SelectTrigger className="w-[160px] border-primary/50 bg-primary/5">
               <SelectValue placeholder={t('history:filters.account_placeholder')} />
             </SelectTrigger>
             <SelectContent>
-              {viewMode === 'system' && <SelectItem value="all">{t('history:filters.all_accounts')}</SelectItem>}
-              {accounts.map(acc => (
-                <SelectItem key={acc.id} value={acc.id.toString()}>
-                  {acc.name} ({acc.exchange})
-                </SelectItem>
-              ))}
+              {viewMode === 'system' ? (
+                <>
+                  <SelectItem value="all">{t('history:filters.all_accounts')}</SelectItem>
+                  {accounts.map((acc) => (
+                    <SelectItem key={acc.id} value={acc.id.toString()}>
+                      {acc.name} ({acc.exchange})
+                    </SelectItem>
+                  ))}
+                </>
+              ) : (
+                turboflowAccounts.map((acc) => (
+                  <SelectItem key={acc.id} value={acc.id.toString()}>
+                    {acc.name} ({acc.exchange})
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
 
           {viewMode === 'turboflow' && (
             <Select
               value={tfStatus}
-              onValueChange={(v) => { setTfStatus(v); setCurrentPage(1); }}
+              onValueChange={(v) => {
+                setTfStatus(v as (typeof tfOrderStatuses)[number]);
+                setTfPage(1);
+              }}
             >
               <SelectTrigger className="w-[160px] border-primary/50 bg-primary/5">
                 <SelectValue placeholder={t('history:filters.status_placeholder')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('history:filters.all')}</SelectItem>
-                <SelectItem value="Pending">待成交 (Pending)</SelectItem>
-                <SelectItem value="Filled">已成交 (Filled)</SelectItem>
-                <SelectItem value="Cancelled">已取消 (Cancelled)</SelectItem>
-                <SelectItem value="Rejected">已拒绝 (Rejected)</SelectItem>
+                <SelectItem value="Pending">{t('history:filters.tf_status.pending')}</SelectItem>
+                <SelectItem value="Filled">{t('history:filters.tf_status.filled')}</SelectItem>
+                <SelectItem value="Cancelled">{t('history:filters.tf_status.cancelled')}</SelectItem>
+                <SelectItem value="Rejected">{t('history:filters.tf_status.rejected')}</SelectItem>
               </SelectContent>
             </Select>
           )}
@@ -320,7 +515,7 @@ const HistoryPage = () => {
               <SelectValue placeholder={t('history:filters.pair_placeholder')} />
             </SelectTrigger>
             <SelectContent>
-              {pairs.map(pair => (
+              {pairOptions.map(pair => (
                 <SelectItem key={pair} value={pair}>
                   {pair === 'all' ? t('history:filters.all') : pair}
                 </SelectItem>
@@ -375,8 +570,8 @@ const HistoryPage = () => {
             </thead>
 
             <tbody className="divide-y divide-border">
-              {paginatedTrades.length > 0 ? (
-                paginatedTrades.map((trade: Order, index: number) => {
+              {displayedTrades.length > 0 ? (
+                displayedTrades.map((trade: Order, index: number) => {
                   const rawStatus = String(trade.status || '').toUpperCase();
                   const isSuccess = ['FILLED', 'COMPLETED', 'FINISHED'].includes(rawStatus);
                   const isFailure = ['FAILED', 'CANCELED', 'CANCELLED', 'EXPIRED'].includes(rawStatus);
@@ -384,7 +579,7 @@ const HistoryPage = () => {
 
                   const canShowError = ['FAILED', 'EXPIRED', 'PROCESSING'].includes(rawStatus);
 
-                  // ✅ Handle SUBSCRIPTION_BLOCKED specific messages
+                  // 鉁?Handle SUBSCRIPTION_BLOCKED specific messages
                   const rawError = (() => {
                     if (isBlocked) {
                       const details = trade.public_error?.details || {};
@@ -394,15 +589,29 @@ const HistoryPage = () => {
                       if (details.blocked_by === 'block_open' || trade.block_open) {
                         return t('history:table.errors.blocked_open');
                       }
-                      return trade.failure_message || trade.public_error?.message || t('history:table.failure_map.SUBSCRIPTION_BLOCKED');
+                      return (
+                        getMappedFailureMessage(trade) ||
+                        trade.failure_message ||
+                        trade.public_error?.message ||
+                        t('history:table.failure_map.SUBSCRIPTION_BLOCKED')
+                      );
                     }
-                    return trade.failure_message || trade.error_message || trade.last_error;
+                    return (
+                      getMappedFailureMessage(trade) ||
+                      trade.failure_message ||
+                      trade.public_error?.message ||
+                      trade.error_message ||
+                      trade.last_error
+                    );
                   })();
 
-                  const showTooltip = viewMode === 'system' && (canShowError || isBlocked) && !!rawError;
-                  const displayError = showTooltip && rawError.length > 200
-                    ? rawError.slice(0, 200) + '...(truncated)'
-                    : rawError;
+                  const normalizedRawError = typeof rawError === 'string' ? rawError : String(rawError ?? '');
+                  const showTooltip = viewMode === 'system' && (canShowError || isBlocked) && !!normalizedRawError;
+                  const displayError = showTooltip && normalizedRawError.length > 200
+                    ? `${normalizedRawError.slice(0, 200)}${t('history:table.truncated_suffix')}`
+                    : normalizedRawError;
+                  const mappedFailureAction = getMappedFailureAction(trade);
+                  const displayFailureAction = mappedFailureAction || trade.failure_action;
 
                   const statusLabel = (() => {
                     const s = trade.status?.toLowerCase();
@@ -426,7 +635,7 @@ const HistoryPage = () => {
                       if (isBlocked) return t('history:table.status_map.blocked');
 
                       const errMsg = (trade.failure_message || trade.error_message || '').toLowerCase();
-                      if (errMsg.includes('cancelled') || errMsg.includes('canceled') || errMsg.includes('取消')) {
+                      if (errMsg.includes('cancelled') || errMsg.includes('canceled')) {
                         return t('history:table.status_map.canceled');
                       }
                       return t('history:table.status_map.failed');
@@ -497,7 +706,9 @@ const HistoryPage = () => {
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Badge variant="outline" className="text-[8px] h-3 border-warning/50 text-warning px-1 mt-0.5 font-normal cursor-help">MISSING_USD</Badge>
+                                  <Badge variant="outline" className="text-[8px] h-3 border-warning/50 text-warning px-1 mt-0.5 font-normal cursor-help">
+                                    {t('history:table.missing_usd')}
+                                  </Badge>
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p>{t('common:audit.missing_notional_desc')}</p>
@@ -535,10 +746,10 @@ const HistoryPage = () => {
                             {showTooltip && (
                               <TooltipContent>
                                 <div className="max-w-xs space-y-2">
-                                  <p className="font-semibold text-destructive">{rawError}</p>
-                                  {trade.failure_action && (
+                                  <p className="font-semibold text-destructive">{displayError}</p>
+                                  {displayFailureAction && (
                                     <p className="text-xs p-2 bg-secondary/50 rounded border-l-2 border-primary">
-                                      {t('history:actions.suggested_action')}: {trade.failure_action}
+                                      {t('history:actions.suggested_action')}: {displayFailureAction}
                                     </p>
                                   )}
                                 </div>
@@ -613,7 +824,16 @@ const HistoryPage = () => {
               ) : (
                 <tr>
                   <td colSpan={9} className="p-8 text-center text-muted-foreground">
-                    {t('history:table.empty')}
+                    {isLoading ? (
+                      t('common:loading')
+                    ) : isError ? (
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-sm font-medium text-destructive">{t('history:table.error_title')}</span>
+                        <span className="text-xs text-muted-foreground">{queryErrorMessage || t('common:unknown_error')}</span>
+                      </div>
+                    ) : (
+                      t('history:table.empty')
+                    )}
                   </td>
                 </tr>
               )}
@@ -626,17 +846,17 @@ const HistoryPage = () => {
           <div className="flex items-center gap-4">
             <p className="text-sm text-muted-foreground">
               {t('history:pagination.showing', {
-                start: filteredTrades.length === 0 ? 0 : Math.min((currentPage - 1) * pageSize + 1, filteredTrades.length),
-                end: Math.min(currentPage * pageSize, filteredTrades.length),
-                total: filteredTrades.length
+                start: showingStart,
+                end: showingEnd,
+                total: showingTotal
               })}
             </p>
 
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">{t('history:pagination.per_page')}</span>
               <Select
-                value={pageSize.toString()}
-                onValueChange={(v) => { setPageSize(Number(v)); setCurrentPage(1); }}
+                value={currentPageSize.toString()}
+                onValueChange={(v) => setCurrentPageSize(Number(v))}
               >
                 <SelectTrigger className="w-[80px] h-8">
                   <SelectValue />
@@ -655,31 +875,37 @@ const HistoryPage = () => {
               variant="outline"
               size="sm"
               disabled={currentPage === 1}
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
               {t('history:pagination.prev')}
             </Button>
 
             <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                <Button
-                  key={page}
-                  variant={page === currentPage ? 'default' : 'ghost'}
-                  size="sm"
-                  className="w-8 h-8 p-0"
-                  onClick={() => setCurrentPage(page)}
-                >
-                  {page}
+              {viewMode === 'turboflow' ? (
+                Array.from({ length: tfPageCount }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    variant={page === currentPage ? 'default' : 'ghost'}
+                    size="sm"
+                    className="w-8 h-8 p-0"
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </Button>
+                ))
+              ) : (
+                <Button variant="ghost" size="sm" className="w-8 h-8 p-0" disabled>
+                  {currentPage}
                 </Button>
-              ))}
+              )}
             </div>
 
             <Button
               variant="outline"
               size="sm"
-              disabled={totalPages === 0 || currentPage >= totalPages}
-              onClick={() => setCurrentPage(p => p + 1)}
+              disabled={viewMode === 'system' ? !systemHasMore : currentPage >= tfPageCount}
+              onClick={() => setCurrentPage((p) => p + 1)}
             >
               {t('history:pagination.next')}
               <ChevronRight className="w-4 h-4 ml-1" />
@@ -692,7 +918,7 @@ const HistoryPage = () => {
       <Dialog open={!!debugOrder} onOpenChange={() => setDebugOrder(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Order Debug Info (ID: {debugOrder?.id})</DialogTitle>
+            <DialogTitle>{t('history:actions.debug_title', { id: debugOrder?.id ?? '--' })}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-auto p-4 bg-secondary/30 rounded-lg border border-border mt-2">
             <pre className="text-xs font-mono whitespace-pre-wrap">
@@ -706,3 +932,4 @@ const HistoryPage = () => {
 };
 
 export default HistoryPage;
+
