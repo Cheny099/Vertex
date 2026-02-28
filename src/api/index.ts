@@ -1,13 +1,13 @@
-/**
+﻿/**
  * @anchor-id API_CLIENT
  * @module-type api
  * @disposable false
- * @description API 客户端 - 完全对接真实后端 (/api/v1)
+ * @description API 瀹㈡埛绔?- 瀹屽叏瀵规帴鐪熷疄鍚庣 (/api/v1)
  */
 
 import { z } from 'zod';
 import { toast } from 'sonner';
-import i18n from '../i18n'; // ✅ Import i18n instance
+import i18n from '../i18n'; // 鉁?Import i18n instance
 export * from './types';
 import {
     Strategy,
@@ -37,12 +37,12 @@ import {
     TurboFlowPositionListResponse,
     TurboFlowOrderItem,
     TurboFlowOrderListResponse,
-    AccountBalance, // ✅ 新增：可用保证金类型
+    AccountBalance, // 鉁?鏂板锛氬彲鐢ㄤ繚璇侀噾绫诲瀷
     StrategyWebhookSecretResponse,
     WebhookEventRead,
     PublicStrategyCard,
-    AccountStatusResponse, // ✅ Imported
-    ExchangeMetaResponse, // ✅ Imported
+    AccountStatusResponse, // 鉁?Imported
+    ExchangeMetaResponse, // 鉁?Imported
     // Phase 6 types
     Announcement,
     AnnouncementDetail,
@@ -59,8 +59,8 @@ import {
     AdminSubscriptionListResponse,
     AnnouncementAdminListResponse,
     AnnouncementAdminResponse,
-    StrategyCreatePayload, // ✅ Imported
-    StrategyUpdatePayload,  // ✅ Imported
+    StrategyCreatePayload, // 鉁?Imported
+    StrategyUpdatePayload,  // 鉁?Imported
     // Phase 12: Audit & Stats
     AuditRunRequest,
     AuditRunResponse,
@@ -89,18 +89,56 @@ import {
     AdminInviteListResponse,
 } from './types';
 
-// API 配置
-// ✅ VITE_API_URL 推荐只填域名，如：https://api.vertexquant.com
-// ✅ 不填则默认同域名下的 /api/v1（配合 Nginx 反代可免 CORS）
+// API 閰嶇疆
+// 鉁?VITE_API_URL 鎺ㄨ崘鍙～鍩熷悕锛屽锛歨ttps://api.vertexquant.com
+// 鉁?涓嶅～鍒欓粯璁ゅ悓鍩熷悕涓嬬殑 /api/v1锛堥厤鍚?Nginx 鍙嶄唬鍙厤 CORS锛?
 const API_ORIGIN = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 const API_BASE_URL = API_ORIGIN ? `${API_ORIGIN}/api/v1` : '/api/v1';
 const TOKEN_KEY = 'auth_token';
 
-// 🛡️ API Client - Fully connected to production backend
+// 馃洝锔?API Client - Fully connected to production backend
 
-// 通用请求函数
+// 閫氱敤璇锋眰鍑芥暟
+function translateBackendErrorMessage(rawMsg: string): string {
+    const directKey = `common:backend_errors.${rawMsg}`;
+    if (i18n.exists(directKey)) return i18n.t(directKey);
+
+    const dynamicMappings: Array<{ prefix: string; key: string; preserveSuffix?: boolean }> = [
+        {
+            prefix: 'TurboFlow api_key is already used by another account',
+            key: 'common:backend_errors.TurboFlow api_key is already used by another account',
+            preserveSuffix: true,
+        },
+        {
+            prefix: 'Accounts limit reached for exchange=',
+            key: 'common:backend_errors.Accounts limit reached for exchange',
+            preserveSuffix: true,
+        },
+        { prefix: 'connect failed:', key: 'common:backend_errors.connect failed', preserveSuffix: true },
+        { prefix: 'unsupported exchange:', key: 'common:backend_errors.unsupported exchange', preserveSuffix: true },
+        {
+            prefix: 'connect only works for week accounts, exchange=',
+            key: 'common:backend_errors.connect only works for week accounts',
+            preserveSuffix: true,
+        },
+    ];
+
+    for (const mapping of dynamicMappings) {
+        if (rawMsg.startsWith(mapping.prefix) && i18n.exists(mapping.key)) {
+            const translated = i18n.t(mapping.key);
+            if (mapping.preserveSuffix) {
+                const suffix = rawMsg.slice(mapping.prefix.length).trim();
+                return suffix ? `${translated}: ${suffix}` : translated;
+            }
+            return translated;
+        }
+    }
+
+    return rawMsg;
+}
+
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    // 关键：在每次请求时重新获取 Token，确保获取到的是登录后的最新值
+    // 鍏抽敭锛氬湪姣忔璇锋眰鏃堕噸鏂拌幏鍙?Token锛岀‘淇濊幏鍙栧埌鐨勬槸鐧诲綍鍚庣殑鏈€鏂板€?
     const token =
         localStorage.getItem(TOKEN_KEY) ||
         sessionStorage.getItem(TOKEN_KEY);
@@ -117,23 +155,23 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
     if (response.status === 401) {
         localStorage.removeItem(TOKEN_KEY);
-        // 清理旧键名（可选，推荐清理一次）
+        // 娓呯悊鏃ч敭鍚嶏紙鍙€夛紝鎺ㄨ崘娓呯悊涓€娆★級
         localStorage.removeItem('panda_quant_user');
         localStorage.removeItem('user_data');
 
-        // 仅在非登录页触发通知
+        // 浠呭湪闈炵櫥褰曢〉瑙﹀彂閫氱煡
         if (
             window.location.pathname !== '/' &&
             window.location.pathname !== '/login' &&
             window.location.pathname !== '/register'
         ) {
 
-            // 通过广播事件通知 AuthContext 更新状态，而不是硬跳转
-            // 这能解决与 React Router Navigate 产生的重定向冲突
+            // 閫氳繃骞挎挱浜嬩欢閫氱煡 AuthContext 鏇存柊鐘舵€侊紝鑰屼笉鏄‖璺宠浆
+            // 杩欒兘瑙ｅ喅涓?React Router Navigate 浜х敓鐨勯噸瀹氬悜鍐茬獊
             window.dispatchEvent(new CustomEvent('panda-auth-unauthorized'));
 
-            // 依然保持弹窗提示（单例）
-            toast.error('登录已过期，请重新登录', {
+            // 渚濈劧淇濇寔寮圭獥鎻愮ず锛堝崟渚嬶級
+            toast.error(i18n.t('common:session_expired'), {
                 id: 'auth-error',
             });
         }
@@ -143,10 +181,10 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     if (!response.ok) {
         try {
             const errBody = await response.json();
-            // ✅ Smart Translate: Try to find a mapped error message
+            // 鉁?Smart Translate: Try to find a mapped error message
             let errMsg = errBody.detail || errBody.msg || errBody.message || response.statusText;
 
-            // ✅ CRITICAL FIX: Support Object error details (e.g. Legal 409 Conflict)
+            // 鉁?CRITICAL FIX: Support Object error details (e.g. Legal 409 Conflict)
             // Backend may return { code: "LEGAL_ACCEPTANCE_REQUIRED", message: "...", ... }
             if (typeof errMsg === 'object' && errMsg !== null) {
                 const err = new Error(errMsg.message || JSON.stringify(errMsg));
@@ -156,9 +194,9 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
                 throw err;
             }
 
-            // If it's a known backend error string, translate it
-            if (typeof errMsg === 'string' && i18n.exists(`common.backend_errors.${errMsg}`)) {
-                errMsg = i18n.t(`common.backend_errors.${errMsg}`);
+            // Translate known backend errors (exact + dynamic prefix mappings)
+            if (typeof errMsg === 'string') {
+                errMsg = translateBackendErrorMessage(errMsg);
             }
 
             throw new Error(errMsg as string);
@@ -182,7 +220,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 }
 
 // ===============================================
-// 认证 API (Auth)
+// 璁よ瘉 API (Auth)
 // ===============================================
 export interface AuthCredentials {
     username: string;
@@ -271,12 +309,12 @@ export const authApi = {
 };
 
 // ===============================================
-// 账户 API (Accounts)
+// 璐︽埛 API (Accounts)
 // ===============================================
 export const accountApi = {
     list: async () => {
         const accounts = await request<Account[]>('/accounts/');
-        // 后端使用软删除，前端需要过滤掉 deleted_at 不为空的账户
+        // 鍚庣浣跨敤杞垹闄わ紝鍓嶇闇€瑕佽繃婊ゆ帀 deleted_at 涓嶄负绌虹殑璐︽埛
         return accounts.filter(acc => !acc.deleted_at);
     },
 
@@ -298,7 +336,7 @@ export const accountApi = {
         });
     },
 
-    // ✅ Checklist 2.5: Safe Update (Simulating PATCH /profile)
+    // 鉁?Checklist 2.5: Safe Update (Simulating PATCH /profile)
     // Only allows changing name, api_key, api_secret.
     // Strictly filters out exchange/base_url to prevent config corruption.
     updateProfile: async (id: number, data: { name?: string; api_key?: string; api_secret?: string }) => {
@@ -343,10 +381,15 @@ export const accountApi = {
         const res = await request<AccountStatusResponse>(`/accounts/${id}/verify`, {
             method: 'POST'
         });
-        // ✅ Fix: Backend returns 200 even if verify fails (with status='not_ready'/'config_missing').
+        // 鉁?Fix: Backend returns 200 even if verify fails (with status='not_ready'/'config_missing').
         // We must throw here so toast.promise catches it as an error.
         if (res.status !== 'ok') {
-            throw new Error(res.last_error || (res.detail as any)?.message || 'Verification failed');
+            const err: any = new Error(res.last_error || (res.detail as any)?.message || 'Verification failed');
+            err.status = res.status;
+            err.detail = res.detail;
+            err.last_error = res.last_error;
+            err.raw = res;
+            throw err;
         }
         return res;
     },
@@ -359,9 +402,9 @@ export const accountApi = {
     },
 
     /**
-     * ✅ 新增：获取账户可用保证金（用于“固定金额”模式上限）
-     * - 先尝试 /accounts/{id}/balance（推荐你后端实现）
-     * - 若后端未实现，返回 null，前端会 fallback
+     * 鉁?鏂板锛氳幏鍙栬处鎴峰彲鐢ㄤ繚璇侀噾锛堢敤浜庘€滃浐瀹氶噾棰濃€濇ā寮忎笂闄愶級
+     * - 鍏堝皾璇?/accounts/{id}/balance锛堟帹鑽愪綘鍚庣瀹炵幇锛?
+     * - 鑻ュ悗绔湭瀹炵幇锛岃繑鍥?null锛屽墠绔細 fallback
      */
     getBalance: async (id: number): Promise<AccountBalance | null> => {
         try {
@@ -376,7 +419,7 @@ export const accountApi = {
 export const userApi = {
     getProfile: authApi.getProfile,
 
-    // ✅ Safe Profile Update (Simulated PATCH using restricted PUT)
+    // 鉁?Safe Profile Update (Simulated PATCH using restricted PUT)
     // Checklist 2.5: Only allow name/api_key/api_secret
     updateProfile: async (data: Partial<UserProfile> & { api_key?: string; api_secret?: string; name?: string }) => {
         // 1. Get current account ID (Using user ID as account ID? No, this is User Profile, not Account Profile)
@@ -397,7 +440,7 @@ export const userApi = {
 };
 
 // ===============================================
-// 策略 API (Strategies)
+// 绛栫暐 API (Strategies)
 // ===============================================
 // ===== Strategy helpers: config + metrics normalization =====
 function toNumber(v: any): number | null {
@@ -412,7 +455,7 @@ function normalizeMetricItem(raw: any): StrategyMetricsItem {
     const win_rate = toNumber((obj as any).win_rate) ?? 0;
     const max_drawdown_pct = toNumber((obj as any).max_drawdown_pct) ?? 0;
     const profit_factor = toNumber((obj as any).profit_factor);
-    // 保持后端原始比例，不在前端自动做 0~1 到 0~100 的换算。
+    // Keep backend ratio as-is. Do not auto-convert 0~1 to 0~100 in frontend.
     return {
         return_pct,
         win_rate,
@@ -437,7 +480,7 @@ function normalizeMetrics(raw: any): Record<string, StrategyMetricsItem> {
         out[normKey] = normalizeMetricItem(v);
     }
 
-    // 关键：确保一定有 all（否则卡片/详情默认 all 会拿不到）
+    // 鍏抽敭锛氱‘淇濅竴瀹氭湁 all锛堝惁鍒欏崱鐗?璇︽儏榛樿 all 浼氭嬁涓嶅埌锛?
     return out;
 }
 
@@ -445,7 +488,7 @@ function parseStrategyConfig(raw: any): any {
     if (!raw) return {};
     if (typeof raw === 'object') return raw;
     if (typeof raw !== 'string') return {};
-    if (raw === 'string') return {}; // 兼容：Swagger 示例/脏值
+    if (raw === 'string') return {}; // 鍏煎锛歋wagger 绀轰緥/鑴忓€?
     try {
         const obj = JSON.parse(raw);
         return obj && typeof obj === 'object' ? obj : {};
@@ -489,7 +532,7 @@ export const strategyApi = {
         };
     },
 
-    // ✅ CRUD operations use admin endpoints (backend /strategies/ only supports GET)
+    // 鉁?CRUD operations use admin endpoints (backend /strategies/ only supports GET)
     create: async (data: CreateStrategyDto) => {
         // Delegate to admin API
         const payload: StrategyCreatePayload = {
@@ -528,13 +571,13 @@ export const strategyApi = {
 
 
 // ===============================================
-// 交易所元数据 API (Exchange Meta)
+// 浜ゆ槗鎵€鍏冩暟鎹?API (Exchange Meta)
 // ===============================================
 export const exchangeApi = {
     /**
-     * 获取交易所交易对元数据 (min_notional, step_size 等)
-     * @param exchange 交易所类型: 'binance_futures' | 'gate_futures'
-     * @param symbols 可选，指定交易对列表
+     * 鑾峰彇浜ゆ槗鎵€浜ゆ槗瀵瑰厓鏁版嵁 (min_notional, step_size 绛?
+     * @param exchange 浜ゆ槗鎵€绫诲瀷: 'binance_futures' | 'gate_futures'
+     * @param symbols 鍙€夛紝鎸囧畾浜ゆ槗瀵瑰垪琛?
      */
     getSymbolsMeta: async (exchange: string, symbols?: string[]): Promise<ExchangeMetaResponse> => {
         const params = new URLSearchParams();
@@ -548,7 +591,7 @@ export const exchangeApi = {
 
 
 // ===============================================
-// 订阅 API (Subscriptions)
+// 璁㈤槄 API (Subscriptions)
 // ===============================================
 export const subscriptionApi = {
     list: async () => {
@@ -556,7 +599,7 @@ export const subscriptionApi = {
     },
 
     create: async (data: SubscriptionCreateDto) => {
-        // ✅ Strict Payload Construction based on Mode
+        // 鉁?Strict Payload Construction based on Mode
         const payload: any = {
             strategy_id: data.strategy_id,
             strategy_key: data.strategy_key,
@@ -596,7 +639,7 @@ export const subscriptionApi = {
 };
 
 // ===============================================
-// 订单/交易 API (Orders)
+// 璁㈠崟/浜ゆ槗 API (Orders)
 // ===============================================
 export const orderApi = {
     list: async (params?: { page_num?: number, page_size?: number, status?: string, account_id?: number, strategy_id?: number, include_pnl?: boolean }) => {
@@ -632,9 +675,9 @@ export const orderApi = {
         return request<any>(`/orders/${id}/debug`);
     },
 
-    // 获取交易历史 (默认使用本地系统订单，建议切换到 turboflowApi.getOrders 以获取收益)
+    // 鑾峰彇浜ゆ槗鍘嗗彶 (榛樿浣跨敤鏈湴绯荤粺璁㈠崟锛屽缓璁垏鎹㈠埌 turboflowApi.getOrders 浠ヨ幏鍙栨敹鐩?
     getHistory: async (params?: TradeHistoryParams & { include_pnl?: boolean }) => {
-        // ✅ Pass include_pnl query param
+        // 鉁?Pass include_pnl query param
         const query = new URLSearchParams({
             ...(params as any),
             ...(params?.include_pnl ? { include_pnl: 'true' } : {})
@@ -650,12 +693,12 @@ export const orderApi = {
                 type: order.side as 'buy' | 'sell',
                 amount: executedQty !== undefined && executedQty !== null ? executedQty.toString() : undefined,
                 price: executedPrice !== undefined && executedPrice !== null ? executedPrice.toString() : undefined,
-                status: order.status, // 保持大写原样，以便前端能够正确 if (status === 'COMPLETED')
+                status: order.status, // 淇濇寔澶у啓鍘熸牱锛屼互渚垮墠绔兘澶熸纭?if (status === 'COMPLETED')
                 time: new Date(order.executed_at || order.created_at).toLocaleString(),
-                // ✅ Use realized_pnl if available (Backend Sync)
+                // 鉁?Use realized_pnl if available (Backend Sync)
                 profit: order.realized_pnl !== undefined && order.realized_pnl !== null
                     ? order.realized_pnl.toString()
-                    : (order.status === 'COMPLETED' ? "待结算" : undefined),
+                    : (order.status === 'COMPLETED' ? "Pending settlement" : undefined),
                 total: (executedQty && executedPrice) ? (executedQty * executedPrice).toFixed(2) : undefined
             }
         });
@@ -675,7 +718,7 @@ export const tradeApi = orderApi; // Alias for backward compatibility
 export const dashboardApi = {
     getStats: async (): Promise<DashboardStats> => {
         const raw = await request<any>('/dashboard/stats');
-        // 后端返回: { today: {...}, strategies: [...], accounts: [...] }
+        // 鍚庣杩斿洖: { today: {...}, strategies: [...], accounts: [...] }
         const today = raw?.today || {};
         const strategies = raw?.strategies || [];
         const accounts = raw?.accounts || [];
@@ -683,17 +726,17 @@ export const dashboardApi = {
         const accountsClean = accounts.filter((a: any) => !a.deleted_at);
 
         return {
-            // 今日订单统计
+            // 浠婃棩璁㈠崟缁熻
             todayTotal: today.total || 0,
             todayPending: today.pending || 0,
             todayProcessing: today.processing || 0,
             todayCompleted: today.completed || 0,
             todayFailed: today.failed || 0,
             todayExpired: today.expired || 0,
-            // 策略统计
+            // 绛栫暐缁熻
             totalStrategies: strategies.length,
             strategies: strategies,
-            // 账户统计（✅ 过滤 deleted）
+            // 璐︽埛缁熻锛堚渽 杩囨护 deleted锛?
             totalAccounts: accountsClean.length,
             activeAccounts: accountsClean.filter((a: any) => a.is_active).length,
             accounts: accountsClean,
@@ -702,7 +745,7 @@ export const dashboardApi = {
 };
 
 // ===============================================
-// 排行榜 API (Leaderboard)
+// 鎺掕姒?API (Leaderboard)
 // ===============================================
 export interface LeaderboardItem {
     user_id: number;
@@ -715,7 +758,7 @@ export interface LeaderboardResponse {
     items: LeaderboardItem[];
 }
 
-// ✅ 过滤 undefined / null，避免 day=undefined 这种坑
+// 鉁?杩囨护 undefined / null锛岄伩鍏?day=undefined 杩欑鍧?
 function buildQuery(params?: Record<string, any>) {
     if (!params) return '';
     const clean: Record<string, string> = {};
@@ -727,7 +770,7 @@ function buildQuery(params?: Record<string, any>) {
 }
 
 export const leaderboardApi = {
-    // ✅ 同时发 scope + range（兼容你旧版后端 ?range=total）
+    // 鉁?鍚屾椂鍙?scope + range锛堝吋瀹逛綘鏃х増鍚庣 ?range=total锛?
     getGlobal: async (params?: {
         scope?: 'daily' | 'total';
         day?: string;
@@ -737,7 +780,7 @@ export const leaderboardApi = {
         const scope = params?.scope;
         const q = buildQuery({
             ...params,
-            ...(scope ? { range: scope } : {}), // 兼容老参数
+            ...(scope ? { range: scope } : {}), // 鍏煎鑰佸弬鏁?
         });
         return request<LeaderboardResponse>(`/leaderboard${q ? `?${q}` : ''}`);
     },
@@ -761,19 +804,19 @@ export const leaderboardApi = {
 };
 
 // ===============================================
-// 实盘交易 API (TurboFlow - 真实收益数据)
+// 瀹炵洏浜ゆ槗 API (TurboFlow - 鐪熷疄鏀剁泭鏁版嵁)
 // ===============================================
 export const turboflowApi = {
     getOrders: async (params: { account_id: number; status?: string; page_num?: number; page_size?: number; debug?: boolean }) => {
         const query = new URLSearchParams(params as any).toString();
         try {
             const resp = await request<TurboFlowOrderListResponse>(`/turboflow/orders?${query}`);
-            // 返回 data 对象以保留 pagination 信息 (count, page_count)
+            // 杩斿洖 data 瀵硅薄浠ヤ繚鐣?pagination 淇℃伅 (count, page_count)
             return resp.data || { data: [], count: 0, page_count: 0, page_num: 1, page_size: 20 };
         } catch (e: any) {
-            // 后端 turboflow 路由未注册时返回 404，静默返回空数据
+            // 鍚庣 turboflow 璺敱鏈敞鍐屾椂杩斿洖 404锛岄潤榛樿繑鍥炵┖鏁版嵁
             if (e.message?.includes('404')) {
-                console.warn('[turboflowApi] /turboflow/orders 不可用，返回空数据');
+                console.warn('[turboflowApi] /turboflow/orders unavailable, returning empty dataset');
                 return { data: [], count: 0, page_count: 0, page_num: 1, page_size: 20 };
             }
             throw e;
@@ -793,7 +836,7 @@ export const turboflowApi = {
             return resp.data?.data ?? [];
         } catch (e: any) {
             if (e.message?.includes('404')) {
-                console.warn('[turboflowApi] /turboflow/positions 不可用，返回空数据');
+                console.warn('[turboflowApi] /turboflow/positions unavailable, returning empty dataset');
                 return [];
             }
             throw e;
@@ -802,10 +845,10 @@ export const turboflowApi = {
 };
 
 // ===============================================
-// 市场行情 API (Market)
+// 甯傚満琛屾儏 API (Market)
 // ===============================================
 export const marketApi = {
-    // 注意: symbol 是路径参数，不是查询参数
+    // 娉ㄦ剰: symbol 鏄矾寰勫弬鏁帮紝涓嶆槸鏌ヨ鍙傛暟
     getOhlcv: async (symbol: string, limit: number = 20) => {
         return request<any>(`/market/ohlcv/${symbol}?limit=${limit}`);
     }
@@ -813,11 +856,11 @@ export const marketApi = {
 
 export const signalApi = {
     getByStrategyId: async (strategyId: number) => {
-        // 1. 获取该策略关联的执行订单
+        // 1. 鑾峰彇璇ョ瓥鐣ュ叧鑱旂殑鎵ц璁㈠崟
         const response = await orderApi.list({ strategy_id: strategyId, page_size: 100 });
         const orders = response.items;
 
-        // 2. 将 Order 映射为前端期望的 Signal 格式
+        // 2. 灏?Order 鏄犲皠涓哄墠绔湡鏈涚殑 Signal 鏍煎紡
         const signals = orders.map(order => {
             const orderStatus = order.status.toUpperCase();
             let signalStatus: 'active' | 'closed' | 'failed';
@@ -827,9 +870,9 @@ export const signalApi = {
             } else if (orderStatus === 'FAILED') {
                 signalStatus = 'failed';
             } else if (orderStatus === 'EXPIRED' || orderStatus === 'CANCELLED') {
-                signalStatus = 'closed'; // 过期和取消的订单视为已关闭
+                signalStatus = 'closed'; // 杩囨湡鍜屽彇娑堢殑璁㈠崟瑙嗕负宸插叧闂?
             } else {
-                // PENDING, PROCESSING 等进行中的状态
+                // PENDING, PROCESSING 绛夎繘琛屼腑鐨勭姸鎬?
                 signalStatus = 'active';
             }
 
@@ -838,23 +881,23 @@ export const signalApi = {
                 pair: order.symbol || 'N/A',
                 direction: order.side === 'buy' ? 'long' : 'short',
                 entryPrice: order.executed_price || order.price || '--',
-                exitPrice: null, //平仓逻辑暂不在此展示详情
+                exitPrice: null, //骞充粨閫昏緫鏆備笉鍦ㄦ灞曠ず璇︽儏
                 timestamp: new Date(order.signal_received_at || order.created_at).toLocaleString(),
                 status: signalStatus,
                 timeframe: order.leverage ? `${order.leverage}x` : '--',
                 strategy_key: order.symbol,
                 duplicate_count: 0,
-                // 额外添加原始状态用于显示
+                // 棰濆娣诲姞鍘熷鐘舵€佺敤浜庢樉绀?
                 raw_status: orderStatus,
             };
         }) as unknown as Signal[];
 
-        // 3. 统计数据
+        // 3. 缁熻鏁版嵁
         const stats = {
             totalSignals: orders.length,
             activeSignals: orders.filter(o => o.status === 'PROCESSING' || o.status === 'PENDING').length,
             failedSignals: orders.filter(o => o.status === 'FAILED').length,
-            winRate: 0 //后端未提供平仓收益，暂不计算
+            winRate: 0 //鍚庣鏈彁渚涘钩浠撴敹鐩婏紝鏆備笉璁＄畻
         };
 
         return { signals, stats };
@@ -872,21 +915,21 @@ export const webhookEventsApi = {
 };
 
 // ===============================================
-// 公告 API (Announcements) - Phase 6.1
+// 鍏憡 API (Announcements) - Phase 6.1
 // ===============================================
 export const announcementApi = {
-    // 列表 (默认 limit 10) - 公开读取
+    // 鍒楄〃 (榛樿 limit 10) - 鍏紑璇诲彇
     list: (lang: string, limit: number = 10) => request<Announcement[]>(`/public/announcements?lang=${lang}&limit=${limit}`),
 
-    // 详情 - 公开读取
+    // 璇︽儏 - 鍏紑璇诲彇
     get: (id: number, lang: string) => request<AnnouncementDetail>(`/public/announcements/${id}?lang=${lang}`),
 
-    // 首页弹窗 - 公开读取
+    // 棣栭〉寮圭獥 - 鍏紑璇诲彇
     getPopup: (lang: string) => request<PopupAnnouncement | null>(`/public/announcements/popup?lang=${lang}`)
 };
 
 // ===============================================
-// 法务 API (Legal) - Phase 6.2
+// 娉曞姟 API (Legal) - Phase 6.2
 // ===============================================
 export const legalApi = {
     getPublicDoc: (key: LegalDocKey, lang: string = 'zh') => request<PublicLegalDoc>(`/public/legal/${key}?lang=${lang}`),
@@ -898,7 +941,7 @@ export const legalApi = {
 };
 
 // ===============================================
-// 管理员 API (Admin) - Segregated
+// 绠＄悊鍛?API (Admin) - Segregated
 // ===============================================
 export const adminApi = {
     strategies: {
@@ -909,11 +952,11 @@ export const adminApi = {
         unpublish: (id: number) => request<void>(`/admin/strategies/${id}/unpublish`, { method: 'POST' }),
         getWebhookSecret: (id: number) => request<StrategyWebhookSecretResponse>(`/admin/strategies/${id}/webhook-secret`),
         rotateWebhookSecret: (id: number) => request<StrategyWebhookSecretResponse>(`/admin/strategies/${id}/webhook-secret/rotate`, { method: 'POST' }),
-        // ✅ Fixed: Use FormData for file upload & aligned auth logic with request()
+        // 鉁?Fixed: Use FormData for file upload & aligned auth logic with request()
         importStats: async (id: number, file: File) => {
             const token = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
             const formData = new FormData();
-            // ✅ Backend verification result: field MUST BE 'file'
+            // 鉁?Backend verification result: field MUST BE 'file'
             formData.append('file', file, file.name);
 
             const response = await fetch(`${API_BASE_URL}/admin/strategies/${id}/public-stats/import-tv-csv`, {
@@ -969,7 +1012,7 @@ export const adminApi = {
         update: (id: number, data: any) => request<AdminLegalDocResponse>(`/admin/legal/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
         activate: (id: number) => request<AdminLegalDocResponse>(`/admin/legal/${id}/activate`, { method: 'POST' }),
     },
-    // ✅ Phase 7.4: Ops Console
+    // 鉁?Phase 7.4: Ops Console
     ops: {
         listOrders: (params: any) => {
             const limit = params.limit || 50;
@@ -984,15 +1027,15 @@ export const adminApi = {
 
             return request<OrderListResponse>(`/admin/orders?${new URLSearchParams(cleanParams).toString()}`);
         },
-        getOrder: (id: number) => request<Order>(`/admin/orders/${id}`), // ✅ Detail View
-        getOrderEvents: (id: number) => request<AdminOrderEventsResponse>(`/admin/orders/${id}/events`), // ✅ Timeline
+        getOrder: (id: number) => request<Order>(`/admin/orders/${id}`), // 鉁?Detail View
+        getOrderEvents: (id: number) => request<AdminOrderEventsResponse>(`/admin/orders/${id}/events`), // 鉁?Timeline
         cancelOrder: (id: number, reason?: string) => request<{ success: boolean; detail: string }>(`/admin/orders/${id}/cancel?reason=${encodeURIComponent(reason || '')}`, { method: 'POST' }),
         closePosition: (data: { account_id: number; symbol: string; pos_side: 'long' | 'short'; position_id?: string; qty?: number; reason?: string }) => request<void>('/admin/positions/close', { method: 'POST', body: JSON.stringify(data) }),
-        requeueOrder: (id: number, reason?: string) => request<any>(`/admin/orders/${id}/requeue?reason=${encodeURIComponent(reason || '')}`, { method: 'POST' }), // ✅ Requeue
-        batchRequeue: (data: { statuses?: string[]; limit?: number; dry_run?: boolean; reason?: string }) => request<{ dry_run: boolean; matched: number; selected_order_ids: number[]; requeued: number }>('/admin/orders/requeue', { method: 'POST', body: JSON.stringify(data) }), // ✅ Batch Requeue
+        requeueOrder: (id: number, reason?: string) => request<any>(`/admin/orders/${id}/requeue?reason=${encodeURIComponent(reason || '')}`, { method: 'POST' }), // 鉁?Requeue
+        batchRequeue: (data: { statuses?: string[]; limit?: number; dry_run?: boolean; reason?: string }) => request<{ dry_run: boolean; matched: number; selected_order_ids: number[]; requeued: number }>('/admin/orders/requeue', { method: 'POST', body: JSON.stringify(data) }), // 鉁?Batch Requeue
     },
 
-    // ✅ Phase 7.5: Audit Logs
+    // 鉁?Phase 7.5: Audit Logs
     audit: {
         list: async (params?: { actor?: string; action?: string; target_type?: string; date_from?: string; date_to?: string; page?: number; limit?: number }) => {
             const cleanParams: any = {
@@ -1011,11 +1054,11 @@ export const adminApi = {
         }
     },
 
-    // ✅ Phase 7.7: Subscription Management
+    // 鉁?Phase 7.7: Subscription Management
     // NOTE: Backend does NOT have GET /admin/subscriptions list endpoint
     // Only freeze endpoint exists: POST /admin/subscriptions/{id}/freeze
     subscriptions: {
-        // ❌ REMOVED: list endpoint does not exist in backend
+        // 鉂?REMOVED: list endpoint does not exist in backend
         // Use subscriptionApi.list() for user's own subscriptions instead
         list: async () => {
             console.warn('[API] GET /admin/subscriptions not implemented in backend. Feature disabled.');
@@ -1031,7 +1074,7 @@ export const adminApi = {
         // but it's already in adminApi.subscriptions. Let's keep it consistent.
     },
 
-    // ✅ Phase 12: TurboFlow Audit
+    // 鉁?Phase 12: TurboFlow Audit
     auditTurboflow: {
         run: async (params?: AuditRunRequest) => {
             return request<AuditRunResponse>('/admin/audit/turboflow/run', {
@@ -1082,7 +1125,7 @@ export const adminApi = {
         }
     },
 
-    // ✅ Phase 12: Order Statistics
+    // 鉁?Phase 12: Order Statistics
     stats: {
         getOrderTurnover: async (params?: {
             start?: string;
@@ -1099,7 +1142,7 @@ export const adminApi = {
         }
     },
 
-    // ✅ Phase 132: Strategy Switch (New)
+    // 鉁?Phase 132: Strategy Switch (New)
     strategySwitch: {
         // Single Run
         preview: (data: StrategySwitchPreviewRequest) => request<StrategySwitchPreviewResponse>('/admin/strategy-switch/preview', { method: 'POST', body: JSON.stringify(data) }),
@@ -1113,7 +1156,7 @@ export const adminApi = {
         getCampaign: (id: number) => request<StrategySwitchCampaign>(`/admin/strategy-switch/bulk/${id}`),
     },
 
-    // ✅ Phase 16: Invite Codes Management
+    // 鉁?Phase 16: Invite Codes Management
     invites: {
         create: async (data: AdminInviteCreateRequest) => {
             return request<AdminInviteCreateResponse>('/admin/invites/', {
@@ -1172,7 +1215,7 @@ const strategySchemaBase = z.object({
 
 export type StrategyFormData = z.infer<typeof strategySchemaBase>;
 
-// ✅ Dynamic Schema Generator for I18n
+// 鉁?Dynamic Schema Generator for I18n
 export const getStrategySchema = (t: any) => z.object({
     strategyKey: z.string().optional(),
     name: z.string().min(1, t('strategies:validation.name_required')),
@@ -1184,3 +1227,6 @@ export const getStrategySchema = (t: any) => z.object({
 
 // Deprecated: use getStrategySchema(t) instead
 export const strategySchema = strategySchemaBase;
+
+
+

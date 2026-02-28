@@ -2,7 +2,7 @@
  * @anchor-id SETTINGS_PAGE
  * @module-type page
  * @disposable false
- * @mock-data 用户数据和 API 密钥为 Mock，后端对接时替换
+ * @mock-data User/profile data should come from backend APIs.
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -15,8 +15,8 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useTheme } from '@/components/ThemeProvider';
-import { accountApi, userApi, UserProfile, Account, AccountCreateDto } from '@/api';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { accountApi, userApi, UserProfile, Account, AccountCreateDto, AccountStatusResponse } from '@/api';
+import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
@@ -36,7 +36,53 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// 移除硬编码 Mock
+// Remove hardcoded mock data.
+
+type UiAccountStatusKey =
+  | 'ok'
+  | 'need_login'
+  | 'need_verify'
+  | 'not_ready'
+  | 'uid_mismatch'
+  | 'config_missing'
+  | 'disabled'
+  | 'inactive'
+  | 'unknown_exchange'
+  | 'unknown';
+
+const normalizeStatusKey = (raw?: string | null): UiAccountStatusKey => {
+  const status = String(raw || '').toLowerCase();
+  if (status === 'ok' || status === 'connected' || status === 'api_ready' || status === 'apiready') return 'ok';
+  if (status === 'need_login') return 'need_login';
+  if (status === 'need_verify') return 'need_verify';
+  if (status === 'not_ready' || status === 'error' || status === 'failed' || status === 'expired' || status === 'session_busy' || status === 'profile_locked') return 'not_ready';
+  if (status === 'uid_mismatch') return 'uid_mismatch';
+  if (status === 'config_missing') return 'config_missing';
+  if (status === 'disabled') return 'disabled';
+  if (status === 'inactive') return 'inactive';
+  if (status === 'unknown_exchange') return 'unknown_exchange';
+  return 'unknown';
+};
+
+const getStatusBadgeClass = (status: UiAccountStatusKey): string => {
+  switch (status) {
+    case 'ok':
+      return 'bg-profit/10 text-profit border-profit/20';
+    case 'need_login':
+    case 'need_verify':
+    case 'not_ready':
+    case 'config_missing':
+      return 'bg-warning/10 text-warning border-warning/20';
+    case 'uid_mismatch':
+    case 'disabled':
+    case 'unknown_exchange':
+      return 'bg-destructive/10 text-destructive border-destructive/20';
+    case 'inactive':
+      return 'bg-muted text-muted-foreground border-border';
+    default:
+      return 'bg-muted text-muted-foreground border-border';
+  }
+};
 
 const Settings = () => {
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -64,7 +110,139 @@ const Settings = () => {
     queryFn: () => accountApi.list()
   });
 
-  // ✅ Limit Check (Proactive)
+  const invalidateAccountData = () => {
+    queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    queryClient.invalidateQueries({ queryKey: ['account-status'] });
+  };
+
+  const accountStatusQueries = useQueries({
+    queries: (accounts ?? []).map((account) => ({
+      queryKey: ['account-status', account.id],
+      queryFn: () => accountApi.getStatus(account.id),
+      enabled: !!accounts?.length,
+      staleTime: 15_000,
+    })),
+  });
+
+  const accountStatusMap = new Map<number, AccountStatusResponse>();
+  const statusErrorMap = new Map<number, string>();
+  const statusLoadingMap = new Map<number, boolean>();
+  (accounts ?? []).forEach((account, index) => {
+    const statusQuery = accountStatusQueries[index];
+    const statusData = statusQuery?.data;
+    const statusError = statusQuery?.error as any;
+    const statusLoading = Boolean(statusQuery?.isLoading || statusQuery?.isFetching);
+    if (statusData) {
+      accountStatusMap.set(account.id, statusData);
+    }
+    if (statusError) {
+      const message = typeof statusError?.message === 'string' ? statusError.message.trim() : '';
+      statusErrorMap.set(account.id, message || t('settings:accounts.status.unknown'));
+    }
+    if (!statusData && !statusError && statusLoading) {
+      statusLoadingMap.set(account.id, true);
+    }
+  });
+
+  const resolveAccountStatus = (account: Account): UiAccountStatusKey | null => {
+    const statusError = statusErrorMap.get(account.id);
+    if (statusError) return 'unknown';
+    const statusData = accountStatusMap.get(account.id);
+    if (statusData?.status) return normalizeStatusKey(statusData.status);
+    if (statusLoadingMap.get(account.id)) return null;
+    return 'unknown';
+  };
+
+  const formatUidMismatchHint = (detail: Record<string, any>): string => {
+    const dbUid = detail?.db_uid ? String(detail.db_uid) : '';
+    const apiUid = detail?.api_uid ? String(detail.api_uid) : '';
+    if (!dbUid && !apiUid) return t('settings:accounts.hint.uid_mismatch_generic');
+    return t('settings:accounts.hint.uid_mismatch', {
+      db_uid: dbUid || '-',
+      api_uid: apiUid || '-',
+    });
+  };
+
+  const translateBackendErrorForDisplay = (raw?: string | null): string | null => {
+    if (typeof raw !== 'string') return null;
+    const msg = raw.trim();
+    if (!msg) return null;
+
+    const directKey = `common:backend_errors.${msg}`;
+    if (i18n.exists(directKey)) return t(directKey);
+
+    const dynamicMappings: Array<{ prefix: string; key: string; preserveSuffix?: boolean }> = [
+      {
+        prefix: 'TurboFlow api_key is already used by another account',
+        key: 'common:backend_errors.TurboFlow api_key is already used by another account',
+        preserveSuffix: true,
+      },
+      {
+        prefix: 'Accounts limit reached for exchange=',
+        key: 'common:backend_errors.Accounts limit reached for exchange',
+        preserveSuffix: true,
+      },
+      { prefix: 'connect failed:', key: 'common:backend_errors.connect failed', preserveSuffix: true },
+      { prefix: 'unsupported exchange:', key: 'common:backend_errors.unsupported exchange', preserveSuffix: true },
+      {
+        prefix: 'connect only works for week accounts, exchange=',
+        key: 'common:backend_errors.connect only works for week accounts',
+        preserveSuffix: true,
+      },
+    ];
+
+    for (const mapping of dynamicMappings) {
+      if (msg.startsWith(mapping.prefix) && i18n.exists(mapping.key)) {
+        const translated = t(mapping.key);
+        if (mapping.preserveSuffix) {
+          const suffix = msg.slice(mapping.prefix.length).trim();
+          return suffix ? `${translated}: ${suffix}` : translated;
+        }
+        return translated;
+      }
+    }
+
+    return msg;
+  };
+
+  const resolveAccountHint = (account: Account): string | null => {
+    const statusError = statusErrorMap.get(account.id);
+    if (statusError) {
+      return translateBackendErrorForDisplay(statusError) || statusError;
+    }
+
+    const statusData = accountStatusMap.get(account.id);
+    const detail = (statusData?.detail || {}) as Record<string, any>;
+    const statusKey = normalizeStatusKey(statusData?.status);
+    if (statusKey === 'uid_mismatch') return formatUidMismatchHint(detail);
+
+    const parts = [detail?.message, detail?.action, detail?.hint]
+      .map((x) => (typeof x === 'string' ? (translateBackendErrorForDisplay(x) || x) : x))
+      .map((x) => (typeof x === 'string' ? x.trim() : ''))
+      .filter(Boolean);
+
+    if (parts.length > 0) return parts.join(' | ');
+    const translatedStatusError = translateBackendErrorForDisplay(statusData?.last_error);
+    if (translatedStatusError) return translatedStatusError;
+    const translatedAccountError = translateBackendErrorForDisplay(account.last_error);
+    if (translatedAccountError) return translatedAccountError;
+    return null;
+  };
+
+  const formatVerifyError = (error: any): string => {
+    const detail = (error?.detail || error?.raw?.detail || {}) as Record<string, any>;
+    const statusKey = normalizeStatusKey(error?.status || error?.raw?.status || null);
+    if (statusKey === 'uid_mismatch') return formatUidMismatchHint(detail);
+
+    const parts = [error?.message, detail?.message, detail?.action, detail?.hint]
+      .map((x) => (typeof x === 'string' ? (translateBackendErrorForDisplay(x) || x) : x))
+      .map((x) => (typeof x === 'string' ? x.trim() : ''))
+      .filter(Boolean);
+    const uniq = [...new Set(parts)];
+    return uniq.join(' | ') || t('settings:accounts.toast.check_key');
+  };
+
+  // Limit check (proactive).
   const turboflowCount = accounts?.filter(a => a.exchange === 'turboflow').length || 0;
   const otherCount = accounts?.filter(a => a.exchange !== 'turboflow').length || 0;
   const LIMIT_TF = 3;
@@ -79,30 +257,32 @@ const Settings = () => {
   const createAccountMutation = useMutation({
     mutationFn: (data: AccountCreateDto) => accountApi.create(data),
     onSuccess: (data: Account) => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
       setIsAddAccountOpen(false);
       setNewAccount({ name: '', exchange: 'turboflow', type: 'real', api_key: '', api_secret: '' });
       toast.success(t('settings:accounts.toast.add_success'));
 
-      // 自动触发 TurboFlow / Gate 验证流程
-      if (data.exchange === 'turboflow' || data.exchange === 'gate_futures') {
-        toast.promise(accountApi.verify(data.id).then(() => {
-          // 验证完成后再次刷新列表以获取最新的 is_ready 状态
-          queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      // Auto-verify for API-key exchanges after creation.
+      if (data.exchange === 'turboflow' || data.exchange === 'gate_futures' || data.exchange === 'binance_futures') {
+        toast.promise(accountApi.verify(data.id).finally(() => {
+          invalidateAccountData();
         }), {
           loading: t('settings:accounts.toast.verify_loading', { name: data.name }),
           success: t('settings:accounts.toast.verify_success'),
-          error: (err) => `${t('settings:accounts.toast.verify_failed')}: ${err.message || t('settings:accounts.toast.check_key')}`
+          error: (err) => `${t('settings:accounts.toast.verify_failed')}: ${formatVerifyError(err)}`
         });
       }
     },
     onError: (error: any) => {
-      // ✅ 409 Error Handling (Reactive)
-      if (error.message?.includes('409') || error.message?.includes('limit reached')) {
+      const raw = typeof error?.message === 'string' ? error.message : '';
+      if (/limit reached/i.test(raw) || raw.includes('409')) {
         toast.error(t('settings:accounts.toast.limit_reached'));
       } else {
-        toast.error(error.message || t('settings:accounts.toast.add_failed'));
+        const translated = translateBackendErrorForDisplay(raw);
+        toast.error(translated || t('settings:accounts.toast.add_failed'));
       }
+    },
+    onSettled: () => {
+      invalidateAccountData();
     }
   });
 
@@ -110,48 +290,73 @@ const Settings = () => {
     mutationFn: ({ id, is_active }: { id: number; is_active: boolean }) =>
       accountApi.toggleActive(id, is_active),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
       toast.success(t('settings:accounts.toast.status_updated'));
+    },
+    onError: (error: any) => {
+      const raw = typeof error?.message === 'string' ? error.message : '';
+      if (/limit reached/i.test(raw)) {
+        toast.error(t('settings:accounts.toast.limit_reached'));
+        return;
+      }
+      const translated = translateBackendErrorForDisplay(raw);
+      toast.error(translated || t('common:unknown_error'));
+    },
+    onSettled: () => {
+      invalidateAccountData();
     }
   });
 
   const deleteAccountMutation = useMutation({
     mutationFn: (id: number) => accountApi.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
       toast.success(t('settings:accounts.toast.deleted'));
+    },
+    onError: (error: any) => {
+      const raw = typeof error?.message === 'string' ? error.message : '';
+      const translated = translateBackendErrorForDisplay(raw);
+      toast.error(translated || t('settings:accounts.toast.delete_failed'));
+    },
+    onSettled: () => {
+      invalidateAccountData();
     }
   });
 
   const verifyAccountMutation = useMutation({
     mutationFn: (id: number) => accountApi.verify(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    onSettled: () => {
+      invalidateAccountData();
     }
   });
 
   const connectAccountMutation = useMutation({
     mutationFn: (id: number) => accountApi.connect(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
       toast.success(t('settings:accounts.toast.connect_started'));
     },
-    onError: (error: any) => toast.error(error.message || t('settings:accounts.toast.connect_failed'))
+    onError: (error: any) => {
+      const raw = typeof error?.message === 'string' ? error.message : '';
+      const translated = translateBackendErrorForDisplay(raw);
+      toast.error(translated || t('settings:accounts.toast.connect_failed'));
+    },
+    onSettled: () => {
+      invalidateAccountData();
+    }
   });
 
   const resetSessionMutation = useMutation({
     mutationFn: ({ id, mode }: { id: number, mode: 'soft' | 'hard' }) => accountApi.resetSession(id, mode),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
       toast.success(t('settings:accounts.toast.reset_success'));
     },
-    onError: (error: any) => toast.error(error.message || t('settings:accounts.toast.reset_failed'))
+    onError: (error: any) => {
+      const raw = typeof error?.message === 'string' ? error.message : '';
+      const translated = translateBackendErrorForDisplay(raw);
+      toast.error(translated || t('settings:accounts.toast.reset_failed'));
+    },
+    onSettled: () => {
+      invalidateAccountData();
+    }
   });
-
-
-
-  // 注意: 后端无 updateProfile / changePassword 接口，已移除相关 mutation
-
 
   if (isProfileLoading) {
     return (
@@ -227,7 +432,7 @@ const Settings = () => {
                 onClick={() => {
                   if (profile?.id) {
                     navigator.clipboard.writeText(String(profile.id));
-                    toast.success('User ID copied');
+                    toast.success(t('settings:profile.user_id_copied'));
                   }
                 }}>
                 <Label className="text-xs font-medium text-muted-foreground uppercase tracking-widest flex items-center gap-2">
@@ -357,8 +562,8 @@ const Settings = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="en">English</SelectItem>
-                <SelectItem value="zh">中文 (简体)</SelectItem>
+                <SelectItem value="en">{t('settings:appearance.english')}</SelectItem>
+                <SelectItem value="zh">{t('settings:appearance.chinese')}</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-sm text-muted-foreground mt-2">{t('settings:appearance.language_desc')}</p>
@@ -395,17 +600,24 @@ const Settings = () => {
               <p className="text-muted-foreground">{t('settings:accounts.no_accounts')}</p>
             </div>
           ) : (
-            accounts.map((account: Account) => (
+            accounts.map((account: Account) => {
+              const statusKey = resolveAccountStatus(account);
+              const statusHint = resolveAccountHint(account);
+              const exchangeKey = `common:exchanges.${account.exchange}`;
+              const exchangeLabel = i18n.exists(exchangeKey) ? t(exchangeKey) : account.exchange;
+              const statusText = statusKey ? t(`settings:accounts.status.${statusKey}`) : t('settings:accounts.status_loading');
+              const statusClass = statusKey ? getStatusBadgeClass(statusKey) : 'bg-muted text-muted-foreground border-border';
+              return (
               <div key={account.id} className="flex items-center justify-between p-4 rounded-lg bg-background/50 border border-border/50">
                 <div className="flex items-center gap-4">
                   <div className="w-auto px-2 h-6 bg-primary/10 rounded-full flex items-center justify-center">
-                    <span className="font-bold text-[10px] text-primary whitespace-nowrap">{t(`common:exchanges.${account.exchange}`)}</span>
+                    <span className="font-bold text-[10px] text-primary whitespace-nowrap">{exchangeLabel}</span>
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <p className="font-medium">{account.name}</p>
-                      <Badge variant={account.is_ready ? "outline" : "secondary"} className={`text-[10px] h-4 ${account.is_ready ? 'bg-profit/10 text-profit border-profit/20' : 'bg-warning/10 text-warning border-warning/20'}`}>
-                        {account.is_ready ? t('settings:accounts.is_ready') : t('settings:accounts.not_ready')}
+                      <Badge variant="outline" className={`text-[10px] h-4 ${statusClass}`}>
+                        {statusText}
                       </Badge>
                       <Badge variant={account.is_active ? "default" : "secondary"} className={`text-[10px] h-4 ${account.is_active ? 'bg-green-500 hover:bg-green-600' : ''}`}>
                         {account.is_active ? t('settings:accounts.active') : t('settings:accounts.disabled')}
@@ -423,9 +635,9 @@ const Settings = () => {
                           </div>
                         )}
                       </div>
-                      {account.last_error && (
-                        <p className="text-[10px] text-destructive truncate max-w-[200px]" title={account.last_error}>
-                          {t('common:error')}: {account.last_error}
+                      {statusHint && (
+                        <p className="text-[10px] text-destructive truncate max-w-[240px]" title={statusHint}>
+                          {t('common:error')}: {statusHint}
                         </p>
                       )}
                     </div>
@@ -441,7 +653,7 @@ const Settings = () => {
                         toast.promise(verifyAccountMutation.mutateAsync(account.id), {
                           loading: t('settings:accounts.toast.verify_loading'),
                           success: t('settings:accounts.toast.verify_success'),
-                          error: (err) => `${t('settings:accounts.toast.verify_failed')}: ${err.message || t('settings:accounts.toast.check_key')}`
+                          error: (err) => `${t('settings:accounts.toast.verify_failed')}: ${formatVerifyError(err)}`
                         });
                       }}
                       disabled={verifyAccountMutation.isPending}
@@ -466,7 +678,7 @@ const Settings = () => {
                         size="icon"
                         className="h-8 w-8 text-muted-foreground hover:bg-muted"
                         onClick={() => {
-                          if (confirm(t('settings:accounts.reset_session') + '? (Soft Reset)')) {
+                          if (confirm(`${t('settings:accounts.reset_session')}? (${t('settings:accounts.reset_mode_soft')})`)) {
                             resetSessionMutation.mutate({ id: account.id, mode: 'soft' });
                           }
                         }}
@@ -495,7 +707,7 @@ const Settings = () => {
                   </Button>
                 </div>
               </div>
-            ))
+            )})
           )}
         </div>
       </motion.div>
@@ -530,7 +742,7 @@ const Settings = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="turboflow" disabled={isLimitReached('turboflow')}>
-                    {t('common:exchanges.turboflow')} {isLimitReached('turboflow') ? `(${turboflowCount}/${LIMIT_TF} Full)` : `(${turboflowCount}/${LIMIT_TF})`}
+                    {t('common:exchanges.turboflow')} {isLimitReached('turboflow') ? `(${turboflowCount}/${LIMIT_TF} ${t('settings:accounts.limit_full')})` : `(${turboflowCount}/${LIMIT_TF})`}
                   </SelectItem>
                   <SelectItem value="gate_futures" disabled={isLimitReached('gate_futures')}>
                     {t('common:exchanges.gate_futures')}
@@ -539,7 +751,7 @@ const Settings = () => {
                     {t('common:exchanges.binance_futures')}
                   </SelectItem>
                   <SelectItem value="week" disabled={isLimitReached('week')}>
-                    {t('common:exchanges.week')} ({t('settings:accounts.browser_session')}) {isLimitReached('week') ? `(${otherCount}/${LIMIT_OTHER} Full)` : `(${otherCount}/${LIMIT_OTHER})`}
+                    {t('common:exchanges.week')} ({t('settings:accounts.browser_session')}) {isLimitReached('week') ? `(${otherCount}/${LIMIT_OTHER} ${t('settings:accounts.limit_full')})` : `(${otherCount}/${LIMIT_OTHER})`}
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -553,21 +765,21 @@ const Settings = () => {
             {(newAccount.exchange === 'turboflow' || newAccount.exchange === 'gate_futures' || newAccount.exchange === 'binance_futures') && (
               <>
                 <div className="grid gap-2">
-                  <Label htmlFor="api-key">API Key</Label>
+                  <Label htmlFor="api-key">{t('settings:accounts.dialog.api_key_label')}</Label>
                   <Input
                     id="api-key"
                     type="password"
-                    placeholder="API Key"
+                    placeholder={t('settings:accounts.dialog.api_key_placeholder')}
                     value={newAccount.api_key}
                     onChange={(e) => setNewAccount({ ...newAccount, api_key: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="api-secret">API Secret</Label>
+                  <Label htmlFor="api-secret">{t('settings:accounts.dialog.api_secret_label')}</Label>
                   <Input
                     id="api-secret"
                     type="password"
-                    placeholder="API Secret"
+                    placeholder={t('settings:accounts.dialog.api_secret_placeholder')}
                     value={newAccount.api_secret}
                     onChange={(e) => setNewAccount({ ...newAccount, api_secret: e.target.value })}
                   />
@@ -599,7 +811,7 @@ const Settings = () => {
                 createAccountMutation.isPending ||
                 !newAccount.name ||
                 ((newAccount.exchange === 'turboflow' || newAccount.exchange === 'gate_futures' || newAccount.exchange === 'binance_futures') && (!newAccount.api_key || !newAccount.api_secret)) ||
-                isLimitReached(newAccount.exchange || 'turboflow') // ✅ Confirm Disabled
+                isLimitReached(newAccount.exchange || 'turboflow') // 閴?Confirm Disabled
               }
             >
               {createAccountMutation.isPending ? t('settings:accounts.dialog.submitting') : t('settings:accounts.dialog.confirm')}
@@ -633,3 +845,5 @@ const Settings = () => {
 };
 
 export default Settings;
+
+
