@@ -97,7 +97,7 @@ export const WebhookSecretDialog = ({
                             {/* Strategy Key Display */}
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                    {t('strategies:detail.strategy_key')} {t('strategies:detail.required', '(Required)')}
+                                    {t('strategies:detail.strategy_key')} {t('strategies:detail.required')}
                                 </Label>
                                 <div className="flex items-center gap-2 relative">
                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">

@@ -331,7 +331,7 @@ const HistoryPage = () => {
 
     return [
       {
-        label: viewMode === 'system' ? t('history:stats.total_orders') : t('history:stats.total_volume'),
+        label: t('history:stats.total_orders'),
         value: `${totalCount} ${t('history:stats.count')}`,
         subValue: totalScope
       },

@@ -67,11 +67,11 @@ const StrategySignals = () => {
         );
     }
 
-    const pageError = (eventsError || strategyError) as Error | null;
-    const msg = (pageError?.message || '').toLowerCase();
-    const isUnauthorized = msg.includes('unauthorized') || msg.includes('401');
-    const isForbidden = msg.includes('not allowed') || msg.includes('forbidden') || msg.includes('403');
-    const isNotFound = msg.includes('not found') || msg.includes('404');
+    const pageError = (eventsError || strategyError) as (Error & { status?: number }) | null;
+    const httpStatus = Number((pageError as any)?.status || 0);
+    const isUnauthorized = httpStatus === 401;
+    const isForbidden = httpStatus === 403;
+    const isNotFound = httpStatus === 404;
 
     if (isStrategyError || isEventsError) {
         if (isNotFound) {

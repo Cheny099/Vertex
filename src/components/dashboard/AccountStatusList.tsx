@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
-import { accountApi } from '@/api';
+import { accountApi, translateBackendErrorMessage } from '@/api';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Settings } from 'lucide-react';
@@ -20,6 +20,10 @@ interface AccountStatusListProps {
 const AccountStatusList = ({ accounts: rawAccounts, isLoading }: AccountStatusListProps) => {
     const { t } = useTranslation(['dashboard', 'common']);
     const navigate = useNavigate();
+    const toLocalizedError = (raw?: string | null) => {
+        if (!raw) return '';
+        return translateBackendErrorMessage(raw);
+    };
 
     const visibleAccounts = useMemo(
         // Some backend endpoints may return `account_id` instead of `id`.
@@ -45,7 +49,7 @@ const AccountStatusList = ({ accounts: rawAccounts, isLoading }: AccountStatusLi
                         const resp = await accountApi.getStatus(id);
                         return [id, resp] as const;
                     } catch (e: any) {
-                        return [id, { status: 'ERROR', last_error: e?.message || 'Unknown error', detail: {} }] as const;
+                        return [id, { status: 'ERROR', last_error: e?.message || t('common:unknown_error'), detail: {} }] as const;
                     }
                 })
             );
@@ -94,6 +98,8 @@ const AccountStatusList = ({ accounts: rawAccounts, isLoading }: AccountStatusLi
                         const getDerivedStatus = (resp: any) => {
                             const status = resp?.status;
                             const detail = resp?.detail || {};
+                            const localizedHint = toLocalizedError(detail?.hint);
+                            const localizedMessage = toLocalizedError(detail?.message);
 
                             // High Priority: Explicit Backend Status
                             if (status === 'uid_mismatch') {
@@ -101,43 +107,43 @@ const AccountStatusList = ({ accounts: rawAccounts, isLoading }: AccountStatusLi
                                     level: 'error',
                                     label: t('account_status.derived.uid_mismatch'),
                                     hint: detail?.db_uid && detail?.api_uid
-                                        ? `DB:${detail.db_uid} != API:${detail.api_uid}`
-                                        : (detail?.message || t('account_status.hints.uid_mismatch'))
+                                        ? `${t('account_status.hints.uid_mismatch')} (DB ${detail.db_uid} / API ${detail.api_uid})`
+                                        : (localizedMessage || t('account_status.hints.uid_mismatch'))
                                 };
                             }
                             if (status === 'need_verify') {
                                 return {
                                     level: 'warning',
                                     label: t('account_status.derived.need_verify'),
-                                    hint: detail?.hint || t('account_status.hints.need_verify')
+                                    hint: localizedHint || t('account_status.hints.need_verify')
                                 };
                             }
                             if (status === 'config_missing') {
                                 return {
                                     level: 'warning',
                                     label: t('account_status.derived.config_missing'),
-                                    hint: t('account_status.hints.config_missing')
+                                    hint: localizedHint || toLocalizedError(resp?.last_error) || t('account_status.hints.config_missing')
                                 };
                             }
                             if (status === 'disabled') {
                                 return {
                                     level: 'error',
                                     label: t('account_status.derived.disabled'),
-                                    hint: detail?.hint
+                                    hint: localizedHint
                                 };
                             }
                             if (status === 'need_login') {
                                 return {
                                     level: 'warning',
                                     label: t('account_status.derived.need_login'),
-                                    hint: t('account_status.hints.need_login')
+                                    hint: localizedHint || localizedMessage || toLocalizedError(resp?.last_error) || t('account_status.hints.need_login')
                                 };
                             }
                             if (status === 'unknown_exchange') {
                                 return {
                                     level: 'error',
                                     label: t('account_status.derived.unknown_exchange'),
-                                    hint: t('account_status.hints.unknown_exchange')
+                                    hint: localizedHint || localizedMessage || toLocalizedError(resp?.last_error) || t('account_status.hints.unknown_exchange')
                                 };
                             }
                             if (status === 'unknown') {
@@ -152,7 +158,7 @@ const AccountStatusList = ({ accounts: rawAccounts, isLoading }: AccountStatusLi
                             const lastError = resp?.last_error;
                             const isReady = detail?.is_ready;
 
-                            if (lastError) return { level: 'error', label: t('account_status.derived.error'), hint: lastError };
+                            if (lastError) return { level: 'error', label: t('account_status.derived.error'), hint: toLocalizedError(lastError) };
                             if (status === 'inactive') return { level: 'warning', label: t('account_status.inactive_badge') };
                             if (isReady === false) return { level: 'warning', label: t('account_status.derived.not_ready'), hint: t('account_status.hints.not_ready') };
 

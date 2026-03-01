@@ -11,38 +11,40 @@ import { cn } from '@/lib/utils';
 
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { turboflowApi, accountApi } from '@/api';
+import { turboflowApi, orderApi, accountApi, translateBackendErrorMessage } from '@/api';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const RecentTrades = () => {
-  const { t } = useTranslation(['dashboard', 'common']);
+  const { t } = useTranslation(['dashboard', 'common', 'history']);
   const navigate = useNavigate();
 
   // 获取账户列表以确定从哪个账户获取交易记录
-  const { data: accounts } = useQuery({
+  const { data: accounts, isLoading: isAccountsLoading } = useQuery({
     queryKey: ['accounts'],
     queryFn: accountApi.list,
     staleTime: 60000,
   });
 
-  const firstAccountId = accounts?.find(a => a.is_active && !a.deleted_at)?.id;
+  const firstTurboflowAccountId = accounts?.find(
+    (a) => a.exchange === 'turboflow' && a.is_active && !a.deleted_at
+  )?.id;
+  const hasActiveAccount = (accounts || []).some((a) => a.is_active && !a.deleted_at);
 
   // 获取最近交易 (仅当有活跃账户时)
-  const { data: trades = [] } = useQuery({
-    queryKey: ['recentTrades', firstAccountId],
+  const { data: trades = [], isError, error, isLoading, isFetching } = useQuery({
+    queryKey: ['recentTrades', firstTurboflowAccountId, hasActiveAccount],
     queryFn: async () => {
-      if (!firstAccountId) return [];
-      try {
-        const res = await turboflowApi.getOrders({ account_id: firstAccountId, page_size: 5 });
+      if (!hasActiveAccount) return [];
+      if (firstTurboflowAccountId) {
+        const res = await turboflowApi.getOrders({ account_id: firstTurboflowAccountId, page_size: 5 });
         return res.data || [];
-      } catch (e) {
-        console.warn('Failed to fetch recent trades', e);
-        return [];
       }
+      const res = await orderApi.list({ page_num: 1, page_size: 5, include_pnl: true });
+      return res.items || [];
     },
-    enabled: !!firstAccountId,
+    enabled: Array.isArray(accounts),
   });
 
   return (
@@ -69,11 +71,44 @@ const RecentTrades = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {trades.map((trade: any, index: number) => {
-              const side = trade.order_way === 1 ? 'buy' : 'sell';
-              const rawPnl = trade.done_pnl;
+            {isAccountsLoading ? (
+              <tr>
+                <td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">
+                  {t('common:loading')}
+                </td>
+              </tr>
+            ) : !hasActiveAccount ? (
+              <tr>
+                <td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">
+                  {t('account_status.empty_text')}
+                </td>
+              </tr>
+            ) : (isLoading || isFetching) ? (
+              <tr>
+                <td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">
+                  {t('common:loading')}
+                </td>
+              </tr>
+            ) : isError ? (
+              <tr>
+                <td colSpan={6} className="p-6 text-center text-sm text-destructive">
+                  {translateBackendErrorMessage((error as any)?.message || t('common:unknown_error'))}
+                </td>
+              </tr>
+            ) : trades.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">{t('history:table.empty')}</td>
+              </tr>
+            ) : trades.map((trade: any, index: number) => {
+              const sideRaw = String(trade.side || '').toLowerCase();
+              const side = sideRaw ? sideRaw : (trade.order_way === 1 ? 'buy' : 'sell');
+              const rawPnl = trade.done_pnl ?? trade.realized_pnl ?? trade.profit;
               const parsed = rawPnl != null && rawPnl !== '' ? parseFloat(rawPnl) : null;
               const profit = parsed !== null && Number.isFinite(parsed) ? parsed : null;
+              const priceValue = trade.deal_price ?? trade.executed_price ?? trade.price;
+              const volumeValue = trade.done_vol ?? trade.executed_qty ?? trade.quantity ?? trade.vol;
+              const normalizedStatus = String(trade.order_status || trade.status || '').toLowerCase();
+              const isFilled = ['filled', 'finished', 'completed'].includes(normalizedStatus);
 
               return (
                 <motion.tr
@@ -104,8 +139,8 @@ const RecentTrades = () => {
                   </td>
                   <td className="p-4 text-sm text-right font-mono">
                     <div className="flex flex-col items-end">
-                      <span>{trade.deal_price || trade.price || '--'}</span>
-                      {['Filled', 'Finished'].includes(trade.order_status) && !trade.deal_price && (
+                      <span>{priceValue || '--'}</span>
+                      {isFilled && !priceValue && (
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -124,7 +159,7 @@ const RecentTrades = () => {
                   </td>
                   <td className="p-4 text-sm text-right font-mono">
                     <div className="flex flex-col items-end">
-                      <span>{trade.done_vol || trade.vol || '--'}</span>
+                      <span>{volumeValue || '--'}</span>
                     </div>
                   </td>
                   <td className={cn(

@@ -185,7 +185,10 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
                 id: 'auth-error',
             });
         }
-        throw new Error('Unauthorized');
+        const err: any = new Error('Unauthorized');
+        err.status = 401;
+        err.raw = null;
+        throw err;
     }
 
     if (!response.ok) {
@@ -197,10 +200,12 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
             // 鉁?CRITICAL FIX: Support Object error details (e.g. Legal 409 Conflict)
             // Backend may return { code: "LEGAL_ACCEPTANCE_REQUIRED", message: "...", ... }
             if (typeof errMsg === 'object' && errMsg !== null) {
-                const err = new Error(errMsg.message || JSON.stringify(errMsg));
+                const err: any = new Error(errMsg.message || JSON.stringify(errMsg));
                 // Attach structured data for interceptors (e.g. RiskDisclosureDialog)
-                (err as any).code = errMsg.code;
-                (err as any).detail = errMsg;
+                err.code = errMsg.code;
+                err.detail = errMsg;
+                err.status = response.status;
+                err.raw = errBody;
                 throw err;
             }
 
@@ -209,14 +214,21 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
                 errMsg = translateBackendErrorMessage(errMsg);
             }
 
-            throw new Error(errMsg as string);
+            const err: any = new Error(errMsg as string);
+            err.status = response.status;
+            err.detail = errBody?.detail;
+            err.raw = errBody;
+            throw err;
         } catch (e: any) {
             // Check if it's already an Error object we just threw (with detail, etc.)
             if (e.message && !e.message.includes('Unexpected token') && !e.message.includes('is not valid JSON')) {
                 throw e;
             }
             // Fallback to HTTP status text (e.g. "Internal Server Error")
-            throw new Error(response.statusText || `Error ${response.status}`);
+            const err: any = new Error(response.statusText || `Error ${response.status}`);
+            err.status = response.status;
+            err.raw = null;
+            throw err;
         }
     }
 
@@ -823,8 +835,10 @@ export const turboflowApi = {
             // 杩斿洖 data 瀵硅薄浠ヤ繚鐣?pagination 淇℃伅 (count, page_count)
             return resp.data || { data: [], count: 0, page_count: 0, page_num: 1, page_size: 20 };
         } catch (e: any) {
-            // 鍚庣 turboflow 璺敱鏈敞鍐屾椂杩斿洖 404锛岄潤榛樿繑鍥炵┖鏁版嵁
-            if (e.message?.includes('404')) {
+            // Only fallback to empty data when the route itself is unavailable.
+            // Business 404s like "Account not found" must be surfaced to UI.
+            const detail = String(e?.detail ?? e?.message ?? '').trim().toLowerCase();
+            if (e?.status === 404 && detail === 'not found') {
                 console.warn('[turboflowApi] /turboflow/orders unavailable, returning empty dataset');
                 return { data: [], count: 0, page_count: 0, page_num: 1, page_size: 20 };
             }
