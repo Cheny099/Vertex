@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { adminApi, AdminAuditLogItem } from '@/api';
+import { adminApi, AdminAuditLogItem, translateBackendErrorMessage } from '@/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Variants for consistent animations
@@ -57,6 +57,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Search, Filter, Eye, RefreshCw } from 'lucide-react';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
+import { CodeBlock } from "@/components/ui/code-block";
 import { DateRange } from 'react-day-picker';
 
 export default function AuditLogs() {
@@ -65,22 +66,27 @@ export default function AuditLogs() {
     const [actor, setActor] = useState('');
     const [action, setAction] = useState('');
     const [targetType, setTargetType] = useState('');
+    const [targetId, setTargetId] = useState('');
 
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
-    const { data, isLoading, refetch } = useQuery({
-        queryKey: ['adminAuditLogs', page, actor, action, targetType, dateRange],
+    const { data, isLoading, isError, error, refetch } = useQuery({
+        queryKey: ['adminAuditLogs', page, actor, action, targetType, targetId, dateRange],
         queryFn: () => adminApi.audit.list({
             page,
             limit: 50,
             actor: actor || undefined,
             action: action || undefined,
             target_type: targetType || undefined,
+            target_id: targetId || undefined,
             date_from: dateRange?.from ? startOfDay(dateRange.from).toISOString() : undefined,
             date_to: dateRange?.to ? endOfDay(dateRange.to).toISOString() : undefined
         }),
         placeholderData: (previousData) => previousData,
     });
+    const queryErrorText = isError
+        ? (translateBackendErrorMessage((error as any)?.message || '') || (error as any)?.message || t('admin:error_operation_failed'))
+        : '';
 
     const getActionColor = (act: string) => {
         const a = act.toLowerCase();
@@ -123,7 +129,7 @@ export default function AuditLogs() {
                                 </CardDescription>
                             </div>
                             <div className="flex items-center gap-2">
-                                <Button variant="outline" size="sm" onClick={() => refetch()}>
+                                <Button variant="outline" size="sm" className="h-10 px-4 rounded-xl" onClick={() => refetch()}>
                                     <RefreshCw className="mr-2 h-4 w-4" />
                                     {t('admin:refresh')}
                                 </Button>
@@ -143,7 +149,7 @@ export default function AuditLogs() {
                                             setActor(e.target.value);
                                             setPage(1);
                                         }}
-                                        className="pl-8"
+                                        className="h-10 pl-8 bg-white/80"
                                     />
                                 </div>
                             </div>
@@ -155,6 +161,7 @@ export default function AuditLogs() {
                                         setAction(e.target.value);
                                         setPage(1);
                                     }}
+                                    className="h-10 bg-white/80"
                                 />
                             </div>
                             <div className="w-[180px]">
@@ -165,6 +172,18 @@ export default function AuditLogs() {
                                         setTargetType(e.target.value);
                                         setPage(1);
                                     }}
+                                    className="h-10 bg-white/80"
+                                />
+                            </div>
+                            <div className="w-[180px]">
+                                <Input
+                                    placeholder={t('admin:filter_target_id_placeholder', 'Target ID')}
+                                    value={targetId}
+                                    onChange={(e) => {
+                                        setTargetId(e.target.value);
+                                        setPage(1);
+                                    }}
+                                    className="h-10 bg-white/80"
                                 />
                             </div>
                             <div className="w-auto">
@@ -190,13 +209,19 @@ export default function AuditLogs() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {isLoading ? (
+                                    {isError ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="h-24 text-center text-destructive">
+                                                {queryErrorText}
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : isLoading ? (
                                         <TableRow>
                                             <TableCell colSpan={5} className="h-24 text-center">
                                                 {t('admin:loading')}
                                             </TableCell>
                                         </TableRow>
-                                    ) : data?.items.length === 0 ? (
+                                    ) : !data?.items?.length ? (
                                         <TableRow>
                                             <TableCell colSpan={5} className="h-24 text-center">
                                                 {t('admin:no_data')}
@@ -230,7 +255,7 @@ export default function AuditLogs() {
                                                                     <Eye className="h-4 w-4" />
                                                                 </Button>
                                                             </DialogTrigger>
-                                                            <DialogContent className="max-w-2xl">
+                                                            <DialogContent className="max-w-2xl p-6 bg-white/95 dark:bg-slate-950/95 backdrop-blur-3xl border border-white/20 shadow-2xl overflow-hidden rounded-3xl">
                                                                 <DialogHeader>
                                                                     <DialogTitle>{t('admin:log_detail_title', { id: log.id })}</DialogTitle>
                                                                 </DialogHeader>
@@ -252,7 +277,7 @@ export default function AuditLogs() {
                                                                     <div className="space-y-2">
                                                                         <span className="font-semibold text-sm">{t('admin:meta_data')}</span>
                                                                         <ScrollArea className="h-[400px] w-full rounded-md border p-4 bg-muted/50 font-mono text-xs">
-                                                                            <pre>{JSON.stringify(log.meta, null, 2)}</pre>
+                                                                            <CodeBlock code={JSON.stringify(log.meta, null, 2)} language="json" className="mt-2" />
                                                                         </ScrollArea>
                                                                     </div>
                                                                 </div>

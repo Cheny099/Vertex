@@ -77,7 +77,7 @@ export const BulkSwitchStats = ({ campaign }: BulkSwitchStatsProps) => {
                                 {campaign.recent_failed_runs.map((run) => (
                                     <div key={run.run_id} className="text-xs p-2 bg-muted/50 rounded flex flex-col gap-1 border border-destructive/10">
                                         <div className="flex justify-between font-medium">
-                                            <span>Run #{run.run_id} (Acc: {run.account_id})</span>
+                                            <span>{t('admin:strategy_switch.run_id')} {run.run_id} ({t('admin:account_id')} {run.account_id})</span>
                                             <Badge variant="destructive" className="h-4 text-[9px] px-1">{run.failed_step}</Badge>
                                         </div>
                                         <div className="text-muted-foreground break-all">

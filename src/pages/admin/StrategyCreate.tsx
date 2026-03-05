@@ -18,6 +18,7 @@ import {
     getStrategySchema
 } from '@/api';
 import { useToast } from '@/components/ui/use-toast';
+import { CodeBlock } from "@/components/ui/code-block";
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -237,7 +238,7 @@ const StrategyCreate = () => {
                                     <div className="space-y-2.5">
                                         <div className="flex items-center justify-between">
                                             <Label className="text-sm font-bold ml-1">{t('strategies:detail.strategy_key')}</Label>
-                                            <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-black opacity-50">{t('strategies:create.unique_id_label')}</span>
+                                            <span className="text-xs uppercase tracking-widest text-muted-foreground font-black opacity-50">{t('strategies:create.unique_id_label')}</span>
                                         </div>
                                         <div className="flex gap-2">
                                             <div className="relative flex-1 group">
@@ -259,7 +260,7 @@ const StrategyCreate = () => {
                                                 <Zap className="w-4.5 h-4.5 text-primary" />
                                             </Button>
                                         </div>
-                                        <p className="text-[10px] text-muted-foreground ml-1">{t('strategies:create.key_desc')}</p>
+                                        <p className="text-xs text-muted-foreground ml-1">{t('strategies:create.key_desc')}</p>
                                     </div>
 
                                     {/* Name */}
@@ -313,7 +314,7 @@ const StrategyCreate = () => {
                                                 </div>
                                                 <div className="space-y-0.5">
                                                     <Label className="text-sm font-bold">{t('strategies:detail.signal_status')}</Label>
-                                                    <p className="text-[10px] text-muted-foreground font-medium">
+                                                    <p className="text-xs text-muted-foreground font-medium">
                                                         {watchStatus === 'active' ? t('strategies:detail.status_active') : t('strategies:detail.status_inactive')}
                                                     </p>
                                                 </div>
@@ -345,7 +346,7 @@ const StrategyCreate = () => {
                     navigate('/admin/strategies');
                 }
             }}>
-                <DialogContent className="sm:max-w-md rounded-[2.5rem] border-none shadow-2xl p-8 bg-white/95 backdrop-blur-xl">
+                <DialogContent className="sm:max-w-md p-8 bg-white/95 dark:bg-slate-950/95 backdrop-blur-3xl border border-white/20 shadow-2xl overflow-hidden rounded-3xl">
                     <DialogHeader className="items-center text-center">
                         <div className="bg-emerald-500 icon-glow p-4 rounded-full mb-4">
                             <Check className="w-8 h-8 text-white" />
@@ -360,11 +361,11 @@ const StrategyCreate = () => {
 
                     <div className="space-y-6 py-6">
                         <div className="space-y-3">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                            <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
                                 {t('strategies:create.webhook_url_label')}
                             </Label>
                             <div className="flex items-center gap-2 group">
-                                <code className="flex-1 bg-slate-100 p-4 rounded-2xl text-[11px] font-mono break-all border border-slate-200 group-hover:bg-slate-50 transition-colors shadow-inner-sm">
+                                <code className="flex-1 bg-slate-100 p-4 rounded-2xl text-xs font-mono break-all border border-slate-200 group-hover:bg-slate-50 transition-colors shadow-inner-sm">
                                     {webhookData?.url}
                                 </code>
                                 <Button size="icon" variant="outline" className="h-12 w-12 rounded-2xl bg-white shadow-sm border-slate-200 hover:scale-105 transition-transform" onClick={() => {
@@ -377,11 +378,11 @@ const StrategyCreate = () => {
                         </div>
 
                         <div className="space-y-3">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">
+                            <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
                                 {t('strategies:create.secret_json_label')}
                             </Label>
                             <div className="relative group">
-                                <pre className="bg-slate-900 text-slate-100 p-5 rounded-2xl text-[11px] font-mono overflow-x-auto whitespace-pre-wrap border shadow-2xl leading-relaxed">
+                                <pre className="bg-slate-900 text-slate-100 p-5 rounded-2xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border shadow-2xl leading-relaxed">
                                     {`{
     "secret": "${webhookData?.secret}",
     "strategy_key": "${webhookData?.strategy_key}",
@@ -399,7 +400,7 @@ const StrategyCreate = () => {
                             </div>
                             <div className="flex items-start gap-2 ml-1">
                                 <Info className="w-3 h-3 text-emerald-500 mt-0.5" />
-                                <p className="text-[10px] text-muted-foreground font-medium leading-tight">
+                                <p className="text-xs text-muted-foreground font-medium leading-tight">
                                     {t('strategies:create.webhook_secret_hint')}
                                 </p>
                             </div>

@@ -50,6 +50,7 @@
   "version": "版本",
   "effective_at": "发布日期",
   "close": "关闭",
+  "clear": "清空",
   "error_loading": "无法加载内容…",
   "back_to_list": "返回列表",
   "notifications": {
@@ -86,6 +87,8 @@
     "Too many login attempts": "登录尝试次数过多，请稍后再试",
     "Invalid or expired code": "验证码无效或已过期",
     "User not found": "用户不存在",
+    "Order not found": "订单不存在",
+    "Subscription not found": "订阅不存在",
     "Account not found": "账户不存在",
     "Not a turboflow account": "该账户不是 TurboFlow 账户",
     "TurboFlow api_key/api_secret missing": "缺少 TurboFlow API Key 或 API Secret",
@@ -137,7 +140,20 @@
     "Only failed orders can be retried": "只能重试失败状态的订单",
     "Retry limit reached": "已达到重试次数上限",
     "Failed to cancel order": "取消订单失败",
-    "Failed to retry order": "重试订单失败"
+    "Failed to retry order": "重试订单失败",
+    "Unsupported exchange for requeue": "不支持该交易所的重排队操作",
+    "Account missing api_key/api_secret": "账户缺少 API Key 或 API Secret",
+    "Unable to resolve pair_id/pool_id for TurboFlow cancel": "无法解析 TurboFlow 撤单所需的交易对信息",
+    "Invalid order status in batch requeue": "批量重排队的订单状态无效",
+    "Only pending/processing orders can be admin-cancelled": "仅待处理或处理中订单可由管理员撤销",
+    "Admin cancel currently supports TurboFlow orders only": "管理员撤单目前仅支持 TurboFlow 订单",
+    "Order has no tf_order_id": "订单缺少 TurboFlow 订单号",
+    "positions.close currently supports TurboFlow accounts only": "强平操作目前仅支持 TurboFlow 账户",
+    "Holding position not found": "未找到持仓记录",
+    "Unable to resolve hold_size for position": "无法解析持仓数量",
+    "Resolved qty must be > 0": "解析后的数量必须大于 0"
+    ,
+    "Internal Server Error": "服务器内部错误"
   },
   "nav": {
     "dashboard": "仪表盘",

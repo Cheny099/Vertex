@@ -45,6 +45,9 @@ const RecentTrades = () => {
       return res.items || [];
     },
     enabled: Array.isArray(accounts),
+    staleTime: 15_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev ?? [],
   });
 
   return (

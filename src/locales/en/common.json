@@ -40,6 +40,7 @@
   "version": "Version",
   "effective_at": "Effective Date",
   "close": "Close",
+  "clear": "Clear",
   "error_loading": "Failed to load content…",
   "back_to_list": "Back to List",
   "notifications": {
@@ -57,6 +58,8 @@
     "Too many login attempts": "Too many login attempts",
     "Invalid or expired code": "Invalid or expired code",
     "User not found": "User not found",
+    "Order not found": "Order not found",
+    "Subscription not found": "Subscription not found",
     "Account not found": "Account not found",
     "Not a turboflow account": "Not a TurboFlow account",
     "TurboFlow api_key/api_secret missing": "TurboFlow API Key/Secret is missing",
@@ -108,7 +111,20 @@
     "Only failed orders can be retried": "Only failed orders can be retried",
     "Retry limit reached": "Retry limit reached",
     "Failed to cancel order": "Failed to cancel order",
-    "Failed to retry order": "Failed to retry order"
+    "Failed to retry order": "Failed to retry order",
+    "Unsupported exchange for requeue": "Unsupported exchange for requeue",
+    "Account missing api_key/api_secret": "Account is missing API Key or Secret",
+    "Unable to resolve pair_id/pool_id for TurboFlow cancel": "Unable to resolve TurboFlow pair info for cancel",
+    "Invalid order status in batch requeue": "Invalid order status for batch requeue",
+    "Only pending/processing orders can be admin-cancelled": "Only pending or processing orders can be admin-cancelled",
+    "Admin cancel currently supports TurboFlow orders only": "Admin cancel currently supports TurboFlow orders only",
+    "Order has no tf_order_id": "Order has no TurboFlow order ID",
+    "positions.close currently supports TurboFlow accounts only": "Force close currently supports TurboFlow accounts only",
+    "Holding position not found": "Holding position not found",
+    "Unable to resolve hold_size for position": "Unable to resolve position hold size",
+    "Resolved qty must be > 0": "Resolved quantity must be greater than 0"
+    ,
+    "Internal Server Error": "Internal Server Error"
   },
   "exchanges": {
     "binance_futures": "Binance",

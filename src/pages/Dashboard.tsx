@@ -7,6 +7,7 @@
 
 import { motion } from 'framer-motion';
 import { Activity, CheckCircle, Clock, XCircle, Users, TrendingUp } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
 import StatCard from '@/components/dashboard/StatCard';
 import StrategiesList from '@/components/dashboard/StrategiesList';
 import RecentTrades from '@/components/dashboard/RecentTrades';
@@ -17,13 +18,17 @@ import { dashboardApi, strategyApi } from '@/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import AccountStatusList from '@/components/dashboard/AccountStatusList';
 import { useTranslation } from 'react-i18next';
+import { usePageVisibility } from '@/hooks/use-page-visibility';
 
 const Dashboard = () => {
   const { t } = useTranslation(['dashboard', 'common']); // Add namespaces
-  const { data: stats, isLoading: isStatsLoading } = useQuery({
+  const isPageVisible = usePageVisibility();
+  const { data: stats, isLoading: isStatsLoading, refetch: refetchStats } = useQuery({
     queryKey: ['dashboardStats'],
     queryFn: () => dashboardApi.getStats(),
-    refetchInterval: 5000,
+    refetchInterval: isPageVisible ? 5000 : false,
+    refetchOnWindowFocus: false,
+    staleTime: 4_000,
   });
 
   const { data: allStrategies, isLoading: isStratsLoading } = useQuery({
@@ -32,6 +37,25 @@ const Dashboard = () => {
   });
 
   const isLoading = isStatsLoading;
+  const topStrategies = useMemo(() => {
+    const ranked = (stats?.strategies || [])
+      .slice()
+      .sort((a, b) => b.subscription_count - a.subscription_count)
+      .slice(0, 5);
+    return ranked
+      .map((item) => {
+        const strategy = (allStrategies || []).find(s => s.id === item.strategy_id);
+        if (!strategy) return null;
+        return { strategy, subscriptionCount: item.subscription_count };
+      })
+      .filter(Boolean) as Array<{ strategy: any; subscriptionCount: number }>;
+  }, [stats?.strategies, allStrategies]);
+
+  useEffect(() => {
+    if (isPageVisible) {
+      void refetchStats();
+    }
+  }, [isPageVisible, refetchStats]);
 
   return (
     <div className="space-y-0 min-h-screen bg-noise">
@@ -133,20 +157,16 @@ const Dashboard = () => {
                 {isLoading || isStratsLoading ? (
                   [1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full rounded-lg" />)
                 ) : (
-                  (stats?.strategies || [])
-                    .sort((a, b) => b.subscription_count - a.subscription_count)
-                    .slice(0, 5)
-                    .map((item, index) => {
-                      const strategy = (allStrategies || []).find(s => s.id === item.strategy_id);
-                      if (!strategy) return null;
+                  topStrategies
+                    .map(({ strategy, subscriptionCount }, index) => {
                       return (
-                        <div key={item.strategy_id} className="flex items-center justify-between">
+                        <div key={strategy.id} className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <span className="text-xs font-bold text-muted-foreground w-4">{index + 1}</span>
                             <span className="text-sm font-medium">{strategy.name}</span>
                           </div>
                           <Badge variant="secondary" className="text-[10px]">
-                            {t('dashboard:popularity.subscribe_count', { count: item.subscription_count })}
+                            {t('dashboard:popularity.subscribe_count', { count: subscriptionCount })}
                           </Badge>
                         </div>
                       );
@@ -165,4 +185,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-

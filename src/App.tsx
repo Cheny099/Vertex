@@ -1,24 +1,23 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
-import Index from "./pages/Index"; // 你现在的登录页
-import Landing from "./pages/Landing"; // ✅ 新增：营销落地页
+import Index from "./pages/Index";
+import Landing from "./pages/Landing";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import AnnouncementList from "./pages/Announcements";
 import AnnouncementDetail from "./pages/Announcements/AnnouncementDetail";
-import AnnouncementPopup from "./components/AnnouncementPopup";
 
 import Dashboard from "./pages/Dashboard";
 import Strategies from "./pages/Strategies";
 import StrategyDetail from "./pages/StrategyDetail";
-import StrategyCreate from "./pages/admin/StrategyCreate";
 import StrategySignals from "./pages/StrategySignals";
 import HistoryPage from "./pages/History";
 import Leaderboard from "./pages/Leaderboard";
@@ -32,19 +31,24 @@ import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import ProtectedAdminRoute from "./components/auth/ProtectedAdminRoute";
-import AnnouncementManager from "./pages/admin/AnnouncementManager";
-import StrategyManager from "./pages/admin/StrategyManager";
-import LegalManager from "./pages/admin/LegalManager";
-import OpsConsole from "./pages/admin/OpsConsole";
-import AuditLogs from "./pages/admin/AuditLogs";
-import TurboFlowAudit from "./pages/admin/TurboFlowAudit";
-import OrderStats from "./pages/admin/OrderStats";
-import StrategySwitch from "./pages/admin/StrategySwitch";
-import InviteCodes from "./pages/admin/InviteCodes"; // ✅ Phase 16: Invite Codes
 
-// SubscriptionManager removed - backend does not support GET /admin/subscriptions
+const AnnouncementManager = lazy(() => import("./pages/admin/AnnouncementManager"));
+const StrategyManager = lazy(() => import("./pages/admin/StrategyManager"));
+const LegalManager = lazy(() => import("./pages/admin/LegalManager"));
+const OpsConsole = lazy(() => import("./pages/admin/OpsConsole"));
+const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
+const TurboFlowAudit = lazy(() => import("./pages/admin/TurboFlowAudit"));
+const OrderStats = lazy(() => import("./pages/admin/OrderStats"));
+const StrategySwitch = lazy(() => import("./pages/admin/StrategySwitch"));
+const InviteCodes = lazy(() => import("./pages/admin/InviteCodes"));
+const StrategyCreate = lazy(() => import("./pages/admin/StrategyCreate"));
 
 const queryClient = new QueryClient();
+const adminRouteFallback = (
+  <div className="min-h-[40vh] flex items-center justify-center text-sm text-muted-foreground">
+    Loading...
+  </div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -54,9 +58,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <AnnouncementPopup />
             <Routes>
-              {/* Public */}
               <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Index />} />
               <Route path="/register" element={<Register />} />
@@ -64,8 +66,13 @@ const App = () => (
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
 
-              {/* Protected + Layout */}
-              <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <AppLayout />
+                  </ProtectedRoute>
+                }
+              >
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/strategies" element={<Strategies />} />
                 <Route path="/strategies/:id" element={<StrategyDetail />} />
@@ -75,15 +82,25 @@ const App = () => (
                 <Route path="/announcements/:id" element={<AnnouncementDetail />} />
                 <Route path="/leaderboard" element={<Leaderboard />} />
                 <Route path="/settings" element={<Settings />} />
-                {/* Alias: account management (opened from Dashboard gear) */}
                 <Route path="/accounts" element={<Accounts />} />
                 <Route path="/help" element={<Help />} />
                 <Route path="/ai-assistant" element={<AiAssistant />} />
               </Route>
 
-              {/* ✅ Admin Module */}
-              <Route element={<ProtectedRoute><ProtectedAdminRoute /></ProtectedRoute>}>
-                <Route element={<AppLayout />}>
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <ProtectedAdminRoute />
+                  </ProtectedRoute>
+                }
+              >
+                <Route
+                  element={
+                    <Suspense fallback={adminRouteFallback}>
+                      <AppLayout />
+                    </Suspense>
+                  }
+                >
                   <Route path="/admin/announcements" element={<AnnouncementManager />} />
                   <Route path="/admin/strategies" element={<StrategyManager />} />
                   <Route path="/admin/legal" element={<LegalManager />} />
@@ -92,8 +109,7 @@ const App = () => (
                   <Route path="/admin/trade-audit" element={<TurboFlowAudit />} />
                   <Route path="/admin/trade-performance" element={<OrderStats />} />
                   <Route path="/admin/strategy-switch" element={<StrategySwitch />} />
-                  <Route path="/admin/invites" element={<InviteCodes />} /> {/* ✅ Phase 16: Invite Codes */}
-                  {/* SubscriptionManager removed - backend does not support listing */}
+                  <Route path="/admin/invites" element={<InviteCodes />} />
                   <Route path="/admin/strategies/create" element={<StrategyCreate />} />
                   <Route path="/admin/strategies/:id/edit" element={<StrategyCreate />} />
                 </Route>

@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
-import { adminApi } from "@/api";
+import { adminApi, translateBackendErrorMessage } from "@/api";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -92,19 +92,18 @@ const LegalManager = () => {
 
     const [editorTab, setEditorTab] = useState<'edit' | 'preview'>('edit');
     const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-    const { data: docs, isLoading } = useQuery({
+    const { data: docsResponse, isLoading, isError, error } = useQuery({
         queryKey: ["legal-docs", activeTab],
-        queryFn: async () => {
-            try {
-                const response = await adminApi.legal.list();
-                const all = Array.isArray(response) ? response : (response as any).items || [];
-                return all.filter((d: any) => d.key === activeTab);
-            } catch (e) {
-                console.error("Legal API failed", e);
-                return [];
-            }
-        }
+        queryFn: () => adminApi.legal.list({
+            key: activeTab,
+            limit: 200,
+            offset: 0,
+        })
     });
+    const docs = docsResponse?.items || [];
+    const docsErrorText = isError
+        ? (translateBackendErrorMessage((error as any)?.message || '') || (error as any)?.message || t("error_operation_failed"))
+        : '';
 
     const activateMutation = useMutation({
         mutationFn: (id: number) => adminApi.legal.activate(id),
@@ -116,14 +115,19 @@ const LegalManager = () => {
 
     const createMutation = useMutation({
         mutationFn: (data: LegalFormData) => {
+            if (editingId) {
+                const updatePayload = {
+                    title: data.title,
+                    content_md: data.content_md,
+                    effective_at: data.effective_at || new Date().toISOString(),
+                };
+                return adminApi.legal.update(editingId, updatePayload);
+            }
             const payload = {
                 ...data,
                 effective_at: data.effective_at || new Date().toISOString(),
                 is_active: true // ✅ Auto-activate by default
             };
-            if (editingId) {
-                return adminApi.legal.update(editingId, payload);
-            }
             return adminApi.legal.create(payload);
         },
         onSuccess: () => {
@@ -134,10 +138,11 @@ const LegalManager = () => {
         },
         onError: (err: any) => {
             // Translate common backend errors
-            let msg = err.message;
-            if (msg.includes("already exists")) {
+            const rawMsg = (err as any)?.message || '';
+            let msg = translateBackendErrorMessage(rawMsg) || rawMsg;
+            if (rawMsg.includes("already exists")) {
                 msg = t("error_version_exists");
-            } else if (msg.includes("cannot be edited")) {
+            } else if (rawMsg.includes("cannot be edited")) {
                 msg = t("active_doc_edit_notice");
             }
             toast.error(msg || t("publish_failed"));
@@ -193,7 +198,7 @@ const LegalManager = () => {
             }
         } catch (e) {
             console.error("Fetch legal doc error:", e);
-            toast.error("Failed to fetch document detail");
+            toast.error(translateBackendErrorMessage((e as any)?.message || '') || t("error_operation_failed"));
             setCreateOpen(false);
         } finally {
             setIsLoadingDetail(false);
@@ -214,7 +219,7 @@ const LegalManager = () => {
                         {t("legal_desc")}
                     </p>
                 </div>
-                <Button className="rounded-xl shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95 gap-2" onClick={() => {
+                <Button className="h-10 px-5 rounded-xl shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95 gap-2" onClick={() => {
                     setEditingId(null);
                     setFormData({
                         key: activeTab,
@@ -241,7 +246,7 @@ const LegalManager = () => {
             </motion.div>
 
             <motion.div variants={itemVariants}>
-                <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                <div className="bg-white/60 backdrop-blur-2xl border border-white/40 rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.04)]">
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-slate-50/50">
@@ -254,7 +259,16 @@ const LegalManager = () => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {isLoading ? (
+                            {isError ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="h-64 text-center">
+                                        <div className="flex flex-col items-center justify-center text-destructive gap-3 px-6">
+                                            <AlertCircle className="w-12 h-12 opacity-80" />
+                                            <p className="font-medium">{docsErrorText}</p>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ) : isLoading ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="h-64 text-center">
                                         <div className="flex flex-col items-center justify-center gap-2">
@@ -322,7 +336,7 @@ const LegalManager = () => {
                                     </TableCell>
                                 </TableRow>
                             ))}
-                            {(!docs || docs.length === 0) && !isLoading && (
+                            {(!docs || docs.length === 0) && !isLoading && !isError && (
                                 <TableRow>
                                     <TableCell colSpan={6} className="h-64 text-center">
                                         <div className="flex flex-col items-center justify-center text-slate-400 gap-3">
@@ -338,7 +352,7 @@ const LegalManager = () => {
             </motion.div>
 
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-                <DialogContent className="max-w-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 overflow-hidden">
+                <DialogContent className="max-w-2xl p-6 bg-white/95 dark:bg-slate-950/95 backdrop-blur-3xl border border-white/20 shadow-2xl overflow-hidden rounded-3xl">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-black tracking-tight">
                             {editingId ? t("title_edit_version") : t("new_version")}: {t(activeTab)}
@@ -351,7 +365,7 @@ const LegalManager = () => {
                     {editingId === null && (
                         <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl flex items-start gap-2.5 mt-1">
                             <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-                            <p className="text-[11px] text-amber-700 font-medium leading-relaxed">
+                            <p className="text-xs text-amber-700 font-medium leading-relaxed">
                                 {t("active_doc_edit_notice")}
                             </p>
                         </div>
@@ -372,6 +386,7 @@ const LegalManager = () => {
                                 <Input
                                     value={formData.version}
                                     onChange={e => setFormData({ ...formData, version: e.target.value })}
+                                    disabled={editingId !== null}
                                     className="h-10 bg-slate-50 border-none rounded-lg focus-visible:ring-primary/20 font-mono text-sm"
                                     placeholder="2024-02-07"
                                 />
@@ -381,6 +396,7 @@ const LegalManager = () => {
                                 <Select
                                     value={formData.lang}
                                     onValueChange={(val) => setFormData({ ...formData, lang: val as any })}
+                                    disabled={editingId !== null}
                                 >
                                     <SelectTrigger className="h-10 w-full rounded-lg border-none bg-slate-50 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20">
                                         <SelectValue />
@@ -404,26 +420,32 @@ const LegalManager = () => {
                             <div className="flex items-center justify-between ml-1">
                                 <Label className="text-xs font-bold text-slate-700">{t("form.content")}</Label>
                                 <div className="flex bg-slate-100 p-0.5 rounded-lg">
-                                    <button
+                                    <Button
+                                        type="button"
+                                        variant={editorTab === 'edit' ? 'secondary' : 'ghost'}
+                                        size="sm"
                                         onClick={() => setEditorTab('edit')}
                                         className={cn(
-                                            "flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold transition-all",
-                                            editorTab === 'edit' ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+                                            "h-7 gap-1.5 px-2 text-xs font-bold transition-all",
+                                            editorTab === 'edit' ? "bg-white text-primary shadow-sm hover:bg-white" : "text-slate-500 hover:text-slate-700"
                                         )}
                                     >
                                         <FileEdit className="w-3 h-3" />
                                         {t("common:edit")}
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={editorTab === 'preview' ? 'secondary' : 'ghost'}
+                                        size="sm"
                                         onClick={() => setEditorTab('preview')}
                                         className={cn(
-                                            "flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold transition-all",
-                                            editorTab === 'preview' ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+                                            "h-7 gap-1.5 px-2 text-xs font-bold transition-all",
+                                            editorTab === 'preview' ? "bg-white text-primary shadow-sm hover:bg-white" : "text-slate-500 hover:text-slate-700"
                                         )}
                                     >
                                         <Eye className="w-3 h-3" />
                                         {t("common:preview")}
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
 
@@ -466,7 +488,7 @@ const LegalManager = () => {
                             onClick={() => createMutation.mutate(formData)}
                             disabled={createMutation.isPending}
                         >
-                            {createMutation.isPending ? t("creating") : (editingId ? t("common:update") : t("form.create"))}
+                            {createMutation.isPending ? t("creating") : (editingId ? t("form.update") : t("form.create"))}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

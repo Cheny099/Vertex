@@ -10,7 +10,7 @@ import {
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
-import { adminApi, strategyApi } from "@/api";
+import { adminApi, strategyApi, translateBackendErrorMessage } from "@/api";
 import { Button } from "@/components/ui/button";
 import {
     Table,
@@ -39,6 +39,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { CodeBlock } from "@/components/ui/code-block";
 import { cn } from "@/lib/utils";
 
 // Variants for consistent animations
@@ -74,6 +76,14 @@ const StrategyManager = () => {
     const [currentSecret, setCurrentSecret] = useState<{ strategy_id: number, strategy_key: string, secret: string, hint: string } | null>(null);
     const [csvFile, setCsvFile] = useState<File | null>(null);
     const [importDialogOpen, setImportDialogOpen] = useState(false);
+
+    // Global Confirm State for generic actions
+    const [actionConfirm, setActionConfirm] = useState<{
+        open: boolean;
+        title: string;
+        desc: string;
+        onConfirm: () => void;
+    }>({ open: false, title: "", desc: "", onConfirm: () => {} });
     const [isDragging, setIsDragging] = useState(false);
     const [selectedStrategyId, setSelectedStrategyId] = useState<number | null>(null);
 
@@ -99,10 +109,17 @@ const StrategyManager = () => {
     };
 
     // Queries
-    const { data: strategies, isLoading, isError } = useQuery({
+    const { data: strategies, isLoading, isError, error } = useQuery({
         queryKey: ["strategies"],
         queryFn: strategyApi.getAll
     });
+    const toErrorText = (err: any) =>
+        translateBackendErrorMessage((err as any)?.message || '') ||
+        (err as any)?.message ||
+        t('common:error');
+    const strategyErrorText = isError
+        ? toErrorText(error)
+        : '';
 
     // Mutations
     const publishMutation = useMutation({
@@ -111,7 +128,7 @@ const StrategyManager = () => {
             queryClient.invalidateQueries({ queryKey: ["strategies"] });
             toast.success(t('strategies:create.toast_success'));
         },
-        onError: (e: any) => toast.error(e.message || t('common:error'))
+        onError: (e: any) => toast.error(toErrorText(e))
     });
 
     const unpublishMutation = useMutation({
@@ -120,7 +137,7 @@ const StrategyManager = () => {
             queryClient.invalidateQueries({ queryKey: ["strategies"] });
             toast.success(t('strategies:create.toast_success'));
         },
-        onError: (e: any) => toast.error(e.message || t('common:error'))
+        onError: (e: any) => toast.error(toErrorText(e))
     });
 
     const rotateSecretMutation = useMutation({
@@ -130,7 +147,7 @@ const StrategyManager = () => {
             setSecretDialogOpen(true);
             toast.success(t("secret_rotated"));
         },
-        onError: (e: any) => toast.error(e.message || t('common:error'))
+        onError: (e: any) => toast.error(toErrorText(e))
     });
 
     const getSecretMutation = useMutation({
@@ -139,14 +156,14 @@ const StrategyManager = () => {
             setCurrentSecret(data);
             setSecretDialogOpen(true);
         },
-        onError: (e: any) => toast.error(e.message || t('common:error'))
+        onError: (e: any) => toast.error(toErrorText(e))
     });
 
     const importStatsMutation = useMutation({
         mutationFn: async ({ id, file }: { id: number, file: File }) => {
             return adminApi.strategies.importStats(id, file);
         },
-        onError: (e: any) => toast.error(e.message || t('common:error')),
+        onError: (e: any) => toast.error(toErrorText(e)),
         onSuccess: () => {
             setImportDialogOpen(false);
             setCsvFile(null);
@@ -220,7 +237,7 @@ const StrategyManager = () => {
                     </p>
                 </div>
                 <Link to="/admin/strategies/create">
-                    <Button className="gradient-primary shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95 px-6 rounded-xl">
+                    <Button className="h-10 gradient-primary shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95 px-6 rounded-xl">
                         <Plus className="mr-2 h-4 w-4" />
                         {t("create_strategy")}
                     </Button>
@@ -228,7 +245,7 @@ const StrategyManager = () => {
             </motion.div>
 
             <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-2xl border border-white/40 rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.04)]">
-                <Table>
+                <Table className="[&_td]:py-2 [&_td]:px-3 [&_th]:py-2 [&_th]:px-3 text-xs whitespace-nowrap">
                     <TableHeader>
                         <TableRow className="bg-slate-50/50">
                             <TableHead className="w-[80px] font-bold">{t("column_id")}</TableHead>
@@ -265,12 +282,12 @@ const StrategyManager = () => {
                                     <TableCell>
                                         <div className="flex flex-col">
                                             <span className="font-bold text-slate-900">{strategy.name}</span>
-                                            <span className="text-[10px] font-mono text-slate-400 mt-0.5">{strategy.strategy_key}</span>
+                                            <span className="text-xs font-mono text-slate-400 mt-0.5">{strategy.strategy_key}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell>{getTypeBadge(sType)}</TableCell>
                                     <TableCell>
-                                        <Badge variant="outline" className="text-[10px] uppercase font-bold text-slate-500 border-slate-200">
+                                        <Badge variant="outline" className="text-xs uppercase font-bold text-slate-500 border-slate-200">
                                             {sPair}
                                         </Badge>
                                     </TableCell>
@@ -321,9 +338,12 @@ const StrategyManager = () => {
                                                 </DropdownMenuItem>
 
                                                 <DropdownMenuItem className="rounded-xl cursor-pointer" onClick={() => {
-                                                    if (confirm(t("rotate_warning"))) {
-                                                        rotateSecretMutation.mutate(strategy.id);
-                                                    }
+                                                    setActionConfirm({
+                                                        open: true,
+                                                        title: t('admin:confirm', 'Confirm'),
+                                                        desc: t("rotate_warning"),
+                                                        onConfirm: () => rotateSecretMutation.mutate(strategy.id)
+                                                    });
                                                 }}>
                                                     <Zap className="mr-3 h-4 w-4 text-sky-500" /> {t("rotate_secret")}
                                                 </DropdownMenuItem>
@@ -356,7 +376,7 @@ const StrategyManager = () => {
                                 <TableCell colSpan={9} className="h-64 text-center">
                                     <div className="flex flex-col items-center justify-center text-rose-500 gap-3">
                                         <AlertTriangle className="w-12 h-12 opacity-80" />
-                                        <p className="font-medium">{t("common:error")}</p>
+                                        <p className="font-medium">{strategyErrorText}</p>
                                     </div>
                                 </TableCell>
                             </TableRow>
@@ -367,7 +387,7 @@ const StrategyManager = () => {
 
             {/* Secret Dialog */}
             <Dialog open={secretDialogOpen} onOpenChange={setSecretDialogOpen}>
-                <DialogContent className="max-w-md rounded-[2.5rem] border-none shadow-2xl p-8">
+                <DialogContent className="max-w-md p-8 bg-white/95 dark:bg-slate-950/95 backdrop-blur-3xl border border-white/20 shadow-2xl overflow-hidden rounded-3xl">
                     <DialogHeader>
                         <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-3">
                             <div className="p-2 bg-amber-50 rounded-full">
@@ -420,7 +440,7 @@ const StrategyManager = () => {
                             {currentSecret && (
                                 <div className="space-y-2 mt-4 p-4 bg-slate-50 rounded-xl">
                                     <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t('strategies:detail.webhook_secret_hint_title')}</Label>
-                                    <pre className="text-[10px] text-slate-600 font-mono whitespace-pre-wrap mt-2">{`{
+                                    <pre className="text-xs text-slate-600 font-mono whitespace-pre-wrap mt-2">{`{
   "secret": "${currentSecret.secret || "YOUR_SECRET_KEY"}",
   "strategy_key": "YOUR_STRATEGY_KEY",
   "symbol": "{{ticker}}",
@@ -441,7 +461,7 @@ const StrategyManager = () => {
 
             {/* Import Dialog */}
             <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-                <DialogContent className="max-w-md rounded-[2.5rem] border-none shadow-2xl p-8">
+                <DialogContent className="max-w-md p-8 bg-white/95 dark:bg-slate-950/95 backdrop-blur-3xl border border-white/20 shadow-2xl overflow-hidden rounded-3xl">
                     <DialogHeader>
                         <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-3">
                             <div className="p-2 bg-indigo-50 rounded-full">
@@ -493,6 +513,26 @@ const StrategyManager = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={actionConfirm.open} onOpenChange={(open) => setActionConfirm((prev) => ({ ...prev, open }))}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{actionConfirm.title}</AlertDialogTitle>
+                        <AlertDialogDescription>{actionConfirm.desc}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>{t('common:cancel', 'Cancel')}</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                actionConfirm.onConfirm();
+                                setActionConfirm((prev) => ({ ...prev, open: false }));
+                            }}
+                        >
+                            {t('common:confirm', 'Confirm')}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </motion.div>
     );
 };

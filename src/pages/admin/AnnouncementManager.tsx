@@ -1,20 +1,26 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Edit2, Loader2, Megaphone, Eye, FileEdit } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Plus, Trash2, Loader2, Megaphone, Eye, FileEdit, CalendarDays, Clock3 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { announcementApi, adminApi } from '@/api';
+import { adminApi, translateBackendErrorMessage } from '@/api';
+import type { AnnouncementLang } from '@/api/types';
 import { format } from 'date-fns';
-import { motion, AnimatePresence } from 'framer-motion';
+import { enUS, zhCN } from 'date-fns/locale';
+import { motion } from 'framer-motion';
 
 // Variants for consistent animations
 const containerVariants = {
@@ -41,80 +47,212 @@ const itemVariants = {
     }
 } as const;
 
+type AnnouncementFormData = {
+    title: string;
+    content_md: string;
+    lang: AnnouncementLang;
+    show_popup: boolean;
+    is_pinned: boolean;
+    popup_start_at: string;
+    popup_end_at: string;
+};
+
+type AnnouncementFilters = {
+    lang: AnnouncementLang;
+    include_unpublished: boolean;
+    include_deleted: boolean;
+    limit: number;
+    offset: number;
+};
+
+const DEFAULT_FORM: AnnouncementFormData = {
+    title: '',
+    content_md: '',
+    lang: 'zh',
+    show_popup: false,
+    is_pinned: false,
+    popup_start_at: '',
+    popup_end_at: ''
+};
+
+const toDatetimeLocalValue = (raw?: string | null): string => {
+    if (!raw) return '';
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const toApiDateTime = (raw: string): string | null => {
+    if (!raw.trim()) return null;
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString();
+};
+
+const parseLocalDateTime = (raw: string): Date | null => {
+    if (!raw.trim()) return null;
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return null;
+    return d;
+};
+
+type DateTimeFieldProps = {
+    value: string;
+    onChange: (next: string) => void;
+    placeholder: string;
+    timeLabel: string;
+    clearLabel: string;
+    calendarLocale: any;
+};
+
+const DateTimeField: React.FC<DateTimeFieldProps> = ({
+    value,
+    onChange,
+    placeholder,
+    timeLabel,
+    clearLabel,
+    calendarLocale,
+}) => {
+    const current = parseLocalDateTime(value);
+    const timeValue = current ? format(current, 'HH:mm') : '09:00';
+
+    const updateDatePart = (selected: Date | undefined) => {
+        if (!selected) return;
+        const next = new Date(selected);
+        if (current) {
+            next.setHours(current.getHours(), current.getMinutes(), 0, 0);
+        } else {
+            next.setHours(9, 0, 0, 0);
+        }
+        onChange(format(next, "yyyy-MM-dd'T'HH:mm"));
+    };
+
+    const updateTimePart = (nextTime: string) => {
+        const [h, m] = nextTime.split(':').map((n) => Number(n || 0));
+        const base = current ? new Date(current) : new Date();
+        base.setHours(h || 0, m || 0, 0, 0);
+        onChange(format(base, "yyyy-MM-dd'T'HH:mm"));
+    };
+
+    return (
+        <div className="space-y-2">
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="h-10 w-full justify-start bg-white/80 border-slate-200/70 font-medium"
+                    >
+                        <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
+                        {current ? format(current, 'yyyy-MM-dd HH:mm') : (
+                            <span className="text-muted-foreground">{placeholder}</span>
+                        )}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-3 bg-white/95 backdrop-blur-xl border border-slate-200/70 rounded-xl shadow-xl" align="start">
+                    <Calendar
+                        locale={calendarLocale}
+                        mode="single"
+                        selected={current ?? undefined}
+                        onSelect={updateDatePart}
+                        initialFocus
+                    />
+                    <div className="mt-3 pt-3 border-t border-slate-200/70 flex items-center gap-2">
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Clock3 className="h-3.5 w-3.5" />
+                            {timeLabel}
+                        </div>
+                        <Input
+                            type="time"
+                            className="h-9 w-[120px] bg-white"
+                            value={timeValue}
+                            onChange={(e) => updateTimePart(e.target.value)}
+                        />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-9"
+                            onClick={() => onChange('')}
+                        >
+                            {clearLabel}
+                        </Button>
+                    </div>
+                </PopoverContent>
+            </Popover>
+        </div>
+    );
+};
+
 const AnnouncementManager: React.FC = () => {
     const { t, i18n } = useTranslation(['common', 'admin']);
     const queryClient = useQueryClient();
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const calendarLocale = i18n.resolvedLanguage?.startsWith('zh') ? zhCN : enUS;
 
-    // Form State
-    const [formData, setFormData] = useState({
-        title: '',
-        content_md: '',
-        lang: 'zh',
-        show_popup: false,
-        is_pinned: false
-    });
+    const [formData, setFormData] = useState<AnnouncementFormData>(DEFAULT_FORM);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editorTab, setEditorTab] = useState<'edit' | 'preview'>('edit');
     const [isLoadingDetail, setIsLoadingDetail] = useState(false);
     const [isSimulateOpen, setIsSimulateOpen] = useState(false);
-
-    const { data: announcements, isLoading } = useQuery({
-        queryKey: ['announcements', 'all'], // Admin view might need a specific admin list endpoint if public one mimics active only
-        queryFn: async () => {
-            try {
-                // Workaround: Admin API returns 500, so fetch both public lists safely
-                const [zhData, enData] = await Promise.all([
-                    announcementApi.list('zh', 20).catch(() => []),
-                    announcementApi.list('en', 20).catch(() => [])
-                ]);
-
-                // Merge and Deduplicate by ID
-                const allItems = [...(zhData || []), ...(enData || [])];
-                const uniqueMap = new Map();
-                allItems.forEach(item => {
-                    if (item && item.id) uniqueMap.set(item.id, item);
-                });
-
-                const uniqueList = Array.from(uniqueMap.values()) as any[]; // Type assertion if needed
-
-                // Sort by date desc safely
-                return uniqueList.sort((a, b) => {
-                    const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
-                    const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
-                    return tB - tA;
-                });
-            } catch (e) {
-                console.error("Failed to fetch announcements", e);
-                return [];
-            }
-        },
+    const [filters, setFilters] = useState<AnnouncementFilters>({
+        lang: 'all',
+        include_unpublished: true,
+        include_deleted: false,
+        limit: 50,
+        offset: 0
     });
 
+    const { data: announcementsResponse, isLoading, isError, error } = useQuery({
+        queryKey: ['announcements', 'admin-list', filters],
+        queryFn: () => adminApi.announcements.list(filters),
+    });
+    const toErrorText = (err: any, fallback?: string) =>
+        translateBackendErrorMessage((err as any)?.message || '') ||
+        (err as any)?.message ||
+        fallback ||
+        t('admin:error_operation_failed');
+
+    const announcements = announcementsResponse?.items || [];
+    const total = announcementsResponse?.total ?? 0;
+    const pageSize = filters.limit || 50;
+    const offset = filters.offset || 0;
+    const currentPage = Math.floor(offset / pageSize) + 1;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const canPrev = offset > 0;
+    const canNext = offset + pageSize < total;
+
     const createMutation = useMutation({
-        mutationFn: async (data: typeof formData) => {
+        mutationFn: async ({ data, publishNow }: { data: AnnouncementFormData; publishNow: boolean }) => {
             const newAnnouncement = await adminApi.announcements.create({
                 title: data.title,
                 content_md: data.content_md,
                 lang: data.lang,
                 show_popup: data.show_popup,
                 is_pinned: data.is_pinned,
+                popup_start_at: toApiDateTime(data.popup_start_at),
+                popup_end_at: toApiDateTime(data.popup_end_at),
             });
             // ✅ Immediately publish to make it visible
-            await adminApi.announcements.publish(newAnnouncement.id);
-            return newAnnouncement;
+            if (publishNow) {
+                await adminApi.announcements.publish(newAnnouncement.id);
+            }
+            return { publishNow };
         },
-        onSuccess: () => {
+        onSuccess: (result) => {
             queryClient.invalidateQueries({ queryKey: ['announcements'] });
             setIsCreateOpen(false);
-            setFormData({ title: '', content_md: '', lang: 'zh', show_popup: false, is_pinned: false });
-            toast.success(t('admin:created_success', 'Announcement created'));
+            setFormData(DEFAULT_FORM);
+            toast.success(result.publishNow
+                ? t('admin:announcements_published_success', 'Announcement published')
+                : t('admin:announcements_saved_draft_success', 'Draft saved'));
         },
-        onError: (e: any) => toast.error(e?.message || 'Failed to create')
+        onError: (e: any) => toast.error(toErrorText(e))
     });
 
     const updateMutation = useMutation({
-        mutationFn: async (data: typeof formData) => {
+        mutationFn: async (data: AnnouncementFormData) => {
             if (!editingId) return;
             return adminApi.announcements.update(editingId, {
                 title: data.title,
@@ -122,18 +260,36 @@ const AnnouncementManager: React.FC = () => {
                 lang: data.lang,
                 show_popup: data.show_popup,
                 is_pinned: data.is_pinned,
-                // Ensure it stays published if it was
-                is_active: true
+                popup_start_at: toApiDateTime(data.popup_start_at),
+                popup_end_at: toApiDateTime(data.popup_end_at),
             });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['announcements'] });
             setIsCreateOpen(false);
             setEditingId(null);
-            setFormData({ title: '', content_md: '', lang: 'zh', show_popup: false, is_pinned: false });
+            setFormData(DEFAULT_FORM);
             toast.success(t('admin:announcement_updated_success', 'Announcement updated'));
         },
-        onError: (e: any) => toast.error(e?.message || 'Failed to update')
+        onError: (e: any) => toast.error(toErrorText(e))
+    });
+
+    const publishMutation = useMutation({
+        mutationFn: (id: number) => adminApi.announcements.publish(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['announcements'] });
+            toast.success(t('admin:announcements_published_success', 'Announcement published'));
+        },
+        onError: (e: any) => toast.error(toErrorText(e))
+    });
+
+    const unpublishMutation = useMutation({
+        mutationFn: (id: number) => adminApi.announcements.unpublish(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['announcements'] });
+            toast.success(t('admin:announcements_unpublished_success', 'Announcement unpublished'));
+        },
+        onError: (e: any) => toast.error(toErrorText(e))
     });
 
     const deleteMutation = useMutation({
@@ -142,16 +298,16 @@ const AnnouncementManager: React.FC = () => {
             queryClient.invalidateQueries({ queryKey: ['announcements'] });
             toast.success(t('admin:deleted_success', 'Announcement deleted'));
         },
-        onError: (e: any) => toast.error(e?.message || 'Failed to delete')
+        onError: (e: any) => toast.error(toErrorText(e))
     });
 
-    const handleSubmit = () => {
+    const handleSubmit = (publishNow = false) => {
         if (!formData.title || !formData.content_md) return toast.error(t('admin:error_title_content_required'));
 
         if (editingId) {
             updateMutation.mutate(formData);
         } else {
-            createMutation.mutate(formData);
+            createMutation.mutate({ data: formData, publishNow });
         }
     };
 
@@ -169,9 +325,9 @@ const AnnouncementManager: React.FC = () => {
                         {t('admin:announcements_desc', 'Manage system-wide announcements and popups.')}
                     </p>
                 </div>
-                <Button className="rounded-xl shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95 gap-2" onClick={() => {
+                <Button className="h-10 px-5 rounded-xl shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95 gap-2" onClick={() => {
                     setEditingId(null);
-                    setFormData({ title: '', content_md: '', lang: 'zh', show_popup: false, is_pinned: false });
+                    setFormData(DEFAULT_FORM);
                     setEditorTab('edit');
                     setIsCreateOpen(true);
                 }}>
@@ -182,8 +338,43 @@ const AnnouncementManager: React.FC = () => {
 
             <motion.div variants={itemVariants}>
                 <Card className="bg-white/60 backdrop-blur-2xl border border-white/40 rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.04)]">
-                    <CardHeader>
+                    <CardHeader className="space-y-4">
                         <CardTitle>{t('admin:active_announcements', 'System Announcements')}</CardTitle>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <Select
+                                value={filters.lang}
+                                onValueChange={(v) => setFilters((prev) => ({ ...prev, lang: v as AnnouncementLang, offset: 0 }))}
+                            >
+                                <SelectTrigger className="h-10 bg-white/80">
+                                    <SelectValue placeholder={t('admin:announcements_filter_lang', 'Language')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">{t('admin:announcements_lang_all', 'All languages')}</SelectItem>
+                                    <SelectItem value="zh">{t('admin:lang_zh')}</SelectItem>
+                                    <SelectItem value="en">{t('admin:lang_en')}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <div className="h-10 flex items-center justify-between rounded-lg border border-slate-200/70 bg-white/70 px-3">
+                                <Label htmlFor="include-unpublished" className="text-sm font-medium">
+                                    {t('admin:announcements_filter_include_unpublished', 'Include unpublished')}
+                                </Label>
+                                <Switch
+                                    id="include-unpublished"
+                                    checked={filters.include_unpublished}
+                                    onCheckedChange={(checked) => setFilters((prev) => ({ ...prev, include_unpublished: checked, offset: 0 }))}
+                                />
+                            </div>
+                            <div className="h-10 flex items-center justify-between rounded-lg border border-slate-200/70 bg-white/70 px-3">
+                                <Label htmlFor="include-deleted" className="text-sm font-medium">
+                                    {t('admin:announcements_filter_include_deleted', 'Include deleted')}
+                                </Label>
+                                <Switch
+                                    id="include-deleted"
+                                    checked={filters.include_deleted}
+                                    onCheckedChange={(checked) => setFilters((prev) => ({ ...prev, include_deleted: checked, offset: 0 }))}
+                                />
+                            </div>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         {isLoading ? (
@@ -192,13 +383,21 @@ const AnnouncementManager: React.FC = () => {
                             <div className="space-y-4">
                                 {announcements?.map((item) => (
                                     <div key={item.id}
-                                        className="flex items-center justify-between p-4 rounded-lg border border-border/40 bg-background/50 cursor-pointer hover:bg-muted/50 transition-colors"
+                                        className={cn(
+                                            "flex items-center justify-between p-4 rounded-lg border border-border/40 bg-background/50 transition-colors",
+                                            item.deleted_at
+                                                ? "cursor-not-allowed opacity-70"
+                                                : "cursor-pointer hover:bg-muted/50"
+                                        )}
                                         onClick={async () => {
+                                            if (item.deleted_at) return;
                                             setEditingId(item.id);
                                             setIsLoadingDetail(true);
                                             setIsCreateOpen(true);
                                             try {
-                                                const detail = await adminApi.announcements.get(item.id);
+                                                const detail = await adminApi.announcements.get(item.id, {
+                                                    include_deleted: filters.include_deleted,
+                                                });
                                                 // ✅ 后端字段对齐: content_md
                                                 const rawContent = detail.content_md || detail.content || '';
                                                 const cleanContent = typeof rawContent === 'string' ? rawContent.replace(/\\n/g, '\n') : '';
@@ -206,14 +405,16 @@ const AnnouncementManager: React.FC = () => {
                                                 setFormData({
                                                     title: detail.title,
                                                     content_md: cleanContent,
-                                                    lang: detail.lang as any,
+                                                    lang: (detail.lang as AnnouncementLang) || 'zh',
                                                     show_popup: detail.show_popup || false,
-                                                    is_pinned: detail.is_pinned || false
+                                                    is_pinned: detail.is_pinned || false,
+                                                    popup_start_at: toDatetimeLocalValue(detail.popup_start_at),
+                                                    popup_end_at: toDatetimeLocalValue(detail.popup_end_at),
                                                 });
                                                 setEditorTab('edit');
                                             } catch (e) {
                                                 console.error("Fetch announcement error:", e);
-                                                toast.error('Failed to fetch detail');
+                                                toast.error(toErrorText(e));
                                                 setIsCreateOpen(false);
                                             } finally {
                                                 setIsLoadingDetail(false);
@@ -227,7 +428,20 @@ const AnnouncementManager: React.FC = () => {
                                             <div>
                                                 <div className="flex items-center gap-2">
                                                     <h4 className="font-bold">{item.title}</h4>
-                                                    {item.is_pinned && <span className="text-[10px] bg-amber-500/10 text-amber-600 px-1 rounded border border-amber-500/20 font-bold uppercase">{t('admin:is_pinned')}</span>}
+                                                    {item.is_pinned && <span className="text-xs bg-amber-500/10 text-amber-600 px-1 rounded border border-amber-500/20 font-bold uppercase">{t('admin:is_pinned')}</span>}
+                                                    {item.deleted_at ? (
+                                                        <span className="text-xs bg-destructive/10 text-destructive px-1 rounded border border-destructive/20 font-bold uppercase">
+                                                            {t('admin:announcements_status_deleted', 'Deleted')}
+                                                        </span>
+                                                    ) : item.is_published ? (
+                                                        <span className="text-xs bg-emerald-500/10 text-emerald-600 px-1 rounded border border-emerald-500/20 font-bold uppercase">
+                                                            {t('admin:published', 'Published')}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-xs bg-slate-500/10 text-slate-600 px-1 rounded border border-slate-500/20 font-bold uppercase">
+                                                            {t('admin:draft', 'Draft')}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="flex gap-2 text-xs text-muted-foreground mt-1">
                                                     <span className="uppercase bg-secondary px-1.5 rounded">{item.lang}</span>
@@ -243,30 +457,84 @@ const AnnouncementManager: React.FC = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="text-destructive hover:text-destructive/80 hover:bg-destructive/10"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                deleteMutation.mutate(item.id);
-                                            }}
-                                            disabled={deleteMutation.isPending}
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </Button>
+                                        <div className="flex items-center gap-2">
+                                            {!item.deleted_at && (item.is_published ? (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        unpublishMutation.mutate(item.id);
+                                                    }}
+                                                    disabled={unpublishMutation.isPending}
+                                                >
+                                                    {t('admin:announcements_unpublish', 'Unpublish')}
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        publishMutation.mutate(item.id);
+                                                    }}
+                                                    disabled={publishMutation.isPending}
+                                                >
+                                                    {t('admin:announcements_publish', 'Publish')}
+                                                </Button>
+                                            ))}
+                                            {!item.deleted_at && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-destructive hover:text-destructive/80 hover:bg-destructive/10"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        deleteMutation.mutate(item.id);
+                                                    }}
+                                                    disabled={deleteMutation.isPending}
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                                 {!announcements?.length && (
-                                    <div className="text-center py-12 text-muted-foreground">{t('admin:no_data', 'No announcements')}</div>
+                                    <div className="text-center py-12 text-muted-foreground">
+                                        {isError
+                                            ? toErrorText(error)
+                                            : t('admin:no_data', 'No announcements')}
+                                    </div>
                                 )}
+                                <div className="flex items-center justify-end gap-2 pt-2">
+                                    <div className="text-xs text-muted-foreground mr-2">
+                                        {t('admin:page_info', { page: currentPage, total: totalPages })}
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={!canPrev}
+                                        onClick={() => setFilters((prev) => ({ ...prev, offset: Math.max(0, (prev.offset || 0) - (prev.limit || 50)) }))}
+                                    >
+                                        {t('admin:prev')}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={!canNext}
+                                        onClick={() => setFilters((prev) => ({ ...prev, offset: (prev.offset || 0) + (prev.limit || 50) }))}
+                                    >
+                                        {t('admin:next')}
+                                    </Button>
+                                </div>
                             </div>
                         )}
                     </CardContent>
                 </Card>
 
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                    <DialogContent>
+                    <DialogContent className="p-6 bg-white/95 dark:bg-slate-950/95 backdrop-blur-3xl border border-white/20 shadow-2xl overflow-hidden rounded-3xl">
                         <DialogHeader>
                             <DialogTitle>
                                 {editingId ? t('admin:edit_announcement', 'Edit Announcement') : t('admin:new_announcement', 'New Announcement')}
@@ -299,6 +567,7 @@ const AnnouncementManager: React.FC = () => {
                                     <SelectContent>
                                         <SelectItem value="zh">{t('admin:lang_zh')}</SelectItem>
                                         <SelectItem value="en">{t('admin:lang_en')}</SelectItem>
+                                        <SelectItem value="all">{t('admin:announcements_lang_all', 'All languages')}</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -306,33 +575,42 @@ const AnnouncementManager: React.FC = () => {
                                 <div className="flex items-center justify-between">
                                     <label className="text-sm font-medium">{t('admin:form.content')}</label>
                                     <div className="flex bg-slate-100 p-0.5 rounded-lg">
-                                        <button
+                                        <Button
+                                            type="button"
+                                            variant={editorTab === 'edit' ? 'secondary' : 'ghost'}
+                                            size="sm"
                                             onClick={() => setEditorTab('edit')}
                                             className={cn(
-                                                "flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold transition-all",
-                                                editorTab === 'edit' ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+                                                "h-7 gap-1.5 px-2 text-xs font-bold transition-all",
+                                                editorTab === 'edit' ? "bg-white text-primary shadow-sm hover:bg-white" : "text-slate-500 hover:text-slate-700"
                                             )}
                                         >
                                             <FileEdit className="w-3 h-3" />
                                             {t('common:edit')}
-                                        </button>
-                                        <button
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant={editorTab === 'preview' ? 'secondary' : 'ghost'}
+                                            size="sm"
                                             onClick={() => setEditorTab('preview')}
                                             className={cn(
-                                                "flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold transition-all",
-                                                editorTab === 'preview' ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+                                                "h-7 gap-1.5 px-2 text-xs font-bold transition-all",
+                                                editorTab === 'preview' ? "bg-white text-primary shadow-sm hover:bg-white" : "text-slate-500 hover:text-slate-700"
                                             )}
                                         >
                                             <Eye className="w-3 h-3" />
                                             {t('common:preview')}
-                                        </button>
-                                        <button
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
                                             onClick={() => setIsSimulateOpen(true)}
-                                            className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold transition-all text-slate-500 hover:text-primary hover:bg-white"
+                                            className="h-7 gap-1.5 px-2 text-xs font-bold text-slate-500 hover:text-primary hover:bg-white"
                                         >
                                             <Megaphone className="w-3 h-3" />
                                             {t('admin:simulate_popup', 'Simulate')}
-                                        </button>
+                                        </Button>
                                     </div>
                                 </div>
 
@@ -365,40 +643,75 @@ const AnnouncementManager: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                            <div className="flex items-center gap-6">
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">{t('admin:announcements_popup_start_at', 'Popup start time')}</label>
+                                    <DateTimeField
+                                        value={formData.popup_start_at}
+                                        onChange={(next) => setFormData({ ...formData, popup_start_at: next })}
+                                        placeholder={t('admin:announcements_popup_start_at', 'Popup start time')}
+                                        timeLabel={t('admin:time', 'Time')}
+                                        clearLabel={t('common:clear', 'Clear')}
+                                        calendarLocale={calendarLocale}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">{t('admin:announcements_popup_end_at', 'Popup end time')}</label>
+                                    <DateTimeField
+                                        value={formData.popup_end_at}
+                                        onChange={(next) => setFormData({ ...formData, popup_end_at: next })}
+                                        placeholder={t('admin:announcements_popup_end_at', 'Popup end time')}
+                                        timeLabel={t('admin:time', 'Time')}
+                                        clearLabel={t('common:clear', 'Clear')}
+                                        calendarLocale={calendarLocale}
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="flex items-center justify-between rounded-lg border border-slate-200/70 bg-white/70 px-3 py-2">
+                                    <Label htmlFor="is_popup" className="text-sm font-medium">{t('admin:form.popup')}</Label>
+                                    <Switch
                                         id="is_popup"
                                         checked={formData.show_popup}
-                                        onChange={(e) => setFormData({ ...formData, show_popup: e.target.checked })}
+                                        onCheckedChange={(checked) => setFormData({ ...formData, show_popup: checked })}
                                     />
-                                    <label htmlFor="is_popup" className="text-sm font-medium">{t('admin:form.popup')}</label>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
+                                <div className="flex items-center justify-between rounded-lg border border-slate-200/70 bg-white/70 px-3 py-2">
+                                    <Label htmlFor="is_pinned" className="text-sm font-medium">{t('admin:form.pin', 'Pin Announcement')}</Label>
+                                    <Switch
                                         id="is_pinned"
                                         checked={formData.is_pinned}
-                                        onChange={(e) => setFormData({ ...formData, is_pinned: e.target.checked })}
+                                        onCheckedChange={(checked) => setFormData({ ...formData, is_pinned: checked })}
                                     />
-                                    <label htmlFor="is_pinned" className="text-sm font-medium">{t('admin:form.pin', 'Pin Announcement')}</label>
                                 </div>
                             </div>
                         </div>
                         <DialogFooter>
                             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>{t('admin:form.cancel')}</Button>
-                            <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
-                                {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                                {editingId ? t('admin:form.update', 'Update') : t('admin:form.create', 'Create')}
-                            </Button>
+                            {editingId ? (
+                                <Button onClick={() => handleSubmit(false)} disabled={updateMutation.isPending}>
+                                    {updateMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                    {t('admin:form.update', 'Update')}
+                                </Button>
+                            ) : (
+                                <>
+                                    <Button variant="outline" onClick={() => handleSubmit(false)} disabled={createMutation.isPending}>
+                                        {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                        {t('admin:announcements_save_draft', 'Save Draft')}
+                                    </Button>
+                                    <Button onClick={() => handleSubmit(true)} disabled={createMutation.isPending}>
+                                        {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                        {t('admin:announcements_save_and_publish', 'Save & Publish')}
+                                    </Button>
+                                </>
+                            )}
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
 
                 {/* --- Simulate Popup Dialog --- */}
                 <Dialog open={isSimulateOpen} onOpenChange={setIsSimulateOpen}>
-                    <DialogContent className="max-w-md md:max-w-2xl bg-white dark:bg-slate-950 border-border shadow-2xl p-0 overflow-hidden rounded-2xl">
+                    <DialogContent className="max-w-md md:max-w-2xl p-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-3xl border border-white/20 shadow-2xl overflow-hidden rounded-3xl">
                         <DialogHeader className="p-6 pb-4 bg-slate-50/50 dark:bg-slate-900/50 border-b">
                             <div className="flex items-center gap-4">
                                 <div className="p-3 rounded-xl bg-primary/10 text-primary">

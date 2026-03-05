@@ -671,10 +671,16 @@ export interface StrategyMetricsItem {
 export interface AnnouncementAdminResponse extends Announcement {
     content_md?: string;
     show_popup?: boolean;
+    is_published?: boolean;
+    popup_start_at?: string | null;
+    popup_end_at?: string | null;
+    deleted_at?: string | null;
 }
 export interface AnnouncementAdminListResponse {
     items: AnnouncementAdminResponse[];
     total: number;
+    limit?: number;
+    offset?: number;
 }
 
 export interface AdminLegalDocResponse extends PublicLegalDoc {

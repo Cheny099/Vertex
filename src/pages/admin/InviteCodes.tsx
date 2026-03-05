@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
@@ -33,7 +33,7 @@ const itemVariants = {
     }
 } as const;
 
-import { adminApi, type AdminInviteCreateRequest } from '@/api';
+import { adminApi, translateBackendErrorMessage, type AdminInviteCreateRequest } from '@/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -43,6 +43,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export default function InviteCodesManagement() {
     const { t, i18n } = useTranslation(['admin', 'common']);
@@ -52,6 +53,14 @@ export default function InviteCodesManagement() {
     const [createdCode, setCreatedCode] = useState<{ plainCode: string, channel: string | null } | null>(null);
     const [hasCopied, setHasCopied] = useState(false);
 
+    // Global Confirm State for generic actions
+    const [actionConfirm, setActionConfirm] = useState<{
+        open: boolean;
+        title: string;
+        desc: string;
+        onConfirm: () => void;
+    }>({ open: false, title: "", desc: "", onConfirm: () => {} });
+
     // New Invite Form State
     const [newInvite, setNewInvite] = useState<AdminInviteCreateRequest>({
         channel: '',
@@ -59,10 +68,20 @@ export default function InviteCodesManagement() {
         max_uses: 1,
     });
 
-    const { data, isLoading } = useQuery({
+    const { data, isLoading, isError, error } = useQuery({
         queryKey: ['adminInvites', page],
         queryFn: () => adminApi.invites.list({ page, limit: 20, include_revoked: true }),
     });
+    const toErrorText = (err: any) =>
+        translateBackendErrorMessage((err as any)?.message || '') ||
+        (err as any)?.message ||
+        t('admin:error_operation_failed');
+    const queryErrorText = isError
+        ? toErrorText(error)
+        : '';
+    const pageSize = 20;
+    const total = data?.total || 0;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
     const createMutation = useMutation({
         mutationFn: (data: AdminInviteCreateRequest) => adminApi.invites.create(data),
@@ -73,7 +92,7 @@ export default function InviteCodesManagement() {
             // Don't close so they can copy it!
         },
         onError: (error: any) => {
-            toast.error(error.message || 'Failed to create invite code');
+            toast.error(toErrorText(error));
         }
     });
 
@@ -84,7 +103,7 @@ export default function InviteCodesManagement() {
             toast.success(t('admin:invites.revoked_success', 'Invite code successfully revoked.'));
         },
         onError: (error: any) => {
-            toast.error(error.message || 'Failed to revoke invite code');
+            toast.error(toErrorText(error));
         }
     });
 
@@ -161,12 +180,27 @@ export default function InviteCodesManagement() {
         }
     };
 
+    const closeCreateDialog = () => {
+        setIsCreateOpen(false);
+        setCreatedCode(null);
+        setNewInvite({ channel: '', notes: '', max_uses: 1, expires_at: '' });
+    };
+
     const handleCloseCreate = (open: boolean) => {
-        if (!open && createdCode && !hasCopied) {
-            const confirmClose = window.confirm(t('admin:invites.warning_not_copied', 'You have not copied the code! Once closed, you will NEVER see the full code again. Close anyway?'));
-            if (!confirmClose) return;
+        if (open) {
+            setIsCreateOpen(true);
+            return;
         }
-        setIsCreateOpen(open);
+        if (createdCode && !hasCopied) {
+            setActionConfirm({
+                open: true,
+                title: t('admin:warning', 'Warning'),
+                desc: t('admin:invites.warning_not_copied', 'You have not copied the code! Once closed, you will NEVER see the full code again. Close anyway?'),
+                onConfirm: () => closeCreateDialog()
+            });
+            return;
+        }
+        setIsCreateOpen(false);
         if (!open) {
             setCreatedCode(null);
             setNewInvite({ channel: '', notes: '', max_uses: 1, expires_at: '' });
@@ -187,7 +221,7 @@ export default function InviteCodesManagement() {
                         {t('admin:invites.description', 'Manage invite codes used to grant users subscription access.')}
                     </p>
                 </div>
-                <Button onClick={() => handleCloseCreate(true)} className="gap-2">
+                <Button onClick={() => handleCloseCreate(true)} className="h-10 px-5 rounded-xl gap-2 shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95">
                     <Plus className="w-4 h-4" />
                     {t('admin:invites.new_code', 'Generate Code')}
                 </Button>
@@ -217,15 +251,21 @@ export default function InviteCodesManagement() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {isLoading ? (
+                                    {isError ? (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="h-24 text-center">
+                                            <TableCell colSpan={8} className="h-24 text-center text-destructive">
+                                                {queryErrorText}
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : isLoading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={8} className="h-24 text-center">
                                                 <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
                                             </TableCell>
                                         </TableRow>
-                                    ) : data?.items?.length === 0 ? (
+                                    ) : !data?.items?.length ? (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                                            <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                                                 {t('admin:no_data', 'No data available')}
                                             </TableCell>
                                         </TableRow>
@@ -238,7 +278,7 @@ export default function InviteCodesManagement() {
                                                 <TableRow key={item.id}>
                                                     <TableCell className="font-mono text-xs">{item.id}</TableCell>
                                                     <TableCell>
-                                                        <span className="font-medium">{item.channel || '—'}</span>
+                                                        <span className="font-medium">{item.channel || '-'}</span>
                                                         {item.notes && (
                                                             <p className="text-xs text-muted-foreground truncate max-w-[150px]" title={item.notes}>
                                                                 {item.notes}
@@ -281,9 +321,12 @@ export default function InviteCodesManagement() {
                                                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                                             disabled={isRevoked}
                                                             onClick={() => {
-                                                                if (window.confirm(t('admin:invites.revoke_confirm', 'Are you sure you want to revoke this code? It will immediately stop working for new users.'))) {
-                                                                    revokeMutation.mutate(item.id);
-                                                                }
+                                                                setActionConfirm({
+                                                                    open: true,
+                                                                    title: t('admin:confirm', 'Confirm'),
+                                                                    desc: t('admin:invites.revoke_confirm', 'Are you sure you want to revoke this code? It will immediately stop working for new users.'),
+                                                                    onConfirm: () => revokeMutation.mutate(item.id)
+                                                                });
                                                             }}
                                                         >
                                                             {revokeMutation.isPending && revokeMutation.variables === item.id ? (
@@ -300,13 +343,36 @@ export default function InviteCodesManagement() {
                                 </TableBody>
                             </Table>
                         </div>
+                        {total > 0 && (
+                            <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+                                <div>{t('admin:page_info', { page, total: totalPages })}</div>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                        disabled={page <= 1}
+                                    >
+                                        {t('admin:prev')}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                        disabled={page >= totalPages}
+                                    >
+                                        {t('admin:next')}
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </motion.div>
 
             {/* Create / Reveal Modal */}
             <Dialog open={isCreateOpen} onOpenChange={handleCloseCreate}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-md p-6 bg-white/95 dark:bg-slate-950/95 backdrop-blur-3xl border border-white/20 shadow-2xl overflow-hidden rounded-3xl">
                     <DialogHeader className="mb-2">
                         <DialogTitle className="text-xl font-bold">{createdCode ? t('admin:invites.your_new_code', 'Invite Code Ready') : t('admin:invites.create_title', 'Generate Invite Code')}</DialogTitle>
                         <DialogDescription className="text-muted-foreground/80 mt-1">
@@ -407,7 +473,7 @@ export default function InviteCodesManagement() {
                                         />
                                     </PopoverContent>
                                 </Popover>
-                                <p className="text-[11px] text-muted-foreground ml-1">
+                                <p className="text-xs text-muted-foreground ml-1">
                                     {t('admin:invites.expires_at_hint', 'Leave empty for codes that never expire.')}
                                 </p>
                             </div>
@@ -438,6 +504,27 @@ export default function InviteCodesManagement() {
                     )}
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={actionConfirm.open} onOpenChange={(open) => setActionConfirm((prev) => ({ ...prev, open }))}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{actionConfirm.title}</AlertDialogTitle>
+                        <AlertDialogDescription>{actionConfirm.desc}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>{t('common:cancel', 'Cancel')}</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                actionConfirm.onConfirm();
+                                setActionConfirm((prev) => ({ ...prev, open: false }));
+                            }}
+                        >
+                            {t('common:confirm', 'Confirm')}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </motion.div>
     );
 }
+

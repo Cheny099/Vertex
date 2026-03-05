@@ -22,6 +22,8 @@ const StrategiesList = () => {
   const { data: subscriptions, isLoading } = useQuery({
     queryKey: ['subscriptions'],
     queryFn: () => subscriptionApi.list(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   if (isLoading) {

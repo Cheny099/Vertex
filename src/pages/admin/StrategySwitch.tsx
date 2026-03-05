@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,15 +9,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2, ArrowRightLeft, Upload, Play, Eye } from 'lucide-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { adminApi, StrategySwitchRequest, StrategySwitchPreviewRequest, StrategySwitchBulkExecuteRequest, StrategySwitchBulkPreviewRequest } from '@/api';
+import { adminApi, translateBackendErrorMessage, StrategySwitchRequest, StrategySwitchPreviewRequest, StrategySwitchBulkExecuteRequest, StrategySwitchBulkPreviewRequest } from '@/api';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { CodeBlock } from "@/components/ui/code-block";
 import { SwitchRunTimeline } from '@/components/StrategySwitch/SwitchRunTimeline';
 import { BulkSwitchStats } from '@/components/StrategySwitch/BulkSwitchStats';
+import { usePageVisibility } from '@/hooks/use-page-visibility';
 
 const StrategySwitch = () => {
     const { t } = useTranslation(['admin', 'common']);
     const { toast } = useToast();
+    const isPageVisible = usePageVisibility();
     const [activeTab, setActiveTab] = useState('single');
 
     // --- Single Switch State ---
@@ -40,13 +43,24 @@ const StrategySwitch = () => {
         symbol: '',
     });
 
+    const toErrorText = (err: any) =>
+        translateBackendErrorMessage((err as any)?.message || '') ||
+        (err as any)?.message ||
+        t('admin:error_operation_failed');
+
     // --- Mutations & Queries ---
     const singlePreviewMutation = useMutation({
-        mutationFn: (data: StrategySwitchPreviewRequest) => adminApi.strategySwitch.preview(data)
+        mutationFn: (data: StrategySwitchPreviewRequest) => adminApi.strategySwitch.preview(data),
+        onError: (err: Error) => {
+            toast({ title: t('common:error'), description: toErrorText(err), variant: 'destructive' });
+        }
     });
 
     const bulkPreviewMutation = useMutation({
-        mutationFn: (data: StrategySwitchBulkPreviewRequest) => adminApi.strategySwitch.bulkPreview(data)
+        mutationFn: (data: StrategySwitchBulkPreviewRequest) => adminApi.strategySwitch.bulkPreview(data),
+        onError: (err: Error) => {
+            toast({ title: t('common:error'), description: toErrorText(err), variant: 'destructive' });
+        }
     });
 
     const executeMutation = useMutation({
@@ -55,7 +69,17 @@ const StrategySwitch = () => {
             toast({ title: t('common:success'), description: t('admin:strategy_switch.success_msg') });
         },
         onError: (err: Error) => {
-            toast({ title: t('common:error'), description: err?.message || 'Execution failed', variant: 'destructive' });
+            toast({ title: t('common:error'), description: toErrorText(err), variant: 'destructive' });
+        }
+    });
+
+    const cancelRunMutation = useMutation({
+        mutationFn: (id: number) => adminApi.strategySwitch.cancelRun(id),
+        onSuccess: () => {
+            toast({ title: t('common:success'), description: t('admin:cancel_success') });
+        },
+        onError: (err: Error) => {
+            toast({ title: t('common:error'), description: toErrorText(err), variant: 'destructive' });
         }
     });
 
@@ -70,45 +94,70 @@ const StrategySwitch = () => {
             });
         },
         onError: (err: Error) => {
-            toast({ title: t('common:error'), description: err?.message || 'Bulk execution failed', variant: 'destructive' });
+            toast({ title: t('common:error'), description: toErrorText(err), variant: 'destructive' });
         }
     });
 
     // Poll for the single run status if one is active
     const runId = executeMutation.data?.run_id;
-    const { data: runStatus } = useQuery({
+    const { data: runStatus, refetch: refetchRunStatus } = useQuery({
         queryKey: ['strategy_switch_run', runId],
         queryFn: () => adminApi.strategySwitch.getRun(runId!),
         enabled: !!runId,
-        refetchInterval: 2000
+        refetchInterval: (query) => {
+            if (!isPageVisible) return false;
+            const status = String((query.state.data as any)?.status || '').toUpperCase();
+            return !status || status === 'PENDING' || status === 'RUNNING' ? 2000 : false;
+        },
+        refetchOnWindowFocus: false
     });
 
     // Poll for the bulk campaign status if one is active
     const campaignId = bulkExecuteMutation.data?.campaign_id;
-    const { data: campaignStatus } = useQuery({
+    const { data: campaignStatus, refetch: refetchCampaignStatus } = useQuery({
         queryKey: ['bulk_switch_campaign', campaignId],
         queryFn: () => adminApi.strategySwitch.getCampaign(campaignId!),
         enabled: !!campaignId,
-        refetchInterval: 3000
+        refetchInterval: (query) => {
+            if (!isPageVisible) return false;
+            const status = String((query.state.data as any)?.status || '').toUpperCase();
+            return !status || status === 'PENDING' || status === 'RUNNING' ? 3000 : false;
+        },
+        refetchOnWindowFocus: false
     });
 
+    useEffect(() => {
+        if (!isPageVisible) return;
+        if (runId) {
+            void refetchRunStatus();
+        }
+        if (campaignId) {
+            void refetchCampaignStatus();
+        }
+    }, [isPageVisible, runId, campaignId, refetchRunStatus, refetchCampaignStatus]);
+
     const previewPlan = singlePreviewMutation.data;
+    const getStatusLabel = (status?: string) => {
+        if (!status) return '-';
+        return t(`admin:status_labels.${status}`, { defaultValue: status });
+    };
+    const isCancelableRun = runStatus?.status === 'PENDING' || runStatus?.status === 'RUNNING';
 
     const validateSingleForm = (): boolean => {
         if (!singleForm.account_id || singleForm.account_id <= 0) {
-            toast({ title: t('common:error'), description: t('admin:strategy_switch.account_id') + ' ' + t('validation.required'), variant: 'destructive' });
+            toast({ title: t('common:error'), description: t('admin:strategy_switch.account_id') + ' ' + t('common:required'), variant: 'destructive' });
             return false;
         }
         if (!singleForm.symbol || singleForm.symbol.length < 2) {
-            toast({ title: t('common:error'), description: t('admin:strategy_switch.symbol') + ' ' + t('validation.required'), variant: 'destructive' });
+            toast({ title: t('common:error'), description: t('admin:strategy_switch.symbol') + ' ' + t('common:required'), variant: 'destructive' });
             return false;
         }
         if (!singleForm.from_subscription_id || singleForm.from_subscription_id <= 0) {
-            toast({ title: t('common:error'), description: t('admin:strategy_switch.from_sub_id') + ' ' + t('validation.required'), variant: 'destructive' });
+            toast({ title: t('common:error'), description: t('admin:strategy_switch.from_sub_id') + ' ' + t('common:required'), variant: 'destructive' });
             return false;
         }
         if (!singleForm.to_subscription_id || singleForm.to_subscription_id <= 0) {
-            toast({ title: t('common:error'), description: t('admin:strategy_switch.to_sub_id') + ' ' + t('validation.required'), variant: 'destructive' });
+            toast({ title: t('common:error'), description: t('admin:strategy_switch.to_sub_id') + ' ' + t('common:required'), variant: 'destructive' });
             return false;
         }
         return true;
@@ -135,15 +184,15 @@ const StrategySwitch = () => {
         e.preventDefault();
 
         if (!bulkForm.from_strategy_id || bulkForm.from_strategy_id <= 0) {
-            toast({ title: t('common:error'), description: t('admin:strategy_switch.from_strategy_id') + ' ' + t('validation.required'), variant: 'destructive' });
+            toast({ title: t('common:error'), description: t('admin:strategy_switch.from_strategy_id') + ' ' + t('common:required'), variant: 'destructive' });
             return;
         }
         if (!bulkForm.to_strategy_id || bulkForm.to_strategy_id <= 0) {
-            toast({ title: t('common:error'), description: t('admin:strategy_switch.to_strategy_id') + ' ' + t('validation.required'), variant: 'destructive' });
+            toast({ title: t('common:error'), description: t('admin:strategy_switch.to_strategy_id') + ' ' + t('common:required'), variant: 'destructive' });
             return;
         }
         if (!bulkForm.symbol || bulkForm.symbol.length < 2) {
-            toast({ title: t('common:error'), description: t('admin:strategy_switch.symbol') + ' ' + t('validation.required'), variant: 'destructive' });
+            toast({ title: t('common:error'), description: t('admin:strategy_switch.symbol') + ' ' + t('common:required'), variant: 'destructive' });
             return;
         }
 
@@ -158,7 +207,7 @@ const StrategySwitch = () => {
 
     const handleBulkPreview = () => {
         if (!bulkForm.from_strategy_id || bulkForm.from_strategy_id <= 0 || !bulkForm.to_strategy_id || bulkForm.to_strategy_id <= 0 || !bulkForm.symbol || bulkForm.symbol.length < 2) {
-            toast({ title: t('common:error'), description: t('validation.required'), variant: 'destructive' });
+            toast({ title: t('common:error'), description: t('common:required'), variant: 'destructive' });
             return;
         }
         bulkPreviewMutation.mutate({
@@ -169,17 +218,17 @@ const StrategySwitch = () => {
     };
 
     return (
-        <div className="p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
+        <div className="space-y-6 p-4 md:p-8 min-h-screen bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-white">
             <div>
-                <h1 className="text-3xl font-bold flex items-center gap-3">
-                    <ArrowRightLeft className="w-8 h-8 text-primary" />
+                <h1 className="text-4xl font-black tracking-tight text-slate-900 flex items-center gap-3">
+                    <ArrowRightLeft className="w-7 h-7 text-primary" />
                     {t('admin:strategy_switch.title')}
                 </h1>
-                <p className="text-muted-foreground mt-2">{t('admin:strategy_switch.description')}</p>
+                <p className="text-slate-500 font-medium mt-1">{t('admin:strategy_switch.description')}</p>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-                <TabsList>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                <TabsList className="bg-slate-100/50 border border-slate-200 p-1 rounded-xl">
                     <TabsTrigger value="single">{t('admin:strategy_switch.tab_single')}</TabsTrigger>
                     <TabsTrigger value="bulk">{t('admin:strategy_switch.tab_bulk')}</TabsTrigger>
                 </TabsList>
@@ -188,7 +237,7 @@ const StrategySwitch = () => {
                 <TabsContent value="single">
                     <div className="space-y-6">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <Card>
+                            <Card className="bg-white/60 backdrop-blur-2xl border border-white/40 rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.04)]">
                                 <CardHeader>
                                     <CardTitle>{t('admin:strategy_switch.single_switch')}</CardTitle>
                                     <CardDescription>{t('admin:strategy_switch.single_desc')}</CardDescription>
@@ -203,6 +252,7 @@ const StrategySwitch = () => {
                                                     min={1}
                                                     value={singleForm.account_id || ''}
                                                     onChange={e => setSingleForm({ ...singleForm, account_id: Number(e.target.value) })}
+                                                    className="h-10"
                                                     required
                                                 />
                                             </div>
@@ -212,6 +262,7 @@ const StrategySwitch = () => {
                                                     value={singleForm.symbol}
                                                     onChange={e => setSingleForm({ ...singleForm, symbol: e.target.value.toUpperCase() })}
                                                     placeholder={t('admin:strategy_switch.symbol_placeholder')}
+                                                    className="h-10"
                                                     required
                                                 />
                                             </div>
@@ -225,6 +276,7 @@ const StrategySwitch = () => {
                                                     min={1}
                                                     value={singleForm.from_subscription_id || ''}
                                                     onChange={e => setSingleForm({ ...singleForm, from_subscription_id: Number(e.target.value) })}
+                                                    className="h-10"
                                                     required
                                                 />
                                             </div>
@@ -235,6 +287,7 @@ const StrategySwitch = () => {
                                                     min={1}
                                                     value={singleForm.to_subscription_id || ''}
                                                     onChange={e => setSingleForm({ ...singleForm, to_subscription_id: Number(e.target.value) })}
+                                                    className="h-10"
                                                     required
                                                 />
                                             </div>
@@ -246,7 +299,7 @@ const StrategySwitch = () => {
                                                 value={singleForm.handover_mode}
                                                 onValueChange={(v: 'FLAT_THEN_SWITCH' | 'KEEP_POSITION_ADOPT') => setSingleForm({ ...singleForm, handover_mode: v })}
                                             >
-                                                <SelectTrigger>
+                                                <SelectTrigger className="h-10">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -260,7 +313,7 @@ const StrategySwitch = () => {
                                             <Button
                                                 type="button"
                                                 variant="secondary"
-                                                className="w-full"
+                                                className="w-full h-10 rounded-xl"
                                                 onClick={handlePreview}
                                                 disabled={singlePreviewMutation.isPending}
                                             >
@@ -269,7 +322,7 @@ const StrategySwitch = () => {
                                             </Button>
                                             <Button
                                                 type="submit"
-                                                className="w-full"
+                                                className="w-full h-10 rounded-xl"
                                                 disabled={executeMutation.isPending}
                                             >
                                                 {executeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
@@ -282,7 +335,7 @@ const StrategySwitch = () => {
 
                             <div className="space-y-6">
                                 {previewPlan && (
-                                    <Card className="border-blue-500/20 bg-blue-500/5">
+                                    <Card className="bg-white/70 border border-blue-200/60 rounded-3xl shadow-sm">
                                         <CardHeader>
                                             <CardTitle className="text-base">{t('admin:strategy_switch.preview_result')}</CardTitle>
                                         </CardHeader>
@@ -295,12 +348,12 @@ const StrategySwitch = () => {
                                 )}
 
                                 {runStatus && (
-                                    <Card>
+                                    <Card className="bg-white/60 backdrop-blur-2xl border border-white/40 rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.04)]">
                                         <CardHeader>
                                             <CardTitle className="flex justify-between items-center text-base">
                                                 {t('admin:strategy_switch.execution_status')}
                                                 <Badge variant={runStatus.status === 'SUCCESS' ? 'default' : runStatus.status === 'FAILED' ? 'destructive' : 'secondary'}>
-                                                    {runStatus.status}
+                                                    {getStatusLabel(runStatus.status)}
                                                 </Badge>
                                             </CardTitle>
                                         </CardHeader>
@@ -338,6 +391,19 @@ const StrategySwitch = () => {
                                             <div className="border rounded-md p-2 bg-muted/30">
                                                 <SwitchRunTimeline run={runStatus} />
                                             </div>
+
+                                            {isCancelableRun && (
+                                                <Button
+                                                    type="button"
+                                                    variant="destructive"
+                                                    onClick={() => cancelRunMutation.mutate(runStatus.id)}
+                                                    disabled={cancelRunMutation.isPending}
+                                                    className="w-full"
+                                                >
+                                                    {cancelRunMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                                    {t('common:cancel')}
+                                                </Button>
+                                            )}
                                         </CardContent>
                                     </Card>
                                 )}
@@ -350,7 +416,7 @@ const StrategySwitch = () => {
                 <TabsContent value="bulk">
                     <div className="space-y-6">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <Card>
+                            <Card className="bg-white/60 backdrop-blur-2xl border border-white/40 rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.04)]">
                                 <CardHeader>
                                     <CardTitle>{t('admin:strategy_switch.bulk_campaign')}</CardTitle>
                                     <CardDescription>{t('admin:strategy_switch.bulk_desc')}</CardDescription>
@@ -364,6 +430,7 @@ const StrategySwitch = () => {
                                                     type="number"
                                                     value={bulkForm.from_strategy_id || ''}
                                                     onChange={e => setBulkForm({ ...bulkForm, from_strategy_id: Number(e.target.value) })}
+                                                    className="h-10"
                                                     required
                                                 />
                                             </div>
@@ -373,6 +440,7 @@ const StrategySwitch = () => {
                                                     type="number"
                                                     value={bulkForm.to_strategy_id || ''}
                                                     onChange={e => setBulkForm({ ...bulkForm, to_strategy_id: Number(e.target.value) })}
+                                                    className="h-10"
                                                     required
                                                 />
                                             </div>
@@ -384,9 +452,10 @@ const StrategySwitch = () => {
                                                 value={bulkForm.symbol}
                                                 onChange={e => setBulkForm({ ...bulkForm, symbol: e.target.value.toUpperCase() })}
                                                 placeholder={t('admin:strategy_switch.symbol_placeholder')}
+                                                className="h-10"
                                                 required
                                             />
-                                            <p className="text-[10px] text-muted-foreground">
+                                            <p className="text-xs text-muted-foreground">
                                                 {t('admin:strategy_switch.symbol_hint')}
                                             </p>
                                         </div>
@@ -399,7 +468,7 @@ const StrategySwitch = () => {
                                             <Button
                                                 type="button"
                                                 variant="secondary"
-                                                className="w-full"
+                                                className="w-full h-10 rounded-xl"
                                                 onClick={handleBulkPreview}
                                                 disabled={bulkPreviewMutation.isPending}
                                             >
@@ -408,7 +477,7 @@ const StrategySwitch = () => {
                                             </Button>
                                             <Button
                                                 type="submit"
-                                                className="w-full"
+                                                className="w-full h-10 rounded-xl"
                                                 disabled={bulkExecuteMutation.isPending}
                                             >
                                                 {bulkExecuteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
@@ -420,18 +489,18 @@ const StrategySwitch = () => {
                             </Card>
 
                             {campaignStatus && (
-                                <Card>
+                                <Card className="bg-white/60 backdrop-blur-2xl border border-white/40 rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.04)]">
                                     <CardHeader>
                                         <CardTitle className="flex justify-between items-center text-base">
                                             {t('admin:strategy_switch.campaign_status')}
                                             <Badge variant={campaignStatus.status === 'SUCCESS' ? 'default' : campaignStatus.status === 'FAILED' ? 'destructive' : 'secondary'}>
-                                                {campaignStatus.status}
+                                                {getStatusLabel(campaignStatus.status)}
                                             </Badge>
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
-                                        <div className="text-[10px] text-muted-foreground font-mono">
-                                            Campaign ID: #{campaignStatus.campaign_id}
+                                        <div className="text-xs text-muted-foreground font-mono">
+                                            {t('admin:strategy_switch_campaign')} {t('admin:column_id')}: #{campaignStatus.campaign_id}
                                         </div>
                                         <BulkSwitchStats campaign={campaignStatus} />
                                     </CardContent>
@@ -440,7 +509,7 @@ const StrategySwitch = () => {
                         </div>
 
                         {bulkPreviewMutation.data && (
-                            <Card className="border-blue-500/20 bg-blue-500/5">
+                            <Card className="bg-white/70 border border-blue-200/60 rounded-3xl shadow-sm">
                                 <CardHeader>
                                     <CardTitle className="text-base flex items-center gap-2">
                                         <Eye className="w-4 h-4" />
@@ -460,7 +529,7 @@ const StrategySwitch = () => {
                                             <h4 className="text-xs font-medium mb-3 text-muted-foreground uppercase tracking-wider">{t('admin:strategy_switch.sample_accounts', 'Sample Accounts')}</h4>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                                 {bulkPreviewMutation.data.sample.map((s, i) => (
-                                                    <div key={i} className="text-[10px] font-mono p-2 bg-background rounded border flex justify-between">
+                                                    <div key={i} className="text-xs font-mono p-2 bg-background rounded border flex justify-between">
                                                         <span>Acc #{s.account_id}</span>
                                                         <span className="text-muted-foreground">{s.params_digest.slice(0, 16)}...</span>
                                                     </div>
@@ -480,7 +549,7 @@ const StrategySwitch = () => {
 
 const PreviewStat = ({ label, value }: { label: string; value: number }) => (
     <div className="flex flex-col gap-1 p-3 bg-background rounded-lg border">
-        <span className="text-[10px] text-muted-foreground uppercase font-medium">{label}</span>
+        <span className="text-xs text-muted-foreground uppercase font-medium">{label}</span>
         <span className="text-xl font-bold">{value}</span>
     </div>
 );

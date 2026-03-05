@@ -41,6 +41,7 @@ const AccountStatusList = ({ accounts: rawAccounts, isLoading }: AccountStatusLi
         queryKey: ['account-status-map', accountIdsKey],
         enabled: visibleAccounts.length > 0,
         staleTime: 10_000,
+        refetchOnWindowFocus: false,
         queryFn: async () => {
             const results = await Promise.all(
                 visibleAccounts.map(async (a) => {

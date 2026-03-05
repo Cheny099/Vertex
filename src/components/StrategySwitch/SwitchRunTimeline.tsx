@@ -37,7 +37,7 @@ export const SwitchRunTimeline = ({ run }: SwitchRunTimelineProps) => {
                 <div>{t('admin:strategy_switch.waiting_for_steps', 'Waiting for execution steps...')}</div>
                 {(run.status === 'FAILED' || run.status === 'CANCELLED') && (
                     <div className="text-xs text-destructive font-mono bg-destructive/5 p-2 rounded border border-destructive/10">
-                        {run.error_message || `Task ${run.status}`}
+                        {run.error_message || t('admin:strategy_switch.task_status_fallback', { status: run.status ?? '-' })}
                     </div>
                 )}
             </div>

@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, RefreshCw, XCircle, Zap, Eye, Clock, Search, Filter, PlayCircle, PauseCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { adminApi, Order } from '@/api';
+import { adminApi, Order, translateBackendErrorMessage } from '@/api';
 import { Button } from '@/components/ui/button';
 import {
     Table,
@@ -49,6 +49,8 @@ import {
     AccordionTrigger,
 } from "@/components/ui/accordion";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { CodeBlock } from "@/components/ui/code-block";
 
 import {
     Tooltip,
@@ -56,6 +58,8 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { usePageVisibility } from '@/hooks/use-page-visibility';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
 
 // Helper component for Confirmation Dialog
 const ConfirmDialog = ({ open, onOpenChange, onConfirm, title, desc }: any) => {
@@ -103,6 +107,7 @@ const itemVariants = {
 const OpsConsole = () => {
     const { t } = useTranslation(["admin", "common"]);
     const queryClient = useQueryClient();
+    const isPageVisible = usePageVisibility();
 
     // Close Position State
     const [closeDialogOpen, setCloseDialogOpen] = useState(false);
@@ -119,6 +124,8 @@ const OpsConsole = () => {
     const [symbolFilter, setSymbolFilter] = useState("");
     const [accountIdFilter, setAccountIdFilter] = useState("");
     const [isAutoRefresh, setIsAutoRefresh] = useState(false);
+    const debouncedSymbolFilter = useDebouncedValue(symbolFilter, 300);
+    const debouncedAccountIdFilter = useDebouncedValue(accountIdFilter, 300);
 
     // Batch Requeue State
     const [batchParams, setBatchParams] = useState({
@@ -132,6 +139,14 @@ const OpsConsole = () => {
     const [freezeReason, setFreezeReason] = useState("");
     const [targetSubId, setTargetSubId] = useState<number | null>(null);
 
+    // Global Confirm State for generic actions
+    const [actionConfirm, setActionConfirm] = useState<{
+        open: boolean;
+        title: string;
+        desc: string;
+        onConfirm: () => void;
+    }>({ open: false, title: "", desc: "", onConfirm: () => { } });
+
     // Helper: Localized Formatting
     const formatAction = (act: string) => t(`admin:log_actions.${act}`, { defaultValue: act });
     const formatTargetType = (target: string) => t(`admin:log_targets.${target}`, { defaultValue: target });
@@ -144,17 +159,24 @@ const OpsConsole = () => {
         return 'outline';
     };
 
-    const { data: ordersData, isLoading, refetch } = useQuery({
-        queryKey: ['adminOrders', page, statusFilter, symbolFilter, accountIdFilter],
+    const { data: ordersData, isLoading, isError, error, refetch } = useQuery({
+        queryKey: ['adminOrders', page, statusFilter, debouncedSymbolFilter, debouncedAccountIdFilter],
         queryFn: () => adminApi.ops.listOrders({
             page,
             limit: 10,
             status: statusFilter === 'all' ? undefined : statusFilter,
-            symbol: symbolFilter || undefined,
-            account_id: accountIdFilter ? parseInt(accountIdFilter) : undefined
+            symbol: debouncedSymbolFilter || undefined,
+            account_id: debouncedAccountIdFilter ? parseInt(debouncedAccountIdFilter) : undefined
         }),
-        refetchInterval: isAutoRefresh ? 5000 : false,
+        refetchInterval: isAutoRefresh && isPageVisible ? 5000 : false,
+        refetchOnWindowFocus: false,
     });
+
+    useEffect(() => {
+        if (isAutoRefresh && isPageVisible) {
+            void refetch();
+        }
+    }, [isAutoRefresh, isPageVisible, refetch]);
 
     // Order Details State
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -167,11 +189,12 @@ const OpsConsole = () => {
     });
 
     // Mutations
-    const getErrorMessage = (err: any) => {
-        const msg = err.message || '';
-        if (msg.includes('Account not found')) return t('admin:error_account_not_found');
-        return msg || t('admin:error_operation_failed');
-    };
+    const getErrorMessage = useCallback((err: any) => {
+        const raw = String(err?.message || err?.detail || '').trim();
+        if (!raw) return t('admin:error_operation_failed');
+        const translated = translateBackendErrorMessage(raw);
+        return translated || raw;
+    }, [t]);
 
     const cancelOrderMutation = useMutation({
         mutationFn: (id: number) => adminApi.ops.cancelOrder(id),
@@ -231,30 +254,191 @@ const OpsConsole = () => {
         onError: (err: any) => toast.error(getErrorMessage(err))
     });
 
+    const handleRequeueClick = useCallback((orderId: number) => {
+        setActionConfirm({
+            open: true,
+            title: t('admin:confirm', 'Confirm'),
+            desc: t("admin:requeue_confirm"),
+            onConfirm: () => requeueOrderMutation.mutate({ id: orderId })
+        });
+    }, [t, requeueOrderMutation]);
+
+    const handleCancelClick = useCallback((orderId: number) => {
+        setActionConfirm({
+            open: true,
+            title: t('admin:confirm', 'Confirm'),
+            desc: t("admin:confirm_cancel"),
+            onConfirm: () => cancelOrderMutation.mutate(orderId)
+        });
+    }, [t, cancelOrderMutation]);
+
+    const handleViewOrder = useCallback((order: Order) => {
+        setSelectedOrder(order);
+    }, []);
+
+    const orderTableBody = useMemo(() => {
+        if (isLoading) {
+            return (
+                <TableRow>
+                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                        {t("admin:loading")}
+                    </TableCell>
+                </TableRow>
+            );
+        }
+        if (isError) {
+            return (
+                <TableRow>
+                    <TableCell colSpan={7} className="h-24 text-center text-destructive">
+                        {getErrorMessage(error)}
+                    </TableCell>
+                </TableRow>
+            );
+        }
+
+        const items = ordersData?.items || [];
+        if (items.length === 0) {
+            return (
+                <TableRow>
+                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                        {t("admin:no_data")}
+                    </TableCell>
+                </TableRow>
+            );
+        }
+
+        return items.map((order: any) => (
+            <TableRow key={order.id} className="group transition-all hover:bg-slate-50/80">
+                <TableCell className="relative font-mono text-xs text-muted-foreground pl-4">
+                    <div className={`absolute left-0 top-0 bottom-0 w-[3px] opacity-0 group-hover:opacity-100 transition-all ${order.side.toLowerCase() === 'buy' ? 'bg-blue-600 shadow-[2px_0_10px_rgba(37,99,235,0.3)]' : 'bg-red-600 shadow-[2px_0_10px_rgba(220,38,38,0.3)]'}`} />
+                    #{order.id}
+                </TableCell>
+                <TableCell className="font-mono text-xs">{order.account_id}</TableCell>
+                <TableCell className="py-4">
+                    <div className="flex flex-col min-w-[140px]">
+                        <span className="font-black text-sm tracking-tight text-slate-900 mb-1.5 uppercase">{order.symbol}</span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge
+                                variant={order.side.toLowerCase() === 'buy' ? 'default' : 'destructive'}
+                                className={`text-xs px-1.5 py-0 h-4.5 font-bold uppercase ${order.side.toLowerCase() === 'buy' ? 'bg-blue-600 shadow-[0_2px_10px_rgba(37,99,235,0.2)]' : 'bg-red-600 shadow-[0_2px_10px_rgba(220,38,38,0.2)]'}`}
+                            >
+                                {order.side}
+                            </Badge>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Badge
+                                            variant="outline"
+                                            className={`text-xs px-1.5 py-0 h-4.5 font-bold border-slate-200 bg-slate-50/50 ${order.status === 'FAILED' ? 'bg-red-50 text-red-600 border-red-100 shadow-sm animate-pulse cursor-help' : ''}`}
+                                        >
+                                            {t(`admin:status_labels.${order.status}`)}
+                                        </Badge>
+                                    </TooltipTrigger>
+                                    {(order.error_message || order.last_error) && (
+                                        <TooltipContent className="max-w-[300px] text-xs bg-slate-900 text-white border-0 shadow-2xl p-3">
+                                            <div className="flex items-center gap-2 text-red-400 mb-2">
+                                                <AlertTriangle className="h-3.5 w-3.5" />
+                                                <span className="font-bold">{t("admin:error_reason")}</span>
+                                            </div>
+                                            <p className="font-mono break-all leading-relaxed text-slate-300">{order.error_message || order.last_error}</p>
+                                        </TooltipContent>
+                                    )}
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
+                    </div>
+                </TableCell>
+                <TableCell>
+                    <Badge variant="secondary" className="text-xs px-1 py-0 h-4 capitalize">
+                        {order.action ? t(`admin:log_actions.${order.action}`, { defaultValue: order.action }) : '-'}
+                    </Badge>
+                </TableCell>
+                <TableCell>
+                    <div className="flex flex-col">
+                        <span className="font-mono text-sm">{order.quantity}</span>
+                        {order.executed_price > 0 && (
+                            <span className="text-xs text-muted-foreground line-clamp-1">
+                                @ {order.executed_price}
+                            </span>
+                        )}
+                    </div>
+                </TableCell>
+                <TableCell className="font-mono text-xs uppercase text-muted-foreground">
+                    {order.exchange ? t(`common:exchanges.${order.exchange.toLowerCase()}`, { defaultValue: order.exchange }) : t("common:exchanges.turboflow")}
+                </TableCell>
+                <TableCell className="text-right">
+                    <div className="flex justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                        <Button
+                            variant="secondary"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-orange-100 hover:text-orange-700"
+                            title={t("admin:requeue_single")}
+                            disabled={requeueOrderMutation.isPending}
+                            onClick={() => handleRequeueClick(order.id)}
+                        >
+                            <RefreshCw className={`h-4 w-4 ${requeueOrderMutation.isPending && requeueOrderMutation.variables?.id === order.id ? 'animate-spin' : ''}`} />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+                            title={t("admin:cancel_order")}
+                            disabled={cancelOrderMutation.isPending}
+                            onClick={() => handleCancelClick(order.id)}
+                        >
+                            <XCircle className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title={t("admin:view_data")}
+                            onClick={() => handleViewOrder(order)}
+                        >
+                            <Eye className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </TableCell>
+            </TableRow>
+        ));
+    }, [
+        isLoading,
+        isError,
+        error,
+        ordersData?.items,
+        t,
+        getErrorMessage,
+        requeueOrderMutation.isPending,
+        requeueOrderMutation.variables,
+        cancelOrderMutation.isPending,
+        handleRequeueClick,
+        handleCancelClick,
+        handleViewOrder
+    ]);
+
     return (
         <motion.div
             initial="hidden"
             animate="visible"
             variants={containerVariants}
-            className="min-h-screen bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-white p-4 md:p-8 font-sans transition-all duration-700 relative overflow-hidden"
+            className="space-y-6 p-4 md:p-8 min-h-screen bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-white relative overflow-hidden"
         >
             {/* Decorative Mesh Background */}
-            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
-            <div className="absolute bottom-[5%] right-[-5%] w-[30%] h-[30%] bg-blue-400/5 blur-[100px] rounded-full pointer-events-none" />
+            <div className="absolute top-[-10%] left-[-10%] w-[36%] h-[36%] bg-primary/5 blur-[56px] rounded-full pointer-events-none" />
+            <div className="absolute bottom-[5%] right-[-5%] w-[28%] h-[28%] bg-blue-400/5 blur-[48px] rounded-full pointer-events-none" />
 
-            <div className="max-w-[1600px] mx-auto space-y-8 relative z-10">
+            <div className="space-y-6 relative z-10">
                 <div className="flex items-center justify-between">
                     <motion.div variants={itemVariants}>
-                        <h1 className="text-5xl font-black tracking-tighter bg-gradient-to-br from-slate-900 via-destructive to-red-500 bg-clip-text text-transparent flex items-center gap-4 transition-all hover:scale-[1.01]">
-                            <div className="p-2.5 bg-destructive/10 rounded-2xl backdrop-blur-md border border-destructive/20 shadow-xl shadow-destructive/10 ring-4 ring-destructive/5">
-                                <AlertTriangle className="h-9 w-9 text-destructive" />
+                        <h1 className="text-4xl font-black tracking-tight text-slate-900 flex items-center gap-3">
+                            <div className="p-2 bg-destructive/10 rounded-xl border border-destructive/20">
+                                <AlertTriangle className="h-6 w-6 text-destructive" />
                             </div>
                             {t("admin:ops")}
                         </h1>
-                        <p className="text-muted-foreground mt-3 font-semibold flex items-center gap-3 tracking-tight">
+                        <p className="text-slate-500 mt-1 font-medium flex items-center gap-2">
                             <span className="flex h-3 w-3 relative">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive/80"></span>
                             </span>
                             {t("admin:ops_desc")}
                         </p>
@@ -270,7 +454,7 @@ const OpsConsole = () => {
                                 {t('admin:auto_refresh')}
                             </Label>
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => refetch()}>
+                        <Button variant="outline" className="h-10 px-4 rounded-xl" onClick={() => refetch()}>
                             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                             {t("admin:refresh")}
                         </Button>
@@ -282,7 +466,7 @@ const OpsConsole = () => {
                     <div className="lg:col-span-4 space-y-6">
                         {/* Emergency Close Position Card */}
                         <motion.div variants={itemVariants}>
-                            <Card className="relative bg-white/60 backdrop-blur-2xl border-red-200/50 shadow-[0_20px_50px_rgba(220,38,38,0.08)] overflow-hidden border-destructive/20 transition-all hover:shadow-[0_30px_60px_rgba(220,38,38,0.12)] group">
+                            <Card className="relative bg-white/65 backdrop-blur-md border border-rose-200/60 rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.04)] group">
                                 <div className="absolute top-0 right-0 p-4 opacity-5 bg-destructive/10 rounded-bl-3xl">
                                     <Zap className="h-20 w-20 text-destructive" />
                                 </div>
@@ -300,32 +484,32 @@ const OpsConsole = () => {
                                 <CardContent className="space-y-4 pt-6">
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="space-y-1.5">
-                                            <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t("admin:account_id")}</Label>
+                                            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("admin:account_id")}</Label>
                                             <Input
                                                 placeholder="e.g. 101"
                                                 value={closeParams.account_id}
                                                 onChange={e => setCloseParams({ ...closeParams, account_id: e.target.value })}
-                                                className="h-9 focus-visible:ring-destructive/30"
+                                                className="h-10 focus-visible:ring-destructive/30"
                                             />
                                         </div>
                                         <div className="space-y-1.5">
-                                            <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t("admin:symbol")}</Label>
+                                            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("admin:symbol")}</Label>
                                             <Input
                                                 placeholder="BTCUSDT"
                                                 value={closeParams.symbol}
                                                 onChange={e => setCloseParams({ ...closeParams, symbol: e.target.value.toUpperCase() })}
-                                                className="h-9 focus-visible:ring-destructive/30"
+                                                className="h-10 focus-visible:ring-destructive/30"
                                             />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="space-y-1.5">
-                                            <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t("admin:pos_side")}</Label>
+                                            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("admin:pos_side")}</Label>
                                             <Select
                                                 value={closeParams.pos_side}
                                                 onValueChange={v => setCloseParams({ ...closeParams, pos_side: v })}
                                             >
-                                                <SelectTrigger className="h-9 focus:ring-destructive/30">
+                                                <SelectTrigger className="h-10 focus:ring-destructive/30">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -335,14 +519,14 @@ const OpsConsole = () => {
                                             </Select>
                                         </div>
                                         <div className="space-y-1.5">
-                                            <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t("admin:qty")}</Label>
+                                            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("admin:qty")}</Label>
                                             <Input
                                                 placeholder="0.00"
                                                 type="number"
                                                 step="0.0001"
                                                 value={closeParams.qty}
                                                 onChange={e => setCloseParams({ ...closeParams, qty: e.target.value })}
-                                                className="h-9 focus-visible:ring-destructive/30"
+                                                className="h-10 focus-visible:ring-destructive/30"
                                             />
                                         </div>
                                     </div>
@@ -359,7 +543,7 @@ const OpsConsole = () => {
 
                         {/* Subscription Support Card */}
                         <motion.div variants={itemVariants}>
-                            <Card className="bg-white/60 backdrop-blur-2xl border-white/30 shadow-[0_20px_50px_rgba(31,38,135,0.08)] overflow-hidden transition-all hover:shadow-[0_30px_60px_rgba(31,38,135,0.12)]">
+                            <Card className="bg-white/60 backdrop-blur-md border border-white/40 rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.04)]">
                                 <CardHeader className="bg-primary/5 pb-5 border-b border-primary/5">
                                     <CardTitle className="flex items-center gap-3 text-xl font-black tracking-tighter text-slate-900">
                                         <div className="p-2 bg-white rounded-xl shadow-sm border border-primary/10">
@@ -372,7 +556,7 @@ const OpsConsole = () => {
                                     <div className="bg-white/40 backdrop-blur-xl border border-slate-200/60 rounded-xl p-1 shadow-sm transition-all duration-300 focus-within:ring-4 focus-within:ring-primary/10 focus-within:border-primary/40 focus-within:bg-white/80 group/sub">
                                         <div className="grid grid-cols-2 gap-0">
                                             <div className="flex flex-col border-r border-slate-200/30 pl-3 py-1">
-                                                <Label className="text-[9px] font-bold text-slate-400 group-focus-within/sub:text-primary transition-colors uppercase tracking-widest">{t("admin:subscription_id")}</Label>
+                                                <Label className="text-xs font-bold text-slate-400 group-focus-within/sub:text-primary transition-colors uppercase tracking-widest">{t("admin:subscription_id")}</Label>
                                                 <Input
                                                     className="border-0 focus-visible:ring-0 h-6 text-xs bg-transparent placeholder:text-slate-300 p-0 font-mono mt-0.5"
                                                     placeholder="ID"
@@ -381,7 +565,7 @@ const OpsConsole = () => {
                                                 />
                                             </div>
                                             <div className="flex flex-col pl-3 py-1">
-                                                <Label className="text-[9px] font-bold text-slate-400 group-focus-within/sub:text-primary transition-colors uppercase tracking-widest">{t("admin:reason")}</Label>
+                                                <Label className="text-xs font-bold text-slate-400 group-focus-within/sub:text-primary transition-colors uppercase tracking-widest">{t("admin:reason")}</Label>
                                                 <Input
                                                     className="border-0 focus-visible:ring-0 h-6 text-xs bg-transparent placeholder:text-slate-300 p-0 mt-0.5"
                                                     placeholder={t("admin:reason")}
@@ -396,13 +580,16 @@ const OpsConsole = () => {
                                             className="flex-1 h-10 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white font-bold shadow-lg shadow-red-500/20 rounded-xl border-none transition-all active:scale-95 group"
                                             disabled={!searchSubId || freezeSubMutation.isPending}
                                             onClick={() => {
-                                                if (confirm(t("admin:confirm_freeze"))) {
-                                                    freezeSubMutation.mutate({
+                                                setActionConfirm({
+                                                    open: true,
+                                                    title: t('admin:confirm', 'Confirm'),
+                                                    desc: t("admin:confirm_freeze"),
+                                                    onConfirm: () => freezeSubMutation.mutate({
                                                         id: parseInt(searchSubId),
                                                         frozen: true,
                                                         reason: freezeReason || t("admin:freeze_reason_default")
-                                                    });
-                                                }
+                                                    })
+                                                });
                                             }}
                                         >
                                             <PauseCircle className="mr-2 h-4 w-4 group-hover:animate-pulse" />
@@ -432,7 +619,7 @@ const OpsConsole = () => {
                     <div className="lg:col-span-8 space-y-6">
                         {/* Batch Requeue Card - Compact Layout */}
                         <motion.div variants={itemVariants}>
-                            <Card className="bg-white/40 backdrop-blur-xl border-orange-200/50 shadow-[0_8px_32px_0_rgba(234,88,12,0.05)] overflow-hidden transition-all hover:shadow-[0_8px_40px_0_rgba(234,88,12,0.08)]">
+                            <Card className="bg-white/55 backdrop-blur-md border border-orange-200/60 rounded-3xl overflow-hidden shadow-[0_16px_40px_rgba(0,0,0,0.04)]">
                                 <CardHeader className="bg-orange-500/5 py-4 border-b border-orange-200/10 flex flex-row items-center justify-between space-y-0">
                                     <div className="space-y-1">
                                         <CardTitle className="flex items-center gap-3 text-orange-700 text-lg font-black tracking-tighter">
@@ -441,7 +628,7 @@ const OpsConsole = () => {
                                             </div>
                                             {t("admin:batch_requeue")}
                                         </CardTitle>
-                                        <CardDescription className="text-orange-600/80 text-[10px]">
+                                        <CardDescription className="text-orange-600/80 text-xs">
                                             {t("admin:batch_requeue_desc")}
                                         </CardDescription>
                                     </div>
@@ -449,7 +636,7 @@ const OpsConsole = () => {
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            className="h-8 text-xs border-orange-200 text-orange-700 hover:bg-orange-100 px-3 font-semibold"
+                                            className="h-10 text-xs border-orange-200 text-orange-700 hover:bg-orange-100 px-4 font-semibold rounded-xl"
                                             onClick={() => batchRequeueMutation.mutate({ ...batchParams, dry_run: true })}
                                             disabled={batchRequeueMutation.isPending}
                                         >
@@ -458,11 +645,14 @@ const OpsConsole = () => {
                                         </Button>
                                         <Button
                                             size="sm"
-                                            className="h-8 text-xs bg-orange-600 hover:bg-orange-700 text-white px-3 font-semibold shadow-sm"
+                                            className="h-10 text-xs bg-orange-600 hover:bg-orange-700 text-white px-4 font-semibold shadow-sm rounded-xl"
                                             onClick={() => {
-                                                if (confirm(t("admin:confirm"))) {
-                                                    batchRequeueMutation.mutate({ ...batchParams, dry_run: false });
-                                                }
+                                                setActionConfirm({
+                                                    open: true,
+                                                    title: t('admin:confirm', 'Confirm'),
+                                                    desc: t("admin:confirm"),
+                                                    onConfirm: () => batchRequeueMutation.mutate({ ...batchParams, dry_run: false })
+                                                });
                                             }}
                                             disabled={batchRequeueMutation.isPending}
                                         >
@@ -474,31 +664,31 @@ const OpsConsole = () => {
                                 <CardContent className="pt-4 pb-4">
                                     <div className="flex gap-6 items-end">
                                         <div className="w-48 space-y-1.5">
-                                            <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t("admin:requeue_statuses")}</Label>
+                                            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("admin:requeue_statuses")}</Label>
                                             <Select
                                                 value={batchParams.statuses[0]}
                                                 onValueChange={v => setBatchParams({ ...batchParams, statuses: [v] })}
                                             >
-                                                <SelectTrigger className="h-9">
+                                                <SelectTrigger className="h-10">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="FAILED">{t("admin:status_labels.FAILED")}</SelectItem>
                                                     <SelectItem value="CANCELLED">{t("admin:status_labels.CANCELED")}</SelectItem>
-                                                    <SelectItem value="PENDING">{t("admin:status_labels.RUNNING")}</SelectItem>
+                                                    <SelectItem value="PENDING">{t("admin:status_labels.PENDING")}</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
                                         <div className="w-32 space-y-1.5">
-                                            <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t("admin:limit_count")}</Label>
+                                            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("admin:limit_count")}</Label>
                                             <Input
                                                 type="number"
                                                 value={batchParams.limit}
                                                 onChange={e => setBatchParams({ ...batchParams, limit: parseInt(e.target.value) || 50 })}
-                                                className="h-9"
+                                                className="h-10"
                                             />
                                         </div>
-                                        <div className="flex-1 text-[10px] text-muted-foreground italic text-right pb-2">
+                                        <div className="flex-1 text-xs text-muted-foreground italic text-right pb-2">
                                             * {t("admin:requeue_disclaimer")}
                                         </div>
                                     </div>
@@ -508,7 +698,7 @@ const OpsConsole = () => {
 
                         {/* Active Orders List */}
                         <motion.div variants={itemVariants}>
-                            <Card className="bg-white/60 backdrop-blur-2xl border-white/30 shadow-[0_20px_50px_rgba(31,38,135,0.08)] overflow-hidden transition-all hover:shadow-[0_30px_60px_rgba(31,38,135,0.12)]">
+                            <Card className="bg-white/60 backdrop-blur-md border border-white/40 rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.04)]">
                                 <CardHeader className="bg-primary/5 py-5 border-b border-primary/5 flex flex-row items-center justify-between space-y-0">
                                     <div>
                                         <CardTitle className="flex items-center gap-4 text-xl font-black tracking-tighter text-slate-900">
@@ -528,30 +718,31 @@ const OpsConsole = () => {
                                             </div>
                                             <div className="flex items-center">
                                                 <Input
-                                                    className="border-0 focus-visible:ring-0 w-24 h-8 text-xs bg-transparent placeholder:text-slate-400 font-medium"
+                                                    className="border-0 focus-visible:ring-0 w-24 h-10 text-sm bg-transparent placeholder:text-slate-400 font-medium"
                                                     placeholder={t("admin:account_id")}
                                                     value={accountIdFilter}
                                                     onChange={e => setAccountIdFilter(e.target.value)}
                                                 />
                                                 <div className="w-px h-4 bg-slate-200 group-focus-within/filter:bg-primary/20 transition-colors" />
                                                 <Input
-                                                    className="border-0 focus-visible:ring-0 w-28 h-8 text-xs bg-transparent placeholder:text-slate-400 font-medium uppercase"
+                                                    className="border-0 focus-visible:ring-0 w-28 h-10 text-sm bg-transparent placeholder:text-slate-400 font-medium uppercase"
                                                     placeholder={t("admin:symbol")}
                                                     value={symbolFilter}
                                                     onChange={e => setSymbolFilter(e.target.value.toUpperCase())}
                                                 />
                                                 <div className="w-px h-4 bg-slate-200 group-focus-within/filter:bg-primary/20 transition-colors" />
                                                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                                    <SelectTrigger className="border-0 focus:ring-0 w-32 h-8 text-xs bg-transparent font-medium hover:bg-slate-100/50 rounded-lg transition-colors">
+                                                    <SelectTrigger className="border-0 focus:ring-0 w-32 h-10 text-sm bg-transparent font-medium hover:bg-slate-100/50 rounded-lg transition-colors">
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent className="bg-white/90 backdrop-blur-xl border-slate-200 shadow-2xl">
                                                         <SelectItem value="all">{t("admin:status_all")}</SelectItem>
-                                                        <SelectItem value="OPEN">{t("admin:status_labels.OPEN")}</SelectItem>
-                                                        <SelectItem value="FAILED">{t("admin:status_labels.FAILED")}</SelectItem>
-                                                        <SelectItem value="CANCELLED">{t("admin:status_labels.CANCELLED")}</SelectItem>
-                                                        <SelectItem value="FILLED">{t("admin:status_labels.FILLED")}</SelectItem>
+                                                        <SelectItem value="PENDING">{t("admin:status_labels.PENDING")}</SelectItem>
+                                                        <SelectItem value="PROCESSING">{t("admin:status_labels.PROCESSING")}</SelectItem>
                                                         <SelectItem value="COMPLETED">{t("admin:status_labels.COMPLETED")}</SelectItem>
+                                                        <SelectItem value="FAILED">{t("admin:status_labels.FAILED")}</SelectItem>
+                                                        <SelectItem value="EXPIRED">{t("admin:status_labels.EXPIRED")}</SelectItem>
+                                                        <SelectItem value="CANCELLED">{t("admin:status_labels.CANCELLED")}</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -559,7 +750,7 @@ const OpsConsole = () => {
                                     </div>
                                 </CardHeader>
                                 <CardContent className="p-0">
-                                    <Table>
+                                    <Table className="[&_td]:py-2 [&_td]:px-3 [&_th]:py-2 [&_th]:px-3 text-xs whitespace-nowrap">
                                         <TableHeader>
                                             <TableRow className="hover:bg-transparent">
                                                 <TableHead className="w-[80px]">{t("admin:column_id")}</TableHead>
@@ -571,117 +762,7 @@ const OpsConsole = () => {
                                                 <TableHead className="text-right">{t("admin:actions")}</TableHead>
                                             </TableRow>
                                         </TableHeader>
-                                        <TableBody>
-                                            {ordersData?.items?.map((order: any) => (
-                                                <TableRow key={order.id} className="group transition-all hover:bg-slate-50/80">
-                                                    <TableCell className="relative font-mono text-xs text-muted-foreground pl-4">
-                                                        <div className={`absolute left-0 top-0 bottom-0 w-[3px] opacity-0 group-hover:opacity-100 transition-all ${order.side.toLowerCase() === 'buy' ? 'bg-blue-600 shadow-[2px_0_10px_rgba(37,99,235,0.3)]' : 'bg-red-600 shadow-[2px_0_10px_rgba(220,38,38,0.3)]'}`} />
-                                                        #{order.id}
-                                                    </TableCell>
-                                                    <TableCell className="font-mono text-xs">{order.account_id}</TableCell>
-                                                    <TableCell className="py-4">
-                                                        <div className="flex flex-col min-w-[140px]">
-                                                            <span className="font-black text-sm tracking-tight text-slate-900 mb-1.5 uppercase">{order.symbol}</span>
-                                                            <div className="flex items-center gap-1.5 flex-wrap">
-                                                                <Badge
-                                                                    variant={order.side.toLowerCase() === 'buy' ? 'default' : 'destructive'}
-                                                                    className={`text-[9px] px-1.5 py-0 h-4.5 font-bold uppercase ${order.side.toLowerCase() === 'buy' ? 'bg-blue-600 shadow-[0_2px_10px_rgba(37,99,235,0.2)]' : 'bg-red-600 shadow-[0_2px_10px_rgba(220,38,38,0.2)]'}`}
-                                                                >
-                                                                    {order.side}
-                                                                </Badge>
-                                                                <TooltipProvider>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger asChild>
-                                                                            <Badge
-                                                                                variant="outline"
-                                                                                className={`text-[9px] px-1.5 py-0 h-4.5 font-bold border-slate-200 bg-slate-50/50 ${order.status === 'FAILED' ? 'bg-red-50 text-red-600 border-red-100 shadow-sm animate-pulse cursor-help' : ''}`}
-                                                                            >
-                                                                                {t(`admin:status_labels.${order.status}`)}
-                                                                            </Badge>
-                                                                        </TooltipTrigger>
-                                                                        {(order.error_message || order.last_error) && (
-                                                                            <TooltipContent className="max-w-[300px] text-xs bg-slate-900 text-white border-0 shadow-2xl p-3">
-                                                                                <div className="flex items-center gap-2 text-red-400 mb-2">
-                                                                                    <AlertTriangle className="h-3.5 w-3.5" />
-                                                                                    <span className="font-bold">{t("admin:error_reason")}</span>
-                                                                                </div>
-                                                                                <p className="font-mono break-all leading-relaxed text-slate-300">{order.error_message || order.last_error}</p>
-                                                                            </TooltipContent>
-                                                                        )}
-                                                                    </Tooltip>
-                                                                </TooltipProvider>
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 capitalize">
-                                                            {order.action ? t(`admin:log_actions.${order.action}`, { defaultValue: order.action }) : '-'}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-col">
-                                                            <span className="font-mono text-sm">{order.quantity}</span>
-                                                            {order.executed_price > 0 && (
-                                                                <span className="text-[10px] text-muted-foreground line-clamp-1">
-                                                                    @ {order.executed_price}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="font-mono text-[10px] uppercase text-muted-foreground">
-                                                        {order.exchange ? t(`common:exchanges.${order.exchange.toLowerCase()}`, { defaultValue: order.exchange }) : t("common:exchanges.turboflow")}
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <div className="flex justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                                                            <Button
-                                                                variant="secondary"
-                                                                size="icon"
-                                                                className="h-8 w-8 hover:bg-orange-100 hover:text-orange-700"
-                                                                title={t("admin:requeue_single")}
-                                                                disabled={requeueOrderMutation.isPending}
-                                                                onClick={() => {
-                                                                    if (confirm(t("admin:requeue_confirm"))) {
-                                                                        requeueOrderMutation.mutate({ id: order.id });
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <RefreshCw className={`h-4 w-4 ${requeueOrderMutation.isPending && requeueOrderMutation.variables?.id === order.id ? 'animate-spin' : ''}`} />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
-                                                                title={t("admin:cancel_order")}
-                                                                disabled={cancelOrderMutation.isPending}
-                                                                onClick={() => {
-                                                                    if (confirm(t("admin:confirm_cancel"))) {
-                                                                        cancelOrderMutation.mutate(order.id);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <XCircle className="h-4 w-4" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8"
-                                                                title={t("admin:view_data")}
-                                                                onClick={() => setSelectedOrder(order)}
-                                                            >
-                                                                <Eye className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                            {(!ordersData?.items || ordersData.items.length === 0) && !isLoading && (
-                                                <TableRow>
-                                                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                                                        {t("admin:no_data")}
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
-                                        </TableBody>
+                                        <TableBody>{orderTableBody}</TableBody>
                                     </Table>
                                 </CardContent>
                                 {ordersData && ordersData.total > 0 && (
@@ -760,30 +841,30 @@ const OpsConsole = () => {
                                     {/* Key Info Grid - Elite Layout with ample space */}
                                     <div className="grid grid-cols-2 gap-y-6 gap-x-12 bg-slate-50/80 p-6 rounded-2xl border border-slate-100 shadow-inner">
                                         <div className="flex flex-col gap-1.5">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">{t("admin:column_status")}</span>
-                                            <Badge variant={selectedOrder.status === 'COMPLETED' ? 'default' : selectedOrder.status === 'FAILED' ? 'destructive' : 'secondary'} className="w-fit px-3 py-1 text-[11px] font-bold shadow-sm">
+                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">{t("admin:column_status")}</span>
+                                            <Badge variant={selectedOrder.status === 'COMPLETED' ? 'default' : selectedOrder.status === 'FAILED' ? 'destructive' : 'secondary'} className="w-fit px-3 py-1 text-xs font-bold shadow-sm">
                                                 {t(`admin:status_labels.${selectedOrder.status}`)}
                                             </Badge>
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">{t("admin:symbol")}</span>
+                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">{t("admin:symbol")}</span>
                                             <span className="font-mono text-base font-black tracking-tight text-slate-900">{selectedOrder.symbol}</span>
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">{t("admin:exchange")}</span>
-                                            <Badge variant="outline" className="w-fit uppercase font-mono text-[10px] tracking-wider border-slate-200 bg-white">
+                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">{t("admin:exchange")}</span>
+                                            <Badge variant="outline" className="w-fit uppercase font-mono text-xs tracking-wider border-slate-200 bg-white">
                                                 {selectedOrder.exchange ? t(`common:exchanges.${selectedOrder.exchange.toLowerCase()}`, { defaultValue: selectedOrder.exchange }) : t("common:exchanges.turboflow")}
                                             </Badge>
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">{t("admin:order_action")} / {t("admin:side")}</span>
+                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">{t("admin:order_action")} / {t("admin:side")}</span>
                                             <div className="flex items-center gap-2">
-                                                <Badge variant="outline" className="capitalize text-[10px] font-bold bg-white border-slate-200">{selectedOrder.action || '-'}</Badge>
-                                                <Badge variant={selectedOrder.side.toLowerCase() === 'buy' ? 'default' : 'destructive'} className="text-[10px] uppercase font-bold px-2">{selectedOrder.side}</Badge>
+                                                <Badge variant="outline" className="capitalize text-xs font-bold bg-white border-slate-200">{selectedOrder.action || '-'}</Badge>
+                                                <Badge variant={selectedOrder.side.toLowerCase() === 'buy' ? 'default' : 'destructive'} className="text-xs uppercase font-bold px-2">{selectedOrder.side}</Badge>
                                             </div>
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">{t("admin:qty_plan_exec")}</span>
+                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">{t("admin:qty_plan_exec")}</span>
                                             <div className="font-mono text-sm tracking-tighter">
                                                 <span className="font-black text-slate-900">{selectedOrder.quantity}</span>
                                                 <span className="mx-2 text-slate-300">/</span>
@@ -791,13 +872,13 @@ const OpsConsole = () => {
                                             </div>
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">{t("admin:exec_price_label")}</span>
+                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">{t("admin:exec_price_label")}</span>
                                             <span className="font-mono text-sm font-black text-slate-900">{selectedOrder.executed_price || '-'}</span>
                                         </div>
 
                                         <div className="col-span-2 pt-4 border-t border-slate-200/60 mt-2">
                                             <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("admin:external_order_id")}</span>
+                                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t("admin:external_order_id")}</span>
                                                 <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{selectedOrder.tf_order_id || 'N/A'}</span>
                                             </div>
                                             {(selectedOrder.error_message || selectedOrder.last_error) && (
@@ -833,7 +914,7 @@ const OpsConsole = () => {
                                                         <div className="flex flex-col gap-2">
                                                             <div className="flex items-center justify-between">
                                                                 <span className="text-sm font-bold text-slate-800">{event.stage}</span>
-                                                                <Badge variant="outline" className="text-[9px] font-black uppercase tracking-tighter opacity-60 bg-slate-50">{event.source}</Badge>
+                                                                <Badge variant="outline" className="text-xs font-black uppercase tracking-tighter opacity-60 bg-slate-50">{event.source}</Badge>
                                                             </div>
                                                             {event.note && (
                                                                 <p className="text-xs text-slate-500 leading-relaxed bg-slate-50/50 p-2 rounded-lg border border-slate-100/50">{event.note}</p>
@@ -842,11 +923,11 @@ const OpsConsole = () => {
                                                             {event.data && (
                                                                 <Accordion type="single" collapsible className="w-full">
                                                                     <AccordionItem value={`item-${idx}`} className="border-none">
-                                                                        <AccordionTrigger className="py-0 text-[10px] font-bold text-blue-500 hover:no-underline justify-start gap-2 h-6 opacity-60 hover:opacity-100 transition-opacity">
+                                                                        <AccordionTrigger className="py-0 text-xs font-bold text-blue-500 hover:no-underline justify-start gap-2 h-6 opacity-60 hover:opacity-100 transition-opacity">
                                                                             <span>{t('admin:view_data')}</span>
                                                                         </AccordionTrigger>
                                                                         <AccordionContent className="pt-2">
-                                                                            <pre className="bg-slate-900 text-slate-100 p-4 rounded-xl text-[10px] font-mono whitespace-pre-wrap overflow-x-auto max-h-[300px] shadow-sm border border-slate-800">
+                                                                            <pre className="bg-slate-900 text-slate-100 p-4 rounded-xl text-xs font-mono whitespace-pre-wrap overflow-x-auto max-h-[300px] shadow-sm border border-slate-800">
                                                                                 {typeof event.data === 'string' ? event.data : JSON.stringify(event.data, null, 2)}
                                                                             </pre>
                                                                         </AccordionContent>
@@ -855,7 +936,7 @@ const OpsConsole = () => {
                                                             )}
 
                                                             {event.source === 'last_error' && event.raw && (
-                                                                <div className="mt-1 text-[10px] font-mono bg-red-50 text-red-600 p-3 rounded-xl border border-red-100/50 overflow-x-auto whitespace-pre-wrap overflow-y-auto max-h-[150px]">
+                                                                <div className="mt-1 text-xs font-mono bg-red-50 text-red-600 p-3 rounded-xl border border-red-100/50 overflow-x-auto whitespace-pre-wrap overflow-y-auto max-h-[150px]">
                                                                     {event.raw}
                                                                 </div>
                                                             )}
@@ -880,6 +961,26 @@ const OpsConsole = () => {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+
+                <AlertDialog open={actionConfirm.open} onOpenChange={(open) => setActionConfirm((prev) => ({ ...prev, open }))}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>{actionConfirm.title}</AlertDialogTitle>
+                            <AlertDialogDescription>{actionConfirm.desc}</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>{t('common:cancel', 'Cancel')}</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={() => {
+                                    actionConfirm.onConfirm();
+                                    setActionConfirm((prev) => ({ ...prev, open: false }));
+                                }}
+                            >
+                                {t('common:confirm', 'Confirm')}
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
         </motion.div>
     );

@@ -1,7 +1,8 @@
 import React, { useState, Component, ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { adminApi } from '@/api';
+import i18next from 'i18next';
+import { adminApi, translateBackendErrorMessage } from '@/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Variants for consistent animations
@@ -41,6 +42,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { CodeBlock } from "@/components/ui/code-block";
 import { cn } from '@/lib/utils';
 
 // =============================================
@@ -75,12 +77,12 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
                         <CardHeader>
                             <CardTitle className="text-destructive flex items-center gap-2 text-xl">
                                 <AlertTriangle className="h-6 w-6" />
-                                页面渲染错误 (Render Error)
+                                {i18next.t('admin:render_error_title')}
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <p className="text-sm font-medium text-destructive/80 leading-relaxed">
-                                页面遇到了一个渲染错误，建议您刷新页面。如果问题持续，请将以下具体信息反馈给技术支持：
+                                {i18next.t('admin:render_error_desc')}
                             </p>
                             <div className="relative group">
                                 <pre className="bg-slate-950 text-slate-100 p-4 rounded-md text-xs font-mono overflow-auto max-h-[300px] whitespace-pre-wrap border border-slate-800 shadow-inner">
@@ -91,7 +93,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
                             </div>
                             <Button variant="destructive" onClick={() => window.location.reload()} className="w-full sm:w-auto shadow-md">
                                 <RefreshCw className="h-4 w-4 mr-2" />
-                                刷新页面
+                                {i18next.t('admin:refresh_page')}
                             </Button>
                         </CardContent>
                     </Card>
@@ -132,14 +134,17 @@ const OrderStats = () => {
                 group_by: groupBy,
                 exchange: exchange === 'all' ? undefined : exchange,
             });
-            // Force verify it is an array
-            if (!Array.isArray(res)) {
-                return [];
-            }
+            // Surface schema mismatch as query error instead of pretending it's empty data.
+            if (!Array.isArray(res)) throw new Error('Invalid stats payload');
             return res;
         },
         placeholderData: (previousData) => previousData,
     });
+    const toErrorText = (err: any) => {
+        const msg = (err as any)?.message || '';
+        if (msg === 'Invalid stats payload') return t('admin:error_loading_stats');
+        return translateBackendErrorMessage(msg) || msg || t('common:error');
+    };
 
     const displayData = Array.isArray(data) ? data : [];
 
@@ -181,6 +186,34 @@ const OrderStats = () => {
         }
     };
 
+    const renderQualityWarning = (warning: string) => {
+        const w = String(warning || '');
+        const coverage = w.match(/coverage\s+is\s+(\d+)\/(\d+)/i);
+        if (coverage) {
+            return t('admin:warnings_templates.executed_notional_coverage', {
+                covered: Number(coverage[1]),
+                total: Number(coverage[2]),
+            });
+        }
+
+        const turboMissing = w.match(/found\s+(\d+).*(turboflow).*(null\s+tf_order_id)/i);
+        if (turboMissing) {
+            return t('admin:warnings_templates.turboflow_missing_id', { count: Number(turboMissing[1]) });
+        }
+
+        const nonTurboMissing = w.match(/found\s+(\d+).*(non-turboflow).*(null\s+ex_order_id)/i);
+        if (nonTurboMissing) {
+            return t('admin:warnings_templates.non_turboflow_missing_id', { count: Number(nonTurboMissing[1]) });
+        }
+
+        const legacyMissingExchange = w.match(/found\s+(\d+).*(null\s+exchange)/i);
+        if (legacyMissingExchange) {
+            return t('admin:warnings_templates.legacy_missing_exchange', { count: Number(legacyMissingExchange[1]) });
+        }
+
+        return safeT(t, `admin:kind_labels.${w}`, w);
+    };
+
     return (
         <motion.div
             initial="hidden"
@@ -188,13 +221,12 @@ const OrderStats = () => {
             variants={containerVariants}
             className="p-4 md:p-8 space-y-6 min-h-screen bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-slate-100 via-slate-50 to-white"
         >
-            <motion.div variants={itemVariants} className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
+            <motion.div variants={itemVariants} className="flex items-center justify-between">
+                <div>
                     <h1 className="text-4xl font-black tracking-tight text-slate-900">{t('admin:trade_performance')}</h1>
+                    <p className="text-slate-500 font-medium mt-1">{t('admin:trade_performance_desc', 'View summary and grouped turnover statistics in the selected range.')}</p>
                 </div>
-                <div className="flex items-center gap-6">
-                    <BarChart className="h-6 w-6 text-primary" />
-                </div>
+                <BarChart className="h-6 w-6 text-primary" />
             </motion.div>
 
             {/* Summary Cards */}
@@ -287,7 +319,7 @@ const OrderStats = () => {
                             </div>
                             <div className="w-[150px]">
                                 <Select value={groupBy} onValueChange={(v) => setGroupBy(v as any)}>
-                                    <SelectTrigger>
+                                    <SelectTrigger className="h-10 bg-white/80">
                                         <SelectValue placeholder={t('admin:group_by')} />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -302,7 +334,7 @@ const OrderStats = () => {
                             </div>
                             <div className="w-[150px]">
                                 <Select value={exchange} onValueChange={setExchange}>
-                                    <SelectTrigger>
+                                    <SelectTrigger className="h-10 bg-white/80">
                                         <SelectValue placeholder={t('admin:exchange')} />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -317,7 +349,7 @@ const OrderStats = () => {
                         </div>
 
                         <div className="rounded-md border overflow-hidden">
-                            <Table>
+                            <Table className="[&_td]:py-2 [&_td]:px-3 [&_th]:py-2 [&_th]:px-3 text-xs whitespace-nowrap">
                                 <TableHeader>
                                     <TableRow className="bg-muted/50">
                                         <TableHead className="w-[150px]">{t('admin:group')}</TableHead>
@@ -335,23 +367,23 @@ const OrderStats = () => {
                                 <TableBody>
                                     {isError ? (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="h-24 text-center text-destructive">
+                                            <TableCell colSpan={10} className="h-24 text-center text-destructive">
                                                 <div className="flex flex-col items-center gap-2">
                                                     <AlertCircle className="h-5 w-5" />
                                                     <span>{t('admin:error_loading_stats')}</span>
-                                                    <span className="text-xs opacity-70">{(error as any)?.message || t('common:error')}</span>
+                                                    <span className="text-xs opacity-70">{toErrorText(error)}</span>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
                                     ) : isLoading ? (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="h-24 text-center">
+                                            <TableCell colSpan={10} className="h-24 text-center">
                                                 {t('admin:loading')}
                                             </TableCell>
                                         </TableRow>
                                     ) : (!Array.isArray(displayData) || displayData.length === 0) ? (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="h-24 text-center">
+                                            <TableCell colSpan={10} className="h-24 text-center">
                                                 {t('admin:no_data')}
                                             </TableCell>
                                         </TableRow>
@@ -376,12 +408,12 @@ const OrderStats = () => {
                                                                                 style={{ width: `${(row.turnover_usd_fallback / (row.turnover_usd || 1)) * 100}%` }}
                                                                             />
                                                                         </div>
-                                                                        <span className="text-[9px] text-muted-foreground leading-none font-bold">
+                                                                        <span className="text-xs text-muted-foreground leading-none font-bold">
                                                                             {((row.turnover_usd_executed_notional / (row.turnover_usd || 1)) * 100).toFixed(0)}%
                                                                         </span>
                                                                     </div>
                                                                 </TooltipTrigger>
-                                                                <TooltipContent side="bottom" className="text-[10px] max-w-[200px]">
+                                                                <TooltipContent side="bottom" className="text-xs max-w-[200px]">
                                                                     <p className="font-bold mb-1">{t('admin:fidelity_breakdown')}</p>
                                                                     <div className="space-y-1">
                                                                         <div className="flex items-center gap-1">
@@ -410,7 +442,7 @@ const OrderStats = () => {
                                                 <TableCell className="text-right font-mono py-4">
                                                     <div className="flex flex-col items-end">
                                                         <span>{row.close_cnt || 0}</span>
-                                                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                                        <span className="text-xs text-muted-foreground whitespace-nowrap">
                                                             {row.win_cnt || 0}{t('admin:wins_abbr')} / {row.lose_cnt || 0}{t('admin:losses_abbr')}
                                                         </span>
                                                     </div>
@@ -424,7 +456,7 @@ const OrderStats = () => {
                                                 </TableCell>
                                                 <TableCell className="text-center py-4">
                                                     {row.turnover_mode && (
-                                                        <span className="text-[10px] px-3 py-1 rounded-sm bg-muted text-muted-foreground uppercase font-bold tracking-tighter transition-colors select-none whitespace-nowrap">
+                                                        <span className="text-xs px-3 py-1 rounded-sm bg-muted text-muted-foreground uppercase font-bold tracking-tighter transition-colors select-none whitespace-nowrap">
                                                             {safeT(t, `admin:turnover_mode_${row.turnover_mode}`)}
                                                         </span>
                                                     )}
@@ -433,7 +465,7 @@ const OrderStats = () => {
                                                     <div className="flex flex-col items-center gap-1.5">
                                                         <div className="flex items-baseline gap-1">
                                                             <span className="text-xs font-mono font-bold leading-none">{((row.executed_notional_covered?.pct || 0)).toFixed(0)}%</span>
-                                                            <span className="text-[9px] text-muted-foreground font-mono leading-none">
+                                                            <span className="text-xs text-muted-foreground font-mono leading-none">
                                                                 ({row.executed_notional_covered?.covered}/{row.executed_notional_covered?.total})
                                                             </span>
                                                         </div>
@@ -457,47 +489,12 @@ const OrderStats = () => {
                                                             </CollapsibleTrigger>
                                                             <CollapsibleContent className="text-xs text-amber-600 mt-2 bg-amber-50/50 p-2 rounded border border-dashed border-amber-200 shadow-inner max-w-[400px]">
                                                                 <ul className="text-right list-none space-y-2">
-                                                                    {Array.isArray(row.quality_warnings) && row.quality_warnings.map((w: string, i: number) => {
-                                                                        // A: executed_notional coverage is (\d+)/(\d+); fallback turnover is included
-                                                                        const matchA = w.match(/executed_notional coverage is (\d+)\/(\d+); fallback/);
-                                                                        if (matchA) return (
-                                                                            <li key={i} className="flex items-start justify-end gap-1.5 leading-relaxed">
-                                                                                <span className="text-right">{t('admin:warnings_templates.executed_notional_coverage', { covered: Number(matchA[1]), total: Number(matchA[2]) })}</span>
-                                                                                <div className="w-1 h-1 rounded-full bg-amber-400 mt-1.5 shrink-0" />
-                                                                            </li>
-                                                                        );
-                                                                        // B: found (\d+) COMPLETED turboflow orders with null tf_order_id
-                                                                        const matchB = w.match(/found (\d+) COMPLETED turboflow orders/);
-                                                                        if (matchB) return (
-                                                                            <li key={i} className="flex items-start justify-end gap-1.5 leading-relaxed">
-                                                                                <span className="text-right">{t('admin:warnings_templates.turboflow_missing_id', { count: Number(matchB[1]) })}</span>
-                                                                                <div className="w-1 h-1 rounded-full bg-amber-400 mt-1.5 shrink-0" />
-                                                                            </li>
-                                                                        );
-                                                                        // C: found (\d+) COMPLETED non-turboflow orders with null ex_order_id
-                                                                        const matchC = w.match(/found (\d+) COMPLETED non-turboflow orders/);
-                                                                        if (matchC) return (
-                                                                            <li key={i} className="flex items-start justify-end gap-1.5 leading-relaxed">
-                                                                                <span className="text-right">{t('admin:warnings_templates.non_turboflow_missing_id', { count: Number(matchC[1]) })}</span>
-                                                                                <div className="w-1 h-1 rounded-full bg-amber-400 mt-1.5 shrink-0" />
-                                                                            </li>
-                                                                        );
-                                                                        // D: found (\d+) COMPLETED orders with null exchange
-                                                                        const matchD = w.match(/found (\d+) COMPLETED orders with null exchange/);
-                                                                        if (matchD) return (
-                                                                            <li key={i} className="flex items-start justify-end gap-1.5 leading-relaxed">
-                                                                                <span className="text-right">{t('admin:warnings_templates.legacy_missing_exchange', { count: Number(matchD[1]) })}</span>
-                                                                                <div className="w-1 h-1 rounded-full bg-amber-400 mt-1.5 shrink-0" />
-                                                                            </li>
-                                                                        );
-
-                                                                        return (
-                                                                            <li key={i} className="flex items-start justify-end gap-1.5 leading-relaxed">
-                                                                                <span className="text-right">{safeT(t, `admin:kind_labels.${w}`, w)}</span>
-                                                                                <div className="w-1 h-1 rounded-full bg-amber-400 mt-1.5 shrink-0" />
-                                                                            </li>
-                                                                        );
-                                                                    })}
+                                                                    {Array.isArray(row.quality_warnings) && row.quality_warnings.map((w: string, i: number) => (
+                                                                        <li key={i} className="flex items-start justify-end gap-1.5 leading-relaxed">
+                                                                            <span className="text-right">{renderQualityWarning(w)}</span>
+                                                                            <div className="w-1 h-1 rounded-full bg-amber-400 mt-1.5 shrink-0" />
+                                                                        </li>
+                                                                    ))}
                                                                 </ul>
                                                             </CollapsibleContent>
                                                         </Collapsible>
