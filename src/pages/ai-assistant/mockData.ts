@@ -1,0 +1,16 @@
+﻿export const aiPerformanceSeries = [
+  { name: "Day 1", original: 100, ai: 100 },
+  { name: "Day 2", original: 102.3, ai: 104.1 },
+  { name: "Day 3", original: 101.5, ai: 108.2 },
+  { name: "Day 4", original: 104.2, ai: 114.5 },
+  { name: "Day 5", original: 103.1, ai: 118.3 },
+  { name: "Day 6", original: 105.6, ai: 125.7 },
+  { name: "Day 7", original: 107.4, ai: 134.2 },
+  { name: "Day 8", original: 106.2, ai: 141.8 },
+  { name: "Day 9", original: 108.9, ai: 152.1 },
+  { name: "Day 10", original: 112.5, ai: 164.5 },
+  { name: "Day 11", original: 111.2, ai: 175.4 },
+  { name: "Day 12", original: 114.3, ai: 191.2 },
+  { name: "Day 13", original: 116.8, ai: 205.6 },
+  { name: "Day 14", original: 118.5, ai: 218.4 },
+] as const;

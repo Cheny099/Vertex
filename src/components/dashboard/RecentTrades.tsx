@@ -2,53 +2,33 @@
  * @anchor-id RECENT_TRADES
  * @module-type component
  * @disposable false
- * @mock-data trades 数组为临时 Mock，后端对接时替换
+ * @mock-data trades 数组为临�?Mock，后端对接时替换
  */
 
 import { motion } from 'framer-motion';
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
-
+import { memo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { turboflowApi, orderApi, accountApi, translateBackendErrorMessage } from '@/api';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { RecentTradeRow } from './RecentTradeRow';
+import { useRecentTradesModel } from '@/components/dashboard/hooks/useRecentTradesModel';
 
 const RecentTrades = () => {
   const { t } = useTranslation(['dashboard', 'common', 'history']);
   const navigate = useNavigate();
+  const {
+    errorText,
+    hasActiveAccount,
+    isAccountsLoading,
+    isFetching,
+    isLoading,
+    isError,
+    normalizedTrades,
+  } = useRecentTradesModel();
 
-  // 获取账户列表以确定从哪个账户获取交易记录
-  const { data: accounts, isLoading: isAccountsLoading } = useQuery({
-    queryKey: ['accounts'],
-    queryFn: accountApi.list,
-    staleTime: 60000,
-  });
-
-  const firstTurboflowAccountId = accounts?.find(
-    (a) => a.exchange === 'turboflow' && a.is_active && !a.deleted_at
-  )?.id;
-  const hasActiveAccount = (accounts || []).some((a) => a.is_active && !a.deleted_at);
-
-  // 获取最近交易 (仅当有活跃账户时)
-  const { data: trades = [], isError, error, isLoading, isFetching } = useQuery({
-    queryKey: ['recentTrades', firstTurboflowAccountId, hasActiveAccount],
-    queryFn: async () => {
-      if (!hasActiveAccount) return [];
-      if (firstTurboflowAccountId) {
-        const res = await turboflowApi.getOrders({ account_id: firstTurboflowAccountId, page_size: 5 });
-        return res.data || [];
-      }
-      const res = await orderApi.list({ page_num: 1, page_size: 5, include_pnl: true });
-      return res.items || [];
-    },
-    enabled: Array.isArray(accounts),
-    staleTime: 15_000,
-    refetchOnWindowFocus: false,
-    placeholderData: (prev) => prev ?? [],
-  });
+  const handleViewAll = useCallback(() => {
+    navigate('/history');
+  }, [navigate]);
 
   return (
     <motion.div
@@ -73,116 +53,58 @@ const RecentTrades = () => {
               <th className="text-right p-4 font-medium">{t('recent_trades.table.pnl')}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
-            {isAccountsLoading ? (
-              <tr>
-                <td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">
-                  {t('common:loading')}
-                </td>
-              </tr>
-            ) : !hasActiveAccount ? (
-              <tr>
-                <td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">
-                  {t('account_status.empty_text')}
-                </td>
-              </tr>
-            ) : (isLoading || isFetching) ? (
-              <tr>
-                <td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">
-                  {t('common:loading')}
-                </td>
-              </tr>
-            ) : isError ? (
-              <tr>
-                <td colSpan={6} className="p-6 text-center text-sm text-destructive">
-                  {translateBackendErrorMessage((error as any)?.message || t('common:unknown_error'))}
-                </td>
-              </tr>
-            ) : trades.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">{t('history:table.empty')}</td>
-              </tr>
-            ) : trades.map((trade: any, index: number) => {
-              const sideRaw = String(trade.side || '').toLowerCase();
-              const side = sideRaw ? sideRaw : (trade.order_way === 1 ? 'buy' : 'sell');
-              const rawPnl = trade.done_pnl ?? trade.realized_pnl ?? trade.profit;
-              const parsed = rawPnl != null && rawPnl !== '' ? parseFloat(rawPnl) : null;
-              const profit = parsed !== null && Number.isFinite(parsed) ? parsed : null;
-              const priceValue = trade.deal_price ?? trade.executed_price ?? trade.price;
-              const volumeValue = trade.done_vol ?? trade.executed_qty ?? trade.quantity ?? trade.vol;
-              const normalizedStatus = String(trade.order_status || trade.status || '').toLowerCase();
-              const isFilled = ['filled', 'finished', 'completed'].includes(normalizedStatus);
-
-              return (
-                <motion.tr
-                  key={trade.id || index}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3, delay: 0.6 + index * 0.05 }}
-                  className="hover:bg-secondary/30 transition-colors"
-                >
-                  <td className="p-4 text-sm font-mono text-muted-foreground">
-                    {new Date(trade.created_at || trade.updated_at).toLocaleString()}
+          <TooltipProvider>
+            <tbody className="divide-y divide-border">
+              {isAccountsLoading ? (
+                <tr>
+                  <td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">
+                    {t('common:loading')}
                   </td>
-                  <td className="p-4 text-sm font-medium">{trade.symbol || trade.pair_id}</td>
-                  <td className="p-4">
-                    <span className={cn(
-                      "inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium",
-                      side === 'buy'
-                        ? "bg-profit/10 text-profit"
-                        : "bg-loss/10 text-loss"
-                    )}>
-                      {side === 'buy' ? (
-                        <ArrowUpRight className="w-3 h-3" />
-                      ) : (
-                        <ArrowDownRight className="w-3 h-3" />
-                      )}
-                      {side === 'buy' ? t('recent_trades.table.buy') : t('recent_trades.table.sell')}
-                    </span>
+                </tr>
+              ) : !hasActiveAccount ? (
+                <tr>
+                  <td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">
+                    {t('account_status.empty_text')}
                   </td>
-                  <td className="p-4 text-sm text-right font-mono">
-                    <div className="flex flex-col items-end">
-                      <span>{priceValue || '--'}</span>
-                      {isFilled && !priceValue && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="flex items-center gap-1 text-[9px] text-warning mt-0.5 cursor-help">
-                                <AlertTriangle className="w-2.5 h-2.5" />
-                                {t('common:audit.missing_price')}
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>{t('common:audit.missing_price_desc')}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </div>
+                </tr>
+              ) : (isLoading || isFetching) ? (
+                <tr>
+                  <td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">
+                    {t('common:loading')}
                   </td>
-                  <td className="p-4 text-sm text-right font-mono">
-                    <div className="flex flex-col items-end">
-                      <span>{volumeValue || '--'}</span>
-                    </div>
+                </tr>
+              ) : isError ? (
+                <tr>
+                  <td colSpan={6} className="p-6 text-center text-sm text-destructive">
+                    {errorText}
                   </td>
-                  <td className={cn(
-                    "p-4 text-sm text-right font-mono font-bold",
-                    profit !== null
-                      ? profit > 0 ? "text-profit" : profit < 0 ? "text-loss" : "text-muted-foreground"
-                      : "text-muted-foreground"
-                  )}>
-                    {profit !== null ? `${profit > 0 ? '+' : ''}${profit.toFixed(2)}` : '--'}
-                  </td>
-                </motion.tr>
-              );
-            })}
-          </tbody>
+                </tr>
+              ) : normalizedTrades.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">{t('history:table.empty')}</td>
+                </tr>
+              ) : normalizedTrades.map((trade, index: number) => (
+                <RecentTradeRow
+                  key={trade.key}
+                  timeText={trade.timeText}
+                  symbolText={trade.symbolText}
+                  side={trade.side}
+                  priceValue={trade.priceValue}
+                  volumeValue={trade.volumeValue}
+                  profit={trade.profit}
+                  isFilledWithoutPrice={trade.isFilledWithoutPrice}
+                  index={index}
+                  t={t}
+                />
+              ))}
+            </tbody>
+          </TooltipProvider>
         </table>
       </div>
 
       <div className="p-4 border-t border-border">
         <button
-          onClick={() => navigate('/history')}
+          onClick={handleViewAll}
           className="w-full py-2 text-sm text-primary hover:text-primary-light transition-colors"
         >
           {t('recent_trades.view_all')}
@@ -192,4 +114,4 @@ const RecentTrades = () => {
   );
 };
 
-export default RecentTrades;
+export default memo(RecentTrades);

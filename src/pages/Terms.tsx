@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "react-i18next";
 import { legalApi, PublicLegalDoc } from "@/api";
+import { logger } from "@/lib/logger";
 
 export default function Terms() {
   const navigate = useNavigate();
@@ -26,7 +27,7 @@ export default function Terms() {
         const res = await legalApi.getPublicDoc('terms', lang);
         setDoc(res);
       } catch (err) {
-        console.error("Failed to load Terms", err);
+        logger.error("Failed to load Terms", err);
       } finally {
         setLoading(false);
       }
@@ -51,14 +52,14 @@ export default function Terms() {
               <ArrowLeft className="mr-2" size={18} />
               {t('common:back')}
             </Button>
-            <Link to="/register" state={(location as any).state}>
+            <Link to="/register" state={location.state}>
               <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
                 {t('auth:login.register_btn')}
               </Button>
             </Link>
           </div>
 
-          <Link to="/login" state={(location as any).state}>
+          <Link to="/login" state={location.state}>
             <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
               {t('auth:login.go_login')}
             </Button>

@@ -1,6 +1,6 @@
-
+﻿
 import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/use-auth';
 
 const ProtectedAdminRoute = () => {
     const { isAuthenticated, isAdmin, isLoading } = useAuth();
@@ -22,3 +22,4 @@ const ProtectedAdminRoute = () => {
 };
 
 export default ProtectedAdminRoute;
+

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { announcementApi, Announcement } from "@/api";
+import { logger } from "@/lib/logger";
 // import PageTitle from "@/components/PageTitle"; // If exists, otherwise manual
 
 export default function AnnouncementList() {
@@ -24,7 +25,7 @@ export default function AnnouncementList() {
                 const res = await announcementApi.list(lang, 20); // Limit 20
                 setList(res);
             } catch (err) {
-                console.error("Failed to fetch announcements", err);
+                logger.error("Failed to fetch announcements", err);
             } finally {
                 setLoading(false);
             }

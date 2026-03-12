@@ -4,17 +4,8 @@
  * @disposable false
  */
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-
-type Theme = 'light' | 'dark' | 'system';
-
-interface ThemeContextType {
-    theme: Theme;
-    setTheme: (theme: Theme) => void;
-    resolvedTheme: 'light' | 'dark';
-}
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+import { useEffect, useState, ReactNode } from 'react';
+import { ThemeContext, type Theme } from './theme-context';
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     const [theme, setTheme] = useState<Theme>(() => {
@@ -65,12 +56,4 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
             {children}
         </ThemeContext.Provider>
     );
-};
-
-export const useTheme = () => {
-    const context = useContext(ThemeContext);
-    if (context === undefined) {
-        throw new Error('useTheme must be used within a ThemeProvider');
-    }
-    return context;
 };

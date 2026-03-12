@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, AlertCircle, Home, UserPlus, FileText, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ParticleBackground from "@/components/ParticleBackground";
+import { logger } from "@/lib/logger";
 
 import { useTranslation } from 'react-i18next';
 
@@ -13,7 +14,7 @@ const NotFound = () => {
   const { t } = useTranslation('common');
 
   useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+    logger.warn("404 Error: User attempted to access non-existent route:", location.pathname);
   }, [location.pathname]);
 
   return (

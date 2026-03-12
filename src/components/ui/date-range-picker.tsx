@@ -35,14 +35,14 @@ export function DatePickerWithRange({
         date?.from && date?.to && date.from.getTime() === date.to.getTime() ? "single" : "range"
     );
 
-    const handleSelect = (val: any) => {
+    const handleSelect = (val: Date | DateRange | undefined) => {
         if (selectionMode === "single") {
-            const day = val as Date | undefined;
+            const day = val instanceof Date ? val : undefined;
             if (day) {
                 setDate({ from: day, to: day });
             }
         } else {
-            setDate(val as DateRange | undefined);
+            setDate((val && !(val instanceof Date) ? val : undefined) as DateRange | undefined);
         }
     };
     return (
@@ -91,16 +91,29 @@ export function DatePickerWithRange({
                             </TabsList>
                         </Tabs>
                     </div>
-                    <Calendar
-                        key={selectionMode}
-                        initialFocus
-                        mode={selectionMode as any}
-                        defaultMonth={date?.from}
-                        selected={(selectionMode === "single" ? date?.from : date) as any}
-                        onSelect={handleSelect}
-                        numberOfMonths={selectionMode === "range" ? 2 : 1}
-                        locale={i18n.language === 'zh' ? zhCN : enUS}
-                    />
+                    {selectionMode === "single" ? (
+                        <Calendar
+                            key="single"
+                            initialFocus
+                            mode="single"
+                            defaultMonth={date?.from}
+                            selected={date?.from}
+                            onSelect={(day) => handleSelect(day)}
+                            numberOfMonths={1}
+                            locale={i18n.language === 'zh' ? zhCN : enUS}
+                        />
+                    ) : (
+                        <Calendar
+                            key="range"
+                            initialFocus
+                            mode="range"
+                            defaultMonth={date?.from}
+                            selected={date}
+                            onSelect={(range) => handleSelect(range)}
+                            numberOfMonths={2}
+                            locale={i18n.language === 'zh' ? zhCN : enUS}
+                        />
+                    )}
                     <div className="flex items-center justify-end gap-2 p-3 border-t bg-muted/20">
                         <Button
                             variant="ghost"

@@ -8,6 +8,7 @@ import { ArrowLeft, Calendar, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { announcementApi, AnnouncementDetail } from "@/api";
+import { logger } from "@/lib/logger";
 
 export default function AnnouncementDetailPage() {
     const { id } = useParams<{ id: string }>();
@@ -26,9 +27,9 @@ export default function AnnouncementDetailPage() {
                 const lang = i18n.language.startsWith("zh") ? "zh" : "en";
                 const res = await announcementApi.get(Number(id), lang);
                 setData(res);
-            } catch (err: any) {
-                console.error(err);
-                setError(err.message || "Failed to load announcement");
+            } catch (err: unknown) {
+                logger.error('Failed to fetch announcement detail', err);
+                setError(err instanceof Error ? err.message : "Failed to load announcement");
             } finally {
                 setLoading(false);
             }

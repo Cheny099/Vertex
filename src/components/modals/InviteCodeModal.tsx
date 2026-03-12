@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+﻿import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation } from '@tanstack/react-query';
 import { Ticket, Loader2 } from 'lucide-react';
@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { authApi } from '@/api';
-import { useAuth } from '@/contexts/AuthContext';
+import type { ApiError } from '@/api/contracts';
+import { useAuth } from '@/hooks/use-auth';
+import { logger } from '@/lib/logger';
 
 interface InviteCodeModalProps {
     open: boolean;
@@ -42,9 +44,9 @@ export function InviteCodeModal({ open, onOpenChange, onSuccess }: InviteCodeMod
                 }
             }
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             // Map backend 400 errors to friendly messages
-            let errorMsg = error.message || t('common:invite.invalid_code');
+            const errorMsg = (error as Partial<ApiError>).message || t('common:invite.invalid_code');
             toast.error(errorMsg);
         }
     });
@@ -108,7 +110,7 @@ export function InviteCodeModal({ open, onOpenChange, onSuccess }: InviteCodeMod
                                         } catch (err) {
                                             toast.error(t('common:error_clipboard_denied', 'Clipboard permission denied. Please paste manually.'));
                                             inputRef.current?.focus();
-                                            console.error('Failed to read clipboard contents: ', err);
+                                            logger.error('Failed to read clipboard contents: ', err);
                                         }
                                     }}
                                 >
@@ -137,3 +139,4 @@ export function InviteCodeModal({ open, onOpenChange, onSuccess }: InviteCodeMod
         </Dialog>
     );
 }
+

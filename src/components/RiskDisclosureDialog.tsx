@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -32,11 +32,25 @@ const RiskDisclosureDialog: React.FC<RiskDisclosureDialogProps> = ({
     const [agreed, setAgreed] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
+    const loadDoc = useCallback(async () => {
+        setLoading(true);
+        try {
+            // Default to current language, backend handles fallback
+            const doc = await legalApi.getPublicDoc(docKey, i18n.language);
+            setContent(doc.content_md);
+        } catch (error) {
+            toast.error(t('common:error.load_failed'));
+            onOpenChange(false);
+        } finally {
+            setLoading(false);
+        }
+    }, [docKey, i18n.language, onOpenChange, t]);
+
     useEffect(() => {
         if (open && docKey) {
-            loadDoc();
+            void loadDoc();
         }
-    }, [open, docKey, i18n.language]);
+    }, [open, docKey, loadDoc]);
 
     // Check if content is scrollable when loaded
     useEffect(() => {
@@ -56,20 +70,6 @@ const RiskDisclosureDialog: React.FC<RiskDisclosureDialogProps> = ({
             return () => clearTimeout(timer);
         }
     }, [loading, content, open]);
-
-    const loadDoc = async () => {
-        setLoading(true);
-        try {
-            // Default to current language, backend handles fallback
-            const doc = await legalApi.getPublicDoc(docKey, i18n.language);
-            setContent(doc.content_md);
-        } catch (error) {
-            toast.error(t('common:error.load_failed'));
-            onOpenChange(false);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
         const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;

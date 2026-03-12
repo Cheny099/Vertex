@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import type { ApiError } from '@/api/contracts';
 
 interface WebhookSecretDialogProps {
     open: boolean;
@@ -52,8 +53,9 @@ export const WebhookSecretDialog = ({
             queryClient.setQueryData(['strategy', strategyId, 'secret'], newData);
             toast.success(t('strategies:detail.webhook_secret_rotated'));
         },
-        onError: (err: any) => {
-            toast.error(err.message || t('common:error'));
+        onError: (err: unknown) => {
+            const error = err as Partial<ApiError>;
+            toast.error(error.message || t('common:error'));
         }
     });
 

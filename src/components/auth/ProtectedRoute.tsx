@@ -1,6 +1,6 @@
-import React from 'react';
+﻿import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/use-auth';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -19,7 +19,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   if (!isAuthenticated) {
-    // ✅ 未登录跳到 /login，并保存原来想访问的位置
+    // 鉁?鏈櫥褰曡烦鍒?/login锛屽苟淇濆瓨鍘熸潵鎯宠闂殑浣嶇疆
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
@@ -27,3 +27,4 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 };
 
 export default ProtectedRoute;
+

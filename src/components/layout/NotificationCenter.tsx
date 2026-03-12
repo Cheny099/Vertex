@@ -2,7 +2,7 @@
  * @description 通知中心组件
  */
 
-import { useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, X, CheckCircle, AlertTriangle, Info, TrendingUp, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -10,7 +10,16 @@ import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 
 // TODO: Integrate with backend Notification API
-const INITIAL_NOTIFICATIONS: any[] = [];
+interface NotificationItem {
+    id: number;
+    type: 'success' | 'warning' | 'trade' | 'system' | 'info';
+    title: string;
+    message: string;
+    time: string;
+    read: boolean;
+}
+
+const INITIAL_NOTIFICATIONS: NotificationItem[] = [];
 
 const getIcon = (type: string) => {
     switch (type) {
@@ -30,29 +39,32 @@ const getIcon = (type: string) => {
 const NotificationCenter = () => {
     const { t } = useTranslation('common');
     const [isOpen, setIsOpen] = useState(false);
-    const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+    const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
 
-    const unreadCount = notifications.filter(n => !n.read).length;
+    const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
+    const hasNotifications = useMemo(() => notifications.length > 0, [notifications]);
+    const toggleOpen = useCallback(() => setIsOpen((prev) => !prev), []);
+    const closePanel = useCallback(() => setIsOpen(false), []);
 
-    const markAllAsRead = () => {
-        setNotifications(notifications.map(n => ({ ...n, read: true })));
-    };
+    const markAllAsRead = useCallback(() => {
+        setNotifications((prev) => prev.map(n => ({ ...n, read: true })));
+    }, []);
 
-    const markAsRead = (id: number) => {
-        setNotifications(notifications.map(n =>
+    const markAsRead = useCallback((id: number) => {
+        setNotifications((prev) => prev.map(n =>
             n.id === id ? { ...n, read: true } : n
         ));
-    };
+    }, []);
 
-    const deleteNotification = (id: number) => {
-        setNotifications(notifications.filter(n => n.id !== id));
-    };
+    const deleteNotification = useCallback((id: number) => {
+        setNotifications((prev) => prev.filter(n => n.id !== id));
+    }, []);
 
     return (
         <div className="relative">
             {/* Bell Button */}
             <button
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={toggleOpen}
                 className="relative p-2 rounded-lg hover:bg-secondary transition-colors"
             >
                 <Bell className="w-5 h-5 text-muted-foreground" />
@@ -70,7 +82,7 @@ const NotificationCenter = () => {
                         {/* Backdrop */}
                         <div
                             className="fixed inset-0 z-40"
-                            onClick={() => setIsOpen(false)}
+                            onClick={closePanel}
                         />
 
                         {/* Panel */}
@@ -98,7 +110,7 @@ const NotificationCenter = () => {
 
                             {/* Notifications List */}
                             <div className="max-h-80 overflow-y-auto">
-                                {notifications.length > 0 ? (
+                                {hasNotifications ? (
                                     notifications.map((notification) => (
                                         <motion.div
                                             key={notification.id}
@@ -152,7 +164,7 @@ const NotificationCenter = () => {
                             </div>
 
                             {/* Footer */}
-                            {notifications.length > 0 && (
+                            {hasNotifications && (
                                 <div className="p-3 border-t border-border">
                                     <button className="w-full text-center text-sm text-primary hover:text-primary-light transition-colors">
                                         {t('notifications.view_all')}
@@ -167,4 +179,4 @@ const NotificationCenter = () => {
     );
 };
 
-export default NotificationCenter;
+export default memo(NotificationCenter);

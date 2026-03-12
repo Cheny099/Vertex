@@ -32,7 +32,7 @@ const Leaderboard = () => {
 
   const { data: leaderboard, isLoading: isLbLoading } = useQuery({
     queryKey: ['leaderboard', scope],
-    queryFn: () => leaderboardApi.getGlobal({ scope: scope as any, limit: 20 }),
+    queryFn: () => leaderboardApi.getGlobal({ scope: scope === 'total' ? 'total' : 'daily', limit: 20 }),
     enabled: scope !== 'strategies',
     staleTime: 60_000,
     refetchOnWindowFocus: false,

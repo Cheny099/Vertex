@@ -1,37 +1,22 @@
-/**
+﻿/**
  * @anchor-id MOBILE_NAV
  * @module-type component
  * @disposable false
- * @description 移动端导航抽屉组件（按钮和抽屉分离实现）
+ * @description 绉诲姩绔鑸娊灞夌粍浠讹紙鎸夐挳鍜屾娊灞夊垎绂诲疄鐜帮級
  */
 
-import { useState, createContext, useContext, ReactNode } from 'react';
+import { useState, createContext, useContext, ReactNode, useMemo, useCallback, memo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    LayoutDashboard,
-    TrendingUp,
-    History,
-    Settings,
-    Bot,
     LogOut,
     Menu,
     X,
-    HelpCircle,
-    Megaphone,
-    Workflow,
-    Scale,
-    Terminal,
-    FileText,
-    ClipboardCheck,
-    BarChart,
-    ArrowRightLeft,
-    Ticket,
-    Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/use-auth';
+import { ADMIN_NAV_ITEMS, MAIN_NAV_ITEMS, isRouteActive } from './nav-config';
 
 
 
@@ -44,8 +29,9 @@ const MobileNavContext = createContext<{
 // Provider component
 export const MobileNavProvider = ({ children }: { children: ReactNode }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const value = useMemo(() => ({ isOpen, setIsOpen }), [isOpen]);
     return (
-        <MobileNavContext.Provider value={{ isOpen, setIsOpen }}>
+        <MobileNavContext.Provider value={value}>
             {children}
         </MobileNavContext.Provider>
     );
@@ -63,10 +49,11 @@ const useMobileNav = () => {
 // Button component (goes in header)
 export const MobileNavButton = () => {
     const { setIsOpen } = useMobileNav();
+    const handleOpen = useCallback(() => setIsOpen(true), [setIsOpen]);
 
     return (
         <button
-            onClick={() => setIsOpen(true)}
+            onClick={handleOpen}
             className="lg:hidden p-2 rounded-lg hover:bg-secondary transition-colors"
         >
             <Menu className="w-6 h-6" />
@@ -81,27 +68,29 @@ export const MobileNavDrawer = () => {
     const { user, logout } = useAuth();
     const { t } = useTranslation(['common', 'admin', 'settings']);
 
-    const menuItems = [
-        { title: t('common:nav.dashboard'), url: '/dashboard', icon: LayoutDashboard },
-        { title: t('common:nav.ai_assistant'), url: '/ai-assistant', icon: Sparkles },
-        { title: t('common:nav.strategies'), url: '/strategies', icon: Bot },
-        { title: t('common:nav.announcements'), url: '/announcements', icon: Megaphone },
-        { title: t('common:nav.history'), url: '/history', icon: History },
-        { title: t('common:nav.settings'), url: '/settings', icon: Settings },
-        { title: t('common:nav.help'), url: '/help', icon: HelpCircle },
-    ];
+    const menuItems = useMemo(
+        () =>
+            MAIN_NAV_ITEMS.map((item) => ({
+                ...item,
+                title: t(item.titleKey, { defaultValue: item.defaultValue }),
+            })),
+        [t]
+    );
 
-    const adminItems = [
-        { title: t('admin:announcements'), url: '/admin/announcements', icon: Megaphone },
-        { title: t('admin:legal'), url: '/admin/legal', icon: Scale },
-        { title: t('admin:strategies'), url: '/admin/strategies', icon: Workflow },
-        { title: t('admin:strategy_switch.title'), url: '/admin/strategy-switch', icon: ArrowRightLeft },
-        { title: t('admin:ops'), url: '/admin/ops', icon: Terminal },
-        { title: t('admin:system_logs'), url: '/admin/system-logs', icon: FileText },
-        { title: t('admin:trade_audit'), url: '/admin/trade-audit', icon: ClipboardCheck },
-        { title: t('admin:trade_performance'), url: '/admin/trade-performance', icon: BarChart },
-        { title: t('admin:invites.title'), url: '/admin/invites', icon: Ticket },
-    ];
+    const adminItems = useMemo(
+        () =>
+            ADMIN_NAV_ITEMS.map((item) => ({
+                ...item,
+                title: t(item.titleKey, { defaultValue: item.defaultValue }),
+            })),
+        [t]
+    );
+
+    const closeDrawer = useCallback(() => setIsOpen(false), [setIsOpen]);
+    const handleLogout = useCallback(() => {
+        setIsOpen(false);
+        logout();
+    }, [logout, setIsOpen]);
 
     return (
         <AnimatePresence>
@@ -112,7 +101,7 @@ export const MobileNavDrawer = () => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        onClick={() => setIsOpen(false)}
+                        onClick={closeDrawer}
                         className="fixed inset-0 bg-black/50 z-[100] lg:hidden"
                     />
 
@@ -131,7 +120,7 @@ export const MobileNavDrawer = () => {
                                 <span className="text-xl font-semibold text-sidebar-foreground">{t('app_name')}</span>
                             </div>
                             <button
-                                onClick={() => setIsOpen(false)}
+                                onClick={closeDrawer}
                                 className="p-2 rounded-lg hover:bg-sidebar-accent transition-colors"
                             >
                                 <X className="w-5 h-5" />
@@ -141,14 +130,12 @@ export const MobileNavDrawer = () => {
                         {/* Navigation */}
                         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
                             {menuItems.map((item) => {
-                                const isActive = item.url === '/dashboard'
-                                    ? location.pathname === item.url
-                                    : location.pathname.startsWith(item.url);
+                                const isActive = isRouteActive(location.pathname, item.url);
                                 return (
                                     <NavLink
                                         key={item.url}
                                         to={item.url}
-                                        onClick={() => setIsOpen(false)}
+                                        onClick={closeDrawer}
                                         className={cn(
                                             "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200",
                                             "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent",
@@ -174,7 +161,7 @@ export const MobileNavDrawer = () => {
                                             <NavLink
                                                 key={item.url}
                                                 to={item.url}
-                                                onClick={() => setIsOpen(false)}
+                                                onClick={closeDrawer}
                                                 className={cn(
                                                     "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200",
                                                     "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent",
@@ -207,10 +194,7 @@ export const MobileNavDrawer = () => {
                                     </p>
                                 </div>
                                 <button
-                                    onClick={() => {
-                                        setIsOpen(false);
-                                        logout();
-                                    }}
+                                    onClick={handleLogout}
                                     className="p-2 rounded-lg hover:bg-sidebar-accent transition-colors text-muted-foreground hover:text-destructive"
                                 >
                                     <LogOut className="w-4 h-4" />
@@ -225,5 +209,6 @@ export const MobileNavDrawer = () => {
 };
 
 // Default export for backward compatibility
-const MobileNav = MobileNavButton;
+const MobileNav = memo(MobileNavButton);
 export default MobileNav;
+

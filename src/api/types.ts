@@ -1,6 +1,7 @@
 // ==========================================
 // Backend Aligned Types (Source of Truth)
 // ==========================================
+import type { JsonObject, JsonValue } from './contracts';
 
 export interface StrategyWebhookSecretResponse {
     strategy_id: number;
@@ -27,9 +28,9 @@ export interface Account {
     last_login_at?: string;
     last_verified_at?: string;
     last_error?: string;
-    deleted_at?: string; // 软删除标记
+    deleted_at?: string; // 软删除标�?
 
-    // ✅ Money Fields
+    // �?Money Fields
     available_margin?: number;
     equity?: number;
     wallet_balance?: number;
@@ -51,38 +52,38 @@ export interface AccountCreateDto {
     lang?: string;
 }
 
-// 对应后端 /strategies/ 返回的数据结构
+// 对应后端 /strategies/ 返回的数据结�?
 export interface Strategy {
     id: number;
     strategy_key: string;
     name: string;
     description?: string;
     status: string;
-    config?: any; // JSON 格式的策略配置
-    public_stats?: StrategyPublicStats; // ✅ Phase 75: Metrics from CSV import
+    config?: JsonValue; // JSON 格式的策略配�?
+    public_stats?: StrategyPublicStats; // �?Phase 75: Metrics from CSV import
     created_at: string;
     updated_at: string;
 
-    // ✅ Security Fields (Backend Sync)
+    // �?Security Fields (Backend Sync)
     has_webhook_secret?: boolean;
     webhook_secret_hint?: string;
 
-    // ✅ Phase 6: Sync Metrics
+    // �?Phase 6: Sync Metrics
     metrics?: Record<string, StrategyMetricsItem>; // Record<PeriodKey, ...>
     metrics_as_of?: string;
     metrics_source?: string;
 
-    // 从 config 解析出的辅助字段（前端读取用）
+    // �?config 解析出的辅助字段（前端读取用�?
     pair?: string;
     type?: string;
     investment?: string;
 }
 
 /**
- * ✅ 订阅跟单模式：
+ * �?订阅跟单模式�?
  * - fixed: 账户比例
- * - fixed_amount: 固定金额（USDT）
- * - multiplier: 倍数（已下线，仅用于兼容历史数据；UI 会移除这个选项）
+ * - fixed_amount: 固定金额（USDT�?
+ * - multiplier: 倍数（已下线，仅用于兼容历史数据；UI 会移除这个选项�?
  */
 export type PositionMode = 'fixed_amount' | 'fixed' | 'multiplier';
 
@@ -106,7 +107,7 @@ export interface Subscription {
     is_frozen?: boolean;
     frozen_at?: string;
     frozen_reason?: string;
-    // ✅ Phase 132: Block Open
+    // �?Phase 132: Block Open
     block_open?: boolean;
     block_open_reason?: string;
 }
@@ -152,26 +153,26 @@ export interface Order {
     retry_count: number;
     next_retry_at?: string;
 
-    // ✅ New: Failure Attribution (Backend Sync) - Flat Fields
+    // �?New: Failure Attribution (Backend Sync) - Flat Fields
     failure_code?: string;
     failure_message?: string;
     failure_action?: string;
 
-    // ✅ Phase 136: Block/Freeze Status
+    // �?Phase 136: Block/Freeze Status
     block_open?: boolean;
     block_reason?: string;
     is_frozen?: boolean;
     freeze_reason?: string;
 
-    // ✅ New: Failure Attribution (Backend Sync) - Object Field (Standard)
+    // �?New: Failure Attribution (Backend Sync) - Object Field (Standard)
     public_error?: {
         code: string;
         message: string;
         action: string;
-        details?: any;
+        details?: JsonValue;
     };
 
-    // ✅ New: PnL Backfill
+    // �?New: PnL Backfill
     realized_pnl?: number;
     realized_pnl_usd?: number;
     roi?: number;
@@ -214,14 +215,14 @@ export interface StrategyUpdateDto {
     strategy_key?: string;
     name?: string;
     description?: string;
-    config?: any;
+    config?: JsonValue;
     status?: string;
 }
 
 export interface TurboFlowPositionItem {
     position_id?: string;
     unpnl?: string | number;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface PublicStrategyCard {
@@ -232,7 +233,7 @@ export interface PublicStrategyCard {
     status: string; // 'active' | 'inactive'
     last_signal_at?: string;
     subscribers: number;
-    // ✅ Phase 6: Sync Metrics
+    // �?Phase 6: Sync Metrics
     metrics?: Record<string, StrategyMetricsItem>; // Record<PeriodKey, ...>
     metrics_as_of?: string;
     metrics_source?: string;
@@ -245,13 +246,13 @@ export interface TurboFlowPositionListResponse {
     data?: { data?: TurboFlowPositionItem[] };
 }
 
-// ✅ 新增：TurboFlow 账户资产/可用保证金（用于固定金额模式的 max 限制）
+// �?新增：TurboFlow 账户资产/可用保证金（用于固定金额模式�?max 限制�?
 export interface TurboFlowAccountInfo {
-    available_margin?: number | string;   // 可用保证金（推荐用这个做上限）
-    equity?: number | string;             // 总权益
+    available_margin?: number | string;   // 可用保证金（推荐用这个做上限�?
+    equity?: number | string;             // 总权�?
     wallet_balance?: number | string;     // 钱包余额
     currency?: string;                    // 'USDT' etc.
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 // ==========================================
@@ -264,15 +265,15 @@ export interface CreateStrategyDto {
     pair: string;
     investment: string | number;
     description?: string;
-    [key: string]: any; // Allow other config fields
+    [key: string]: unknown; // Allow other config fields
 }
 
-// ✅ Explicit Backend Payload Types
+// �?Explicit Backend Payload Types
 export interface StrategyCreatePayload {
     strategy_key: string;
     name: string;
     description?: string;
-    config: any;
+    config: JsonValue;
     status?: string;
 }
 
@@ -280,7 +281,7 @@ export interface StrategyUpdatePayload {
     strategy_key?: string;
     name?: string;
     description?: string;
-    config?: any;
+    config?: JsonValue;
     status?: string;
 }
 
@@ -354,7 +355,7 @@ export interface TradeHistoryParams {
     timeRange?: string;
 }
 
-// 对应后端 /dashboard/stats 返回的数据结构
+// 对应后端 /dashboard/stats 返回的数据结�?
 export interface DashboardStats {
     // today 订单统计
     todayTotal: number;
@@ -391,12 +392,12 @@ export interface TurboFlowOrderItem {
     status?: string;
     unpnl?: string | number;
     done_pnl?: string | number;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface TurboFlowOrderListResponse {
     http_status: number;
-    errno: string; // 确保是 string
+    errno: string; // 确保�?string
     msg: string;
     data: {
         page_size: number;
@@ -418,7 +419,7 @@ export interface UserProfile {
     full_name?: string;
     external_key?: string;
     is_active: boolean;
-    is_admin?: boolean; // ✅ New backend field
+    is_admin?: boolean; // �?New backend field
     can_subscribe?: boolean; // Added for Invite Codes
     invite_code_id?: number | null; // Added for Invite Codes
     invite_channel?: string | null; // Added for Invite Codes
@@ -485,10 +486,10 @@ export interface UserRegisterRequest {
     code: string;
 }
 
-// types.ts 末尾加一行就行
+// types.ts 末尾加一行就�?
 export type AccountBalance = TurboFlowAccountInfo;
 
-// ✅ New: Account Status Detailed Response
+// �?New: Account Status Detailed Response
 export interface AccountStatusResponse {
     status: 'ok' | 'need_verify' | 'uid_mismatch' | 'config_missing' | 'inactive' | 'not_ready' | 'disabled' | 'unknown' | string;
     last_error: string | null;
@@ -505,7 +506,7 @@ export interface AccountStatusResponse {
         // Debug
         db_uid?: string;
         api_uid?: string;
-        [key: string]: any;
+        [key: string]: unknown;
     };
 }
 
@@ -635,7 +636,7 @@ export interface PublicLegalDoc {
     version: string;
     title: string;
     content_md: string;
-    content?: string; // ✅ Added for admin detail
+    content?: string; // �?Added for admin detail
     effective_at: string;
 }
 
@@ -657,7 +658,7 @@ export type PeriodKey = '1m' | '3m' | '6m' | '1y' | 'all';
 
 export interface StrategyPublicStats {
     metrics?: Record<string, StrategyMetricsItem>;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface StrategyMetricsItem {
@@ -702,7 +703,7 @@ export interface AdminAuditLogItem {
     target_type: string;
     target_id: string | null;
     reason: string | null;
-    meta: any;
+    meta: JsonObject;
     created_at: string;
 }
 
@@ -724,7 +725,7 @@ export interface AdminOrderEventItem {
     source: 'last_error' | 'tf_submit_raw';
     stage: string;
     note?: string;
-    data?: any;
+    data?: unknown;
     raw?: string;
 }
 
@@ -766,7 +767,7 @@ export interface AuditRunResponse {
         lookback_days?: number;
         mode?: 'local_only' | 'full';
         dry_run?: boolean;
-        [key: string]: any;
+        [key: string]: unknown;
     };
     summary?: {
         scanned?: number;
@@ -774,14 +775,14 @@ export interface AuditRunResponse {
         found?: number;
         mismatched?: number;
         fixed?: number;
-        // ✅ Multi-exchange Audit Structure
+        // �?Multi-exchange Audit Structure
         exchanges?: string[];
         backfill_enabled?: boolean;
         backfill?: {
             status: string;
             total_backfilled: number;
             total_failed: number;
-            [key: string]: any;
+            [key: string]: unknown;
         };
         stats_by_exchange?: Record<string, {
             total: number;
@@ -790,9 +791,9 @@ export interface AuditRunResponse {
             completed_missing_price: number;
             completed_missing_notional: number;
             completed_missing_executed_at: number;
-            [key: string]: any;
+            [key: string]: unknown;
         }>;
-        [key: string]: any;
+        [key: string]: unknown;
     };
     error?: string;
 }
@@ -808,7 +809,7 @@ export interface AuditRunDetail extends AuditRunResponse {
     total_items: number;
 }
 
-// === 审计项 ===
+// === 审计�?===
 export type AuditItemKind =
     | 'FIELDS_BACKFILLED'
     | 'NOTIONAL_MISMATCH'
@@ -826,7 +827,7 @@ export interface AuditItem {
     severity: 'info' | 'warning' | 'error';
     account_id?: number;
     order_id?: number;
-    detail: Record<string, any>;
+    detail: Record<string, unknown>;
     created_at: string;
 }
 
@@ -839,7 +840,7 @@ export interface AuditItemPageResponse {
 
 // === 交易统计 ===
 export interface OrderTurnoverStatsRow {
-    // Group by 字段（根据 group_by 参数动态出现）
+    // Group by 字段（根�?group_by 参数动态出现）
     day?: string;
     user_id?: number;
     account_id?: number;
@@ -857,7 +858,7 @@ export interface OrderTurnoverStatsRow {
     lose_cnt: number;
     win_rate: number;
 
-    // 状态
+    // 状�?
     turnover_mode: 'executed_notional' | 'fallback_qty_price' | 'mixed';
     executed_notional_covered: {
         covered: number;
@@ -865,7 +866,7 @@ export interface OrderTurnoverStatsRow {
         pct: number;
     };
 
-    // ✅ Phase 132: New Stats
+    // �?Phase 132: New Stats
     completed_cnt?: number;
     open_cnt?: number;
     flat_cnt?: number;
@@ -902,7 +903,7 @@ export interface StrategySwitchPreviewRequest {
 
 export interface StrategySwitchPreviewResponse {
     handover_mode: string;
-    plan: any;
+    plan: unknown;
 }
 
 export interface StrategySwitchRun {
@@ -988,3 +989,4 @@ export interface StrategySwitchCampaign {
     runs?: StrategySwitchRun[];
     recent_failed_runs?: StrategySwitchBulkFailedRun[];
 }
+
