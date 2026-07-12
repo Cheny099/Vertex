@@ -9,7 +9,6 @@ import type { User as AppUser } from "@/types";
 import { useTranslation } from "react-i18next";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const TOKEN_KEY = "auth_token";
 
 function normalizeErrorMessage(err: unknown): string {
   const message = String((err as Partial<ApiError>)?.message || "");
@@ -122,19 +121,13 @@ function useLoginCardModel() {
         accessToken = response.access_token;
       }
 
-      const storage = rememberMe ? localStorage : sessionStorage;
-      storage.setItem(TOKEN_KEY, accessToken);
-      if (!rememberMe) {
-        localStorage.setItem(TOKEN_KEY, accessToken);
-      }
-
-      const user = await authApi.getProfile();
+      const user = await authApi.getProfile(accessToken);
       const mappedUser: AppUser = {
         ...user,
         id: String(user.id),
         username: user.full_name || user.email.split("@")[0],
       };
-      login(mappedUser, accessToken);
+      login(mappedUser, accessToken, rememberMe);
 
       toast({
         title: t("errors.login_success"),

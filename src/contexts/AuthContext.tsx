@@ -4,65 +4,69 @@ import { authApi } from '@/api';
 import type { ApiError } from '@/api/contracts';
 import { AuthContext } from './auth-context';
 import { logger } from '@/lib/logger';
-
-const TOKEN_KEY = 'auth_token';
-const USER_KEY = 'user_data';
+import {
+    clearStoredAuth,
+    getStoredAuthToken,
+    persistAuth,
+    readStoredAuth,
+    updateStoredUser,
+} from '@/lib/auth-storage';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // Sync initialize from localStorage to avoid flicker.
-    const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
-    const [user, setUser] = useState<User | null>(() => {
-        const stored = localStorage.getItem(USER_KEY);
-        try {
-            return stored ? JSON.parse(stored) : null;
-        } catch {
-            return null;
-        }
-    });
+    // Sync initialize from browser storage to avoid flicker.
+    const [auth, setAuth] = useState(readStoredAuth);
+    const { token, user } = auth;
+    const activeTokenRef = React.useRef(token);
 
     // Keep current behavior: auth is token-driven, loading remains minimal.
     const [isLoading] = useState(false);
 
     const logout = useCallback(() => {
-        setUser(null);
-        setToken(null);
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
+        clearStoredAuth();
+        activeTokenRef.current = null;
+        setAuth({ token: null, user: null });
     }, []);
 
-    const login = useCallback((newUser: User, newToken: string) => {
-        setUser(newUser);
-        setToken(newToken);
-        localStorage.setItem(TOKEN_KEY, newToken);
-        localStorage.setItem(USER_KEY, JSON.stringify(newUser));
+    const login = useCallback((newUser: User, newToken: string, rememberMe: boolean) => {
+        persistAuth(newUser, newToken, rememberMe);
+        activeTokenRef.current = newToken;
+        setAuth({ token: newToken, user: newUser });
     }, []);
 
     const updateUser = useCallback((updatedFields: Partial<User>) => {
-        setUser(prev => {
-            if (!prev) return null;
-            const newUser = { ...prev, ...updatedFields };
-            localStorage.setItem(USER_KEY, JSON.stringify(newUser));
-            return newUser;
+        setAuth(prev => {
+            if (!prev.user) return prev;
+            const newUser = { ...prev.user, ...updatedFields };
+            updateStoredUser(newUser);
+            return { ...prev, user: newUser };
         });
     }, []);
 
     useEffect(() => {
         const validateAuth = async () => {
-            const storedToken = localStorage.getItem(TOKEN_KEY);
+            const storedToken = getStoredAuthToken();
             if (!storedToken) return;
 
             try {
-                const freshUser = await authApi.getProfile();
+                const freshUser = await authApi.getProfile(storedToken);
+                if (activeTokenRef.current !== storedToken) return;
+
                 const mappedUser: User = {
                     ...freshUser,
                     id: String(freshUser.id),
                     username: freshUser.full_name || freshUser.email.split('@')[0]
                 };
-                setUser(mappedUser);
-                localStorage.setItem(USER_KEY, JSON.stringify(mappedUser));
+                updateStoredUser(mappedUser);
+                setAuth(prev => ({ ...prev, user: mappedUser }));
             } catch (error: unknown) {
+                if (activeTokenRef.current !== storedToken) return;
+
                 const apiError = error as Partial<ApiError>;
-                if (apiError.message?.includes('401') || apiError.message?.includes('Unauthorized')) {
+                if (
+                    apiError.status === 401 ||
+                    apiError.message?.includes('401') ||
+                    apiError.message?.includes('Unauthorized')
+                ) {
                     logout();
                 }
             }

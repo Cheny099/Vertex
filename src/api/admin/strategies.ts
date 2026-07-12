@@ -1,7 +1,8 @@
 import i18n from '../../i18n';
-import { API_BASE_URL, request, TOKEN_KEY } from '../core';
+import { API_BASE_URL, request } from '../core';
 import { isRecord } from '../guards';
 import type { Strategy, StrategyCreatePayload, StrategyUpdatePayload, StrategyWebhookSecretResponse } from '../types';
+import { clearStoredAuth, getStoredAuthToken } from '../../lib/auth-storage';
 
 export const adminStrategiesApi = {
   create: (data: StrategyCreatePayload) =>
@@ -20,7 +21,7 @@ export const adminStrategiesApi = {
       method: 'POST',
     }),
   importStats: async (id: number, file: File) => {
-    const token = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
+    const token = getStoredAuthToken();
     const formData = new FormData();
     formData.append('file', file, file.name);
 
@@ -31,9 +32,10 @@ export const adminStrategiesApi = {
     });
 
     if (response.status === 401) {
-      localStorage.removeItem(TOKEN_KEY);
-      sessionStorage.removeItem(TOKEN_KEY);
-      window.dispatchEvent(new CustomEvent('panda-auth-unauthorized'));
+      if (token === getStoredAuthToken()) {
+        clearStoredAuth();
+        window.dispatchEvent(new CustomEvent('panda-auth-unauthorized'));
+      }
       throw new Error('Unauthorized');
     }
 

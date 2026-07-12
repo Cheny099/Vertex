@@ -4,10 +4,11 @@ import { toast } from 'sonner';
 import { createApiError } from './contracts';
 import type { JsonObject } from './contracts';
 import { isRecord, isString } from './guards';
+import { AUTH_TOKEN_KEY, clearStoredAuth, getStoredAuthToken } from '../lib/auth-storage';
 
 const API_ORIGIN = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 export const API_BASE_URL = API_ORIGIN ? `${API_ORIGIN}/api/v1` : '/api/v1';
-export const TOKEN_KEY = 'auth_token';
+export const TOKEN_KEY = AUTH_TOKEN_KEY;
 
 export function translateBackendErrorMessage(rawMsg: string): string {
   const normalized = (rawMsg || '').trim();
@@ -62,7 +63,11 @@ export function translateBackendErrorMessage(rawMsg: string): string {
 }
 
 export async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const token = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
+  const token = getStoredAuthToken();
+  const explicitAuthorization = options?.headers
+    ? new Headers(options.headers).get('Authorization')
+    : null;
+  const requestToken = explicitAuthorization?.match(/^Bearer\s+(.+)$/i)?.[1] || token;
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
@@ -74,17 +79,17 @@ export async function request<T>(endpoint: string, options?: RequestInit): Promi
   });
 
   if (response.status === 401) {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem('panda_quant_user');
-    localStorage.removeItem('user_data');
+    if (requestToken === getStoredAuthToken()) {
+      clearStoredAuth();
 
-    if (
-      window.location.pathname !== '/' &&
-      window.location.pathname !== '/login' &&
-      window.location.pathname !== '/register'
-    ) {
-      window.dispatchEvent(new CustomEvent('panda-auth-unauthorized'));
-      toast.error(i18n.t('common:session_expired'), { id: 'auth-error' });
+      if (
+        window.location.pathname !== '/' &&
+        window.location.pathname !== '/login' &&
+        window.location.pathname !== '/register'
+      ) {
+        window.dispatchEvent(new CustomEvent('panda-auth-unauthorized'));
+        toast.error(i18n.t('common:session_expired'), { id: 'auth-error' });
+      }
     }
 
     throw createApiError('Unauthorized', { status: 401, raw: null });

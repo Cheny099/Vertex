@@ -66,8 +66,11 @@ export const authApi = {
     });
   },
 
-  getProfile: async () => {
-    return request<UserProfile>('/auth/me');
+  getProfile: async (token?: string) => {
+    return request<UserProfile>(
+      '/auth/me',
+      token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+    );
   },
 
   forgotPassword: async (data: ForgotPasswordRequest) => {
