@@ -1,0 +1,70 @@
+name: Bug report
+description: Report a concrete and reproducible problem
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a problem. Do not include credentials, tokens, personal data, or private infrastructure details. Report security vulnerabilities through the private security channel instead of this form.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the problem from a user's perspective.
+      placeholder: What went wrong, and where did it happen?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest reliable sequence that reproduces the problem.
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: What did the application display or do?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: What should have happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the browser, operating system, frontend revision, language, and relevant backend version.
+      placeholder: |
+        Browser: Chrome 000
+        OS: Windows 11
+        Frontend revision: commit SHA or release
+        Language: English
+        Backend version: commit SHA or release
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Additional evidence
+      description: Add sanitized screenshots, console output, or network details. Remove all secrets and personal data.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checklist
+      options:
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: I removed credentials, tokens, personal data, and private URLs.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true
