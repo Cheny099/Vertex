@@ -11,8 +11,16 @@ updates:
         update-types:
           - minor
           - patch
+      radix-ui-minor-patch:
+        patterns:
+          - "@radix-ui/*"
+        update-types:
+          - minor
+          - patch
       production-minor-patch:
         dependency-type: production
+        exclude-patterns:
+          - "@radix-ui/*"
         update-types:
           - minor
           - patch
