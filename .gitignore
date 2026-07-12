@@ -8,6 +8,22 @@ coverage/
 .env.*
 !.env.example
 
+# Local credentials and data snapshots
+.npmrc
+.netrc
+*.pem
+*.key
+*.p12
+*.pfx
+*.rdb
+*.db
+*.sqlite
+*.sqlite3
+
+# Local backups and diagnostic captures
+*.bak
+/login_view.png
+
 *.log
 npm-debug.log*
 yarn-debug.log*
