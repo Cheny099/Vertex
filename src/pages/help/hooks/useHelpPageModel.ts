@@ -97,14 +97,14 @@ function useHelpPageModel() {
     [t],
   );
 
-  const copyEmail = async () => {
+  const copySupportContact = async () => {
     await navigator.clipboard.writeText(t("help:contact.email_value"));
     toast.success(t("common:copy_success"));
   };
 
   return {
     activeCategory,
-    copyEmail,
+    copySupportContact,
     faqCategories,
     setActiveCategory,
     tutorials,

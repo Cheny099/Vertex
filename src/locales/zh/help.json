@@ -14,12 +14,12 @@
         "security": "资金安全"
     },
     "contact": {
-        "email": "客服邮箱",
-        "email_value": "249227740+Cheny099@users.noreply.github.com",
-        "chat": "在线客服",
-        "chat_desc": "7x24 小时在线",
+        "email": "项目支持",
+        "email_value": "https://github.com/Cheny099/Vertex/issues",
+        "chat": "部署支持",
+        "chat_desc": "由当前运营方提供",
         "response": "响应时间",
-        "response_desc": "通常 2 小时内"
+        "response_desc": "由当前运营方说明"
     },
     "faq_items": {
         "basic_1_q": "什么是量化交易？",

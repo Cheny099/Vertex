@@ -14,12 +14,12 @@
         "security": "Security"
     },
     "contact": {
-        "email": "Support Email",
-        "email_value": "249227740+Cheny099@users.noreply.github.com",
-        "chat": "Live Chat",
-        "chat_desc": "24/7 Online",
+        "email": "Project Support",
+        "email_value": "https://github.com/Cheny099/Vertex/issues",
+        "chat": "Deployment Support",
+        "chat_desc": "Provided by the operator",
         "response": "Response Time",
-        "response_desc": "Usually within 2 hours"
+        "response_desc": "Set by the operator"
     },
     "faq_items": {
         "basic_1_q": "What is quantitative trading?",

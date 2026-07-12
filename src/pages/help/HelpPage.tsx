@@ -38,7 +38,7 @@ const tutorialIcons = {
 
 function HelpPage() {
   const { t } = useTranslation(["help", "common"]);
-  const { activeCategory, copyEmail, faqCategories, setActiveCategory, tutorials } = useHelpPageModel();
+  const { activeCategory, copySupportContact, faqCategories, setActiveCategory, tutorials } = useHelpPageModel();
 
   return (
     <div className="space-y-6 p-6 lg:p-8">
@@ -145,7 +145,7 @@ function HelpPage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div
             className="group flex min-w-0 cursor-pointer items-center gap-4 rounded-lg bg-secondary/30 p-4 transition-colors hover:bg-secondary/50"
-            onClick={copyEmail}
+            onClick={copySupportContact}
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 transition-colors group-hover:bg-primary/20">
               <Mail className="h-5 w-5 text-primary" />
