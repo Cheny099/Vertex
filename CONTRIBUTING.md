@@ -1,5 +1,7 @@
 # Contributing
 
+[English](CONTRIBUTING.md) | [简体中文](CONTRIBUTING.zh-CN.md)
+
 Thank you for contributing to Vertex Quant.
 
 ## Before You Start
@@ -29,6 +31,7 @@ Keep each pull request focused on one concern. Before submitting, run:
 ```powershell
 npm run lint
 npm run typecheck
+npm test
 npm run build
 ```
 
