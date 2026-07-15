@@ -1,30 +1,27 @@
 # Vertex Quant Frontend
 
-Vertex Quant is a React frontend for a quantitative trading platform. It
-contains the user dashboard, strategy workflows, account settings, and
-administration interfaces. A compatible backend API is required for data,
-authentication, and trading operations.
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-> This repository contains frontend source code only. Never place exchange
-> credentials, access tokens, production environment files, or database dumps
-> in this repository.
+[![CI](https://github.com/Cheny099/Vertex/actions/workflows/ci.yml/badge.svg)](https://github.com/Cheny099/Vertex/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## Technology
+React frontend for a quantitative trading platform. A compatible backend is
+required for authentication, data, and trading operations.
 
-- React 18
-- TypeScript
-- Vite 7
-- TanStack Query
-- Tailwind CSS and Radix UI
-- i18next
+## Features
+
+- User dashboards, strategies, signals, trading history, accounts, and settings
+- Administration interfaces for operations, content, audits, and statistics
+- English and Simplified Chinese interfaces
+- React 18, TypeScript, Vite, TanStack Query, Tailwind CSS, and Radix UI
 
 ## Prerequisites
 
 - Node.js 20.19+ or 22.12+
 - npm
-- A compatible backend running locally or reachable over HTTPS
+- A compatible backend API
 
-## Local Development
+## Quick Start
 
 ```powershell
 git clone https://github.com/Cheny099/Vertex.git
@@ -34,86 +31,46 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-The development server listens on `http://127.0.0.1:8080` by default. With an
-empty `VITE_API_URL`, requests under `/api` use the Vite proxy and are forwarded
-to `http://localhost:8000`.
+Open `http://127.0.0.1:8080` after the development server starts.
 
-To connect directly to another backend, set `VITE_API_URL` in `.env.local`:
+## Configuration
 
-```dotenv
-VITE_API_URL=https://api.example.com
-```
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `VITE_API_URL` | empty | Backend base URL; empty uses local `/api` proxying |
+| `DEV_SERVER_HOST` | `127.0.0.1` | Development server bind address |
+| `DEV_SERVER_ALLOWED_HOSTS` | empty | Additional development hostnames |
 
-Remote or tunnel-based development must explicitly opt in:
-
-```powershell
-$env:DEV_SERVER_HOST = "0.0.0.0"
-$env:DEV_SERVER_ALLOWED_HOSTS = "your-domain.example"
-npm run dev
-```
-
-Do not use a wildcard allowed-host configuration on an untrusted network.
+Local `/api` requests are proxied to `http://localhost:8000` when
+`VITE_API_URL` is empty. API paths and request types are part of this frontend;
+deployment URLs and credentials are not.
 
 ## Commands
 
 ```powershell
-npm run dev        # Start the local development server
-npm run lint       # Run ESLint
-npm run typecheck  # Run TypeScript without emitting files
-npm run build      # Create a production build
-npm run preview    # Preview the production build locally
+npm run lint
+npm run typecheck
+npm test
+npm run build
 ```
 
-## Project Structure
+## Security
 
-```text
-src/
-|-- api/          # Backend contracts and request clients
-|-- components/   # Shared and domain components
-|-- contexts/     # Application context providers
-|-- hooks/        # Shared React hooks
-|-- locales/      # Translation resources
-|-- pages/        # Route-level pages and page modules
-|-- shared/       # Shared types and pure utilities
-`-- types/        # Domain type definitions
-```
-
-## Backend Integration
-
-Backend integration is part of the frontend architecture and should not be
-removed for open-source distribution. API paths, request types, and response
-contracts are source code; deployment URLs, credentials, tokens, and private
-infrastructure details are not.
-
-When changing an API integration:
-
-1. Preserve the backend contract or document the required backend change.
-2. Keep secrets out of `VITE_*` variables because Vite exposes them to the
-   browser bundle.
-3. Verify loading, empty, error, and authorization states.
-4. Run lint, type checking, and a production build.
-
-## Deployment Responsibility
-
-The bundled help and legal content is a source-code baseline, not legal advice.
-Every deployment operator must review it and publish valid support, privacy,
-and security contact channels before serving users. Do not replace those
-channels with a `noreply` address because privacy and support requests must be
-receivable.
+- Never put secrets in `VITE_*` variables; Vite exposes them to the browser.
+- Keep environment files, exchange credentials, logs, and account screenshots
+  out of Git.
+- Validate backend permissions and trading behavior before using a live account.
 
 ## Contributing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or pull request.
-Use GitHub Issues for reproducible bugs. Security vulnerabilities must be
-reported privately according to [SECURITY.md](SECURITY.md).
+Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
 ## Disclaimer
 
-This software is provided for development and research purposes. Trading and
-automated execution involve substantial financial risk. You are responsible
-for reviewing the code, securing credentials, and validating behavior before
-using it with any live account.
+Trading and automated execution involve substantial financial risk. This
+software is provided for development and research, not as financial advice.
 
 ## License
 
-Licensed under the [MIT License](LICENSE).
+[MIT](LICENSE)
