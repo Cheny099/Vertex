@@ -32,7 +32,14 @@ function StrategySubscriptionRowBase({
 }: StrategySubscriptionRowProps) {
   const modeText = useMemo(() => {
     if (positionMode === 'fixed') {
-      return t('strategies_list.mode_ratio', { percent: Math.round((positionPct || 0) * 100) });
+      // position_pct is optional and legacy rows carry only position_value. `|| 0` reported a live
+      // subscription as allocating 0% of the account; fall back the same way the strategy detail
+      // page does, and show a placeholder rather than a fabricated number when neither is usable.
+      const pct =
+        positionPct ??
+        (positionValue > 0 && positionValue <= 1 ? positionValue : undefined);
+      if (pct === undefined) return t('strategies_list.mode_ratio', { percent: '--' });
+      return t('strategies_list.mode_ratio', { percent: Math.round(pct * 100) });
     }
     if (positionMode === 'fixed_amount') {
       return t('strategies_list.mode_fixed', { amount: positionValue });
