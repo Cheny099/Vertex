@@ -117,9 +117,19 @@ export const useStrategyManagerModel = ({ t }: UseStrategyManagerModelOptions) =
         });
     }, [rotateSecretMutation, t]);
 
+    // csvFile used to be cleared only on a successful import, so a file picked for one strategy and
+    // then abandoned stayed selected - and the next strategy's dialog opened with the Import button
+    // already enabled, one click away from overwriting the wrong strategy's published stats.
+    // Both edges of the dialog reset it, so no call site has to remember.
     const openImportDialog = useCallback((id: number) => {
         setSelectedStrategyId(id);
+        setCsvFile(null);
         setImportDialogOpen(true);
+    }, []);
+
+    const handleImportDialogOpenChange = useCallback((open: boolean) => {
+        setImportDialogOpen(open);
+        if (!open) setCsvFile(null);
     }, []);
 
     return {
@@ -134,6 +144,7 @@ export const useStrategyManagerModel = ({ t }: UseStrategyManagerModelOptions) =
         setCsvFile,
         importDialogOpen,
         setImportDialogOpen,
+        handleImportDialogOpenChange,
         actionConfirm,
         setActionConfirm,
         isDragging,
