@@ -141,6 +141,7 @@ export function useSettingsAddAccountForm({
     newAccount,
     resetNewAccount,
     handleOpenAddAccount,
+    handleCloseAddAccount,
     addAccountDialogBaseProps,
   };
 }
