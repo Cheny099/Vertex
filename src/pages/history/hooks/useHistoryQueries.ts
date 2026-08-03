@@ -135,26 +135,25 @@ export function useHistoryQueries({
     });
   }, [queryClient, viewMode, selectedTfAccount, tfOrdersQuery.data?.page_count, tfPage, tfPageSize, tfStatus]);
 
-  // keepPreviousData is what makes paging feel smooth, but across a *different account* it
-  // would hand back the previous account's fills with isLoading already false — rendering them
-  // under the newly selected account's name. Paging within one account still reuses the
-  // previous page; switching account falls back to the loading state.
-  // Only meaningful while an account is actually selected: with selectedTfAccount === '' the query
-  // is disabled, so a stale placeholder can never be replaced and this would pin the table in a
-  // loading state that never resolves.
-  const tfPlaceholderIsOtherAccount =
-    !!selectedTfAccount &&
+  // keepPreviousData is what makes paging feel smooth, but query-core applies it to a disabled,
+  // never-fetched key too - so when the last TurboFlow account disappears and selectedTfAccount
+  // becomes '', the removed account's rows would otherwise stay on screen indefinitely.
+  // Data is therefore discarded whenever the placeholder belongs to a different account, while
+  // "loading" is only claimed when a fetch can actually resolve it; otherwise the table would spin
+  // forever on a key that will never be requested.
+  const tfScopeMismatch =
     tfOrdersQuery.isPlaceholderData &&
     tfOrdersQuery.data?.account_scope !== selectedTfAccount;
+  const tfPlaceholderIsOtherAccount = tfScopeMismatch && !!selectedTfAccount;
 
   const allTrades = useMemo<Order[]>(() => {
     if (viewMode === 'system') {
       return (systemOrdersQuery.data?.items || []) as Order[];
     }
-    if (tfPlaceholderIsOtherAccount) return [];
+    if (tfScopeMismatch) return [];
     const list = tfOrdersQuery.data?.data || [];
     return list.map((item: TurboFlowOrderItem) => mapTurboFlowOrderToOrder(item, selectedTfAccount));
-  }, [viewMode, systemOrdersQuery.data, tfOrdersQuery.data, selectedTfAccount, tfPlaceholderIsOtherAccount]);
+  }, [viewMode, systemOrdersQuery.data, tfOrdersQuery.data, selectedTfAccount, tfScopeMismatch]);
 
   const isLoading =
     viewMode === 'system'
@@ -167,7 +166,7 @@ export function useHistoryQueries({
     accounts,
     turboflowAccounts,
     systemOrdersData: systemOrdersQuery.data,
-    tfOrdersData: tfOrdersQuery.data,
+    tfOrdersData: tfScopeMismatch ? undefined : tfOrdersQuery.data,
     allTrades,
     isLoading,
     isError,

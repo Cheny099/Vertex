@@ -104,15 +104,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const next = readStoredAuth();
             if (next.token === activeTokenRef.current) return;
 
-            logger.debug('[Auth] Session changed in another tab, syncing...');
+            logger.debug('[Auth] Session changed in another tab, reloading...');
             activeTokenRef.current = next.token;
             setAuth(next);
-            queryClient.clear();
+
+            // Unlike an in-tab sign-out - where the route change unmounts everything that held the
+            // old user's data - this swaps the identity underneath a page that stays mounted.
+            // queryCache.clear() drops the entries without notifying live observers, so those
+            // components would keep rendering the previous user's data under the new identity.
+            // A reload is the only thing that reliably guarantees nothing survives the switch.
+            window.location.reload();
         };
 
         window.addEventListener('storage', handleStorage);
         return () => window.removeEventListener('storage', handleStorage);
-    }, [queryClient]);
+    }, []);
 
     const value = {
         user,
