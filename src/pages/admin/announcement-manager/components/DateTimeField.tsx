@@ -31,9 +31,16 @@ export const DateTimeField: React.FC<DateTimeFieldProps> = ({
   };
 
   const updateTimePart = (nextTime: string) => {
-    const [h, m] = nextTime.split(':').map((n) => Number(n || 0));
+    // Clearing a time input fires with ''. Coercing that to 00:00 silently set the *start* of the
+    // chosen day - already in the past for an end time, so the popup never displayed - and with no
+    // date chosen it fabricated today into a field meant to stay empty.
+    const [rawH, rawM] = nextTime.split(':');
+    const h = Number(rawH);
+    const m = Number(rawM);
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return;
+
     const base = current ? new Date(current) : new Date();
-    base.setHours(h || 0, m || 0, 0, 0);
+    base.setHours(h, m, 0, 0);
     onChange(format(base, "yyyy-MM-dd'T'HH:mm"));
   };
 

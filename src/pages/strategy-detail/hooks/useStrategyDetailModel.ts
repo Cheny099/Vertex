@@ -111,7 +111,11 @@ export const useStrategyDetailModel = () => {
 
       setEditingSub(null);
       setNewSub({
-        accountId: accounts && accounts.length > 0 ? String(accounts[0].id) : '',
+        // The dialog's Select filters inactive accounts out, so preselecting accounts[0] blindly
+        // could seed a deactivated account that only stays visible via the Select's
+        // "or it is the current value" escape hatch. Accepting that default produced a
+        // subscription bound to an account that never executes a signal.
+        accountId: String(accounts?.find((a) => a.is_active)?.id ?? ''),
         positionMode: 'fixed',
         positionValue: 100,
         positionPct: 0.1,
