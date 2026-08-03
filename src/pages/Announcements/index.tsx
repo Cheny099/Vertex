@@ -17,20 +17,29 @@ export default function AnnouncementList() {
     const [list, setList] = useState<Announcement[]>([]);
     const [loading, setLoading] = useState(true);
 
+    // Without a cancellation flag a slower earlier request can resolve last and overwrite the
+    // newer language's list, and whichever finishes first clears the shared loading flag while the
+    // other is still in flight.
     useEffect(() => {
+        let cancelled = false;
+
         const fetchList = async () => {
             setLoading(true);
             try {
                 const lang = i18n.language.startsWith("zh") ? "zh" : "en";
                 const res = await announcementApi.list(lang, 20); // Limit 20
-                setList(res);
+                if (!cancelled) setList(res);
             } catch (err) {
-                logger.error("Failed to fetch announcements", err);
+                if (!cancelled) logger.error("Failed to fetch announcements", err);
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         };
-        fetchList();
+        void fetchList();
+
+        return () => {
+            cancelled = true;
+        };
     }, [i18n.language]);
 
     const container = {

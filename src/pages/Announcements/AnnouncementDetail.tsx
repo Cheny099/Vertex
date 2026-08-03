@@ -18,7 +18,10 @@ export default function AnnouncementDetailPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
+    // Cancelled on id/language change so a slower earlier response cannot replace the newer one.
     useEffect(() => {
+        let cancelled = false;
+
         const fetchDetail = async () => {
             if (!id) return;
             setLoading(true);
@@ -26,15 +29,20 @@ export default function AnnouncementDetailPage() {
             try {
                 const lang = i18n.language.startsWith("zh") ? "zh" : "en";
                 const res = await announcementApi.get(Number(id), lang);
-                setData(res);
+                if (!cancelled) setData(res);
             } catch (err: unknown) {
+                if (cancelled) return;
                 logger.error('Failed to fetch announcement detail', err);
                 setError(err instanceof Error ? err.message : "Failed to load announcement");
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         };
-        fetchDetail();
+        void fetchDetail();
+
+        return () => {
+            cancelled = true;
+        };
     }, [id, i18n.language]);
 
     if (loading) {

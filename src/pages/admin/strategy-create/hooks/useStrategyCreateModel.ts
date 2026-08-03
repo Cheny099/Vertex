@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -46,19 +46,31 @@ export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => 
         queryKey: ['strategy', id],
         queryFn: () => strategyApi.get(parseInt(id!, 10)),
         enabled: !!id,
+        // An editor is not a live view. Refetching while it is open produces a new object identity
+        // whenever any server-side field moves (metrics, updated_at, subscriber counts), which used
+        // to re-run the reset below and wipe whatever the admin had typed.
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        staleTime: Infinity,
     });
 
+    // Seed the form once per record. Re-seeding on later data would overwrite unsaved edits, so it
+    // is keyed on the strategy id rather than on the fetched object's identity.
+    const seededIdRef = useRef<string | null>(null);
     useEffect(() => {
-        if (initialData) {
-            form.reset({
-                ...DEFAULT_STRATEGY_VALUES,
-                ...initialData,
-                strategyKey: initialData.strategy_key,
-                name: isCopyMode ? `${initialData.name} (Copy)` : initialData.name,
-                status: initialData.status || 'active',
-            });
-        }
-    }, [form, initialData, isCopyMode]);
+        if (!initialData) return;
+        const key = String(id ?? '');
+        if (seededIdRef.current === key) return;
+        seededIdRef.current = key;
+
+        form.reset({
+            ...DEFAULT_STRATEGY_VALUES,
+            ...initialData,
+            strategyKey: initialData.strategy_key,
+            name: isCopyMode ? `${initialData.name} (Copy)` : initialData.name,
+            status: initialData.status || 'active',
+        });
+    }, [form, id, initialData, isCopyMode]);
 
     const submitMutation = useMutation({
         mutationFn: async (data: StrategyFormValues): Promise<StrategyMutationResult> => {
