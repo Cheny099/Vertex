@@ -6,11 +6,8 @@
 5 src/pages/admin/strategy-manager/StrategyManagerPage.tsx|error TS2322
 3 src/pages/admin/turboflow-audit/components/audit-run-item-detail-sections/ExternalMissingLocalSection.tsx|error TS2322
 1 src/pages/admin/turboflow-audit/components/AuditRunItemDetailSections.tsx|error TS2322
-2 src/pages/history/components/history-trade-row/useHistoryTradeRowModel.ts|error TS2339
 1 src/pages/history/HistoryPage.tsx|error TS2322
 1 src/pages/history/hooks/useHistoryActions.ts|error TS2345
 1 src/pages/history/hooks/useHistoryModel.ts|error TS2305
 1 src/pages/history/hooks/useHistoryQueries.ts|error TS2352
 1 src/pages/strategies/components/StrategyMarketCard.tsx|error TS2322
-1 src/pages/strategies/components/StrategyMarketCard.tsx|error TS2339
-1 src/pages/strategies/hooks/useStrategiesPageModel.ts|error TS2339
