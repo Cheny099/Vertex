@@ -34,10 +34,26 @@ export function useOpsConsoleState() {
   });
 
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [symbolFilter, setSymbolFilter] = useState('');
-  const [accountIdFilter, setAccountIdFilter] = useState('');
+  const [statusFilter, setStatusFilterRaw] = useState<string>('all');
+  const [symbolFilter, setSymbolFilterRaw] = useState('');
+  const [accountIdFilter, setAccountIdFilterRaw] = useState('');
   const [isAutoRefresh, setIsAutoRefresh] = useState(false);
+
+  // The orders query is keyed by page as well as by the filters, so a filter change while on a
+  // later page asks for an offset the filtered result set does not have and the table renders an
+  // empty state. Resetting here covers every caller, rather than relying on each one to remember.
+  const setStatusFilter: typeof setStatusFilterRaw = (value) => {
+    setStatusFilterRaw(value);
+    setPage(1);
+  };
+  const setSymbolFilter: typeof setSymbolFilterRaw = (value) => {
+    setSymbolFilterRaw(value);
+    setPage(1);
+  };
+  const setAccountIdFilter: typeof setAccountIdFilterRaw = (value) => {
+    setAccountIdFilterRaw(value);
+    setPage(1);
+  };
 
   const [batchParams, setBatchParams] = useState<BatchRequeueParams>({
     statuses: ['FAILED', 'CANCELLED'],
