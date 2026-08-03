@@ -205,5 +205,6 @@
   },
   "error_load_failed": "加载失败，请重试",
   "error_operation_failed": "操作失败，请重试",
-  "required": "不能为空"
+  "required": "不能为空",
+  "retry": "重试"
 }

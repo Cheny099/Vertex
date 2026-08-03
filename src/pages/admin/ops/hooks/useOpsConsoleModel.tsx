@@ -39,6 +39,11 @@ export function useOpsConsoleModel() {
   const debouncedSymbolFilter = useDebouncedValue(state.symbolFilter, 300);
   const debouncedAccountIdFilter = useDebouncedValue(state.accountIdFilter, 300);
 
+  // Account ids are >= 1; anything else is not a filter this endpoint can honour.
+  const parsedAccountId = parseNumberInput(debouncedAccountIdFilter, { integer: true });
+  const accountIdFilterValue =
+    parsedAccountId !== null && parsedAccountId >= 1 ? parsedAccountId : undefined;
+
   const {
     data: ordersData,
     isLoading,
@@ -46,17 +51,19 @@ export function useOpsConsoleModel() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['adminOrders', state.page, state.statusFilter, debouncedSymbolFilter, debouncedAccountIdFilter],
+    queryKey: ['adminOrders', state.page, state.statusFilter, debouncedSymbolFilter, accountIdFilterValue],
     queryFn: () =>
       adminApi.ops.listOrders({
         page: state.page,
         limit: 10,
         status: state.statusFilter === 'all' ? undefined : state.statusFilter,
         symbol: debouncedSymbolFilter || undefined,
-        // The filter is a free-text input, so parseInt can yield NaN - which is neither undefined,
-        // null nor '', so the API layer's guard lets it through and serialises `account_id=NaN`,
-        // producing a 422 the admin cannot attribute to the field they typed in.
-        account_id: parseNumberInput(debouncedAccountIdFilter, { min: 1, integer: true }) ?? undefined,
+        // Free-text input: parseInt could yield NaN, which is neither undefined, null nor '', so the
+        // API layer's guard let it through and serialised `account_id=NaN` - a 422 the admin could
+        // not attribute to the field. Out-of-range values are rejected rather than clamped: min:1
+        // would turn a typed "0" or a pasted "-1" into account #1 and list that account's live
+        // orders under a filter reading "0".
+        account_id: accountIdFilterValue,
       }),
     refetchInterval: state.isAutoRefresh && isPageVisible ? 5000 : false,
     refetchOnWindowFocus: false,
