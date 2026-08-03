@@ -1,5 +1,10 @@
 import { request } from './core';
+import { toFiniteNumber } from './guards';
 import type { DashboardStats } from './types';
+
+// The dashboard counters arrive inside an untyped bag, so they are narrowed rather than asserted:
+// a non-numeric or missing value becomes 0 instead of flowing into the UI as `unknown`.
+const toCount = (value: unknown): number => toFiniteNumber(value) ?? 0;
 
 export interface LeaderboardItem {
   user_id: number;
@@ -42,12 +47,12 @@ export const dashboardApi = {
 
     return {
       // Today's order stats
-      todayTotal: today.total || 0,
-      todayPending: today.pending || 0,
-      todayProcessing: today.processing || 0,
-      todayCompleted: today.completed || 0,
-      todayFailed: today.failed || 0,
-      todayExpired: today.expired || 0,
+      todayTotal: toCount(today.total),
+      todayPending: toCount(today.pending),
+      todayProcessing: toCount(today.processing),
+      todayCompleted: toCount(today.completed),
+      todayFailed: toCount(today.failed),
+      todayExpired: toCount(today.expired),
       // Strategy stats
       totalStrategies: strategies.length,
       strategies: strategies,
