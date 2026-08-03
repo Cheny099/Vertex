@@ -62,6 +62,24 @@ export function translateBackendErrorMessage(rawMsg: string): string {
   return normalized || rawMsg;
 }
 
+// FastAPI request-validation failures come back as `detail: [{loc, msg, type, input}]`.
+// `input` echoes what the user submitted — passwords and API secrets included — so it is
+// deliberately never read here; only `loc` and `msg` reach the UI.
+function formatValidationErrors(details: unknown[]): string {
+  return details
+    .map((item) => {
+      if (!isRecord(item)) return '';
+      const msg = isString(item.msg) ? item.msg : '';
+      if (!msg) return '';
+      const field = Array.isArray(item.loc)
+        ? item.loc.filter((part) => part !== 'body' && part !== 'query' && part !== 'path').join('.')
+        : '';
+      return field ? `${field}: ${msg}` : msg;
+    })
+    .filter(Boolean)
+    .join('; ');
+}
+
 export async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const token = getStoredAuthToken();
   const explicitAuthorization = options?.headers
@@ -101,6 +119,10 @@ export async function request<T>(endpoint: string, options?: RequestInit): Promi
       let errMsg: unknown = response.statusText;
       if (isRecord(errBody)) {
         errMsg = errBody.detail ?? errBody.msg ?? errBody.message ?? response.statusText;
+      }
+
+      if (Array.isArray(errMsg)) {
+        errMsg = formatValidationErrors(errMsg) || response.statusText;
       }
 
       if (isRecord(errMsg)) {
