@@ -13,6 +13,9 @@ import { announcementApi, legalApi } from './content-api';
 import { marketApi, orderApi, signalApi, tradeApi, turboflowApi, webhookEventsApi } from './trading-api';
 import { dashboardApi, leaderboardApi } from './stats-api';
 export * from './types';
+// ApiError is what every caller catches, and JsonValue/JsonObject appear throughout the exported
+// types; re-export them so consumers do not have to reach past the barrel into './contracts'.
+export type { ApiError, JsonObject, JsonPrimitive, JsonValue } from './contracts';
 export { translateBackendErrorMessage } from './core';
 export { adminApi };
 export { strategyApi, publicApi };

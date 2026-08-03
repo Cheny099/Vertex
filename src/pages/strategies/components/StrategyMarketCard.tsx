@@ -1,4 +1,4 @@
-﻿import { memo, useMemo } from 'react';
+﻿import { memo, useMemo, type SyntheticEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AlertTriangle, History as HistoryIcon, MoreVertical, Pause, Play } from 'lucide-react';
@@ -64,7 +64,7 @@ function StrategyMarketCardComponent({
     navigate(`/strategies/${strategy.id}`);
   };
 
-  const handleOpenSignals = (event: Event) => {
+  const handleOpenSignals = (event: SyntheticEvent) => {
     event.stopPropagation();
     navigate(`/strategies/${strategy.id}/signals`);
   };

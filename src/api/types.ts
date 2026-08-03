@@ -202,6 +202,16 @@ export interface Order {
     total?: string;
     fee?: string;
     profit?: string;
+    amount?: string; // Mapped from executed_qty for display
+}
+
+/**
+ * `GET /orders/{id}/debug` returns the order plus a diagnostic blob (backend: OrderDebugRead
+ * extends OrderRead with `raw_detail`). Typed explicitly so the debug dialog receives an Order
+ * rather than `unknown`.
+ */
+export interface OrderDebugInfo extends Order {
+    raw_detail?: JsonObject | null;
 }
 
 export interface OrderCreateRequest {

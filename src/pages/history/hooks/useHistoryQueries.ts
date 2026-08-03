@@ -148,7 +148,7 @@ export function useHistoryQueries({
 
   const allTrades = useMemo<Order[]>(() => {
     if (viewMode === 'system') {
-      return (systemOrdersQuery.data?.items || []) as Order[];
+      return systemOrdersQuery.data?.items || [];
     }
     if (tfScopeMismatch) return [];
     const list = tfOrdersQuery.data?.data || [];

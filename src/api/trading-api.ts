@@ -4,6 +4,7 @@ import { request } from './core';
 import type {
   Order,
   OrderCreateRequest,
+  OrderDebugInfo,
   OrderListResponse,
   Signal,
   TradeHistoryParams,
@@ -57,7 +58,7 @@ export const orderApi = {
   },
 
   debug: async (id: number) => {
-    return request<unknown>(`/orders/${id}/debug`);
+    return request<OrderDebugInfo>(`/orders/${id}/debug`);
   },
 
   // Get trade history (use turboflowApi.getOrders for real PnL when needed)
@@ -76,7 +77,10 @@ export const orderApi = {
         pair: order.symbol,
         type: order.side as 'buy' | 'sell',
         amount: executedQty !== undefined && executedQty !== null ? executedQty.toString() : undefined,
-        price: executedPrice !== undefined && executedPrice !== null ? executedPrice.toString() : undefined,
+        // `price` deliberately keeps the numeric value from `...order`. It used to be replaced by
+        // its own toString(), which made the mapped item stop being an Order and forced a cast at
+        // the only call site; nothing formats or does arithmetic on it, so the rendering is
+        // unchanged and the type is now honest.
         status: order.status, // Keep uppercase raw status for frontend comparisons
         time: new Date(order.executed_at || order.created_at).toLocaleString(),
         // Use realized_pnl if available (backend sync)

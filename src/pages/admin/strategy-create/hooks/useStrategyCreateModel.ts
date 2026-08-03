@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,7 +18,7 @@ import {
 } from '../utils';
 
 interface UseStrategyCreateModelOptions {
-    t: (key: string) => string;
+    t: TFunction;
 }
 
 export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => {
@@ -68,7 +69,9 @@ export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => 
             ...initialData,
             strategyKey: initialData.strategy_key,
             name: isCopyMode ? `${initialData.name} (Copy)` : initialData.name,
-            status: initialData.status || 'active',
+            // Strategy.status is an open string on the wire; the form field is a closed union,
+            // so anything unexpected falls back to 'inactive' rather than being forced through.
+            status: initialData.status === 'active' ? 'active' : 'inactive',
         });
     }, [form, id, initialData, isCopyMode]);
 
