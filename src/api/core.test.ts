@@ -70,3 +70,68 @@ describe("request authentication cleanup", () => {
     window.removeEventListener("panda-auth-unauthorized", unauthorizedListener);
   });
 });
+
+describe("request error message formatting", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  const respondWith = (body: unknown, status: number) =>
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(body), {
+          status,
+          headers: { "Content-Type": "application/json" },
+        })
+      )
+    );
+
+  it("renders a FastAPI validation array as readable text without echoing the submitted value", async () => {
+    respondWith(
+      {
+        detail: [
+          {
+            type: "value_error",
+            loc: ["body", "password"],
+            msg: "value is not a valid password",
+            input: "super-secret-value",
+          },
+        ],
+      },
+      422
+    );
+
+    const error = await request("/auth/register").catch((e: Error) => e);
+
+    expect((error as Error).message).toBe("password: value is not a valid password");
+    // The `input` field echoes what the user typed - it must never reach a toast.
+    expect((error as Error).message).not.toContain("super-secret-value");
+  });
+
+  it("joins multiple validation errors", async () => {
+    respondWith(
+      {
+        detail: [
+          { loc: ["body", "email"], msg: "invalid email" },
+          { loc: ["body", "age"], msg: "must be positive" },
+        ],
+      },
+      422
+    );
+
+    const error = await request("/auth/register").catch((e: Error) => e);
+
+    expect((error as Error).message).toBe("email: invalid email; age: must be positive");
+  });
+
+  it("still unwraps an object-shaped detail", async () => {
+    respondWith({ detail: { code: "LEGAL_ACCEPTANCE_REQUIRED", message: "sign first" } }, 400);
+
+    const error = await request("/subscriptions").catch((e: Error) => e);
+
+    expect((error as Error).message).toBe("sign first");
+    expect(error).toMatchObject({ code: "LEGAL_ACCEPTANCE_REQUIRED" });
+  });
+});
