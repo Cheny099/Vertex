@@ -121,13 +121,17 @@ export function useHistoryQueries({
     const nextPage = tfPage + 1;
     queryClient.prefetchQuery({
       queryKey: ['turboflow-orders', selectedTfAccount, tfStatus, nextPage, tfPageSize],
-      queryFn: () =>
-        turboflowApi.getOrders({
+      // Must carry account_scope like the main query does, or this prefetched entry is later
+      // mistaken for another account's data when it is reused as placeholder data.
+      queryFn: async () => {
+        const res = await turboflowApi.getOrders({
           account_id: Number(selectedTfAccount),
           status: tfStatus === 'all' ? undefined : tfStatus,
           page_num: nextPage,
           page_size: tfPageSize,
-        }),
+        });
+        return { ...res, account_scope: selectedTfAccount };
+      },
     });
   }, [queryClient, viewMode, selectedTfAccount, tfOrdersQuery.data?.page_count, tfPage, tfPageSize, tfStatus]);
 
@@ -135,8 +139,13 @@ export function useHistoryQueries({
   // would hand back the previous account's fills with isLoading already false — rendering them
   // under the newly selected account's name. Paging within one account still reuses the
   // previous page; switching account falls back to the loading state.
+  // Only meaningful while an account is actually selected: with selectedTfAccount === '' the query
+  // is disabled, so a stale placeholder can never be replaced and this would pin the table in a
+  // loading state that never resolves.
   const tfPlaceholderIsOtherAccount =
-    tfOrdersQuery.isPlaceholderData && tfOrdersQuery.data?.account_scope !== selectedTfAccount;
+    !!selectedTfAccount &&
+    tfOrdersQuery.isPlaceholderData &&
+    tfOrdersQuery.data?.account_scope !== selectedTfAccount;
 
   const allTrades = useMemo<Order[]>(() => {
     if (viewMode === 'system') {

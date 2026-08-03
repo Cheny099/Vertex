@@ -38,10 +38,13 @@ export const mapTurboFlowOrderToOrder = (
     updated_at: item.updated_at || item.open_time,
     symbol: toStringSafe(item.symbol) || toStringSafe(item.pair) || toStringSafe(item.pair_id) || '--',
     side: resolveSide(item),
-    // Prefer the row's own account over the currently selected one: stamping the selection onto
-    // rows that came from a different account is what makes stale/placeholder results render
-    // under the newly picked account's name.
-    account_id: parseNum(item.account_id) ?? parseNum(selectedTfAccount) ?? 0,
+    // Deliberately the *selected local* account id, not item.account_id: the backend route keys on
+    // accounts.id (turboflow.py: `account_id: int`) while TurboFlow's own account_id field is the
+    // exchange UID, which verify_service compares against account.name. Those are different id
+    // spaces, and every consumer here - the account filter in useHistoryModel and the name lookup
+    // in HistoryTradesTable - expects the local one. Stale rows from a previously selected account
+    // are handled by the account_scope guard in useHistoryQueries, not here.
+    account_id: parseNum(selectedTfAccount) ?? parseNum(item.account_id) ?? 0,
     price: parseNum(item.deal_price ?? item.price ?? item.avg_price),
     quantity: parseNum(item.done_vol ?? item.quantity ?? item.amount ?? item.done_amount),
     realized_pnl: parseNum(item.done_pnl ?? item.realized_pnl ?? item.profit),

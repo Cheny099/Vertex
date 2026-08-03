@@ -18,16 +18,19 @@ describe("mapTurboFlowOrderToOrder", () => {
     expect(a.tf_row_key).not.toBe(b.tf_row_key);
   });
 
-  it("keeps the row's own account rather than the selected one", () => {
-    const row = mapTurboFlowOrderToOrder(item({ id: "1", account_id: 11 }), "22");
-
-    expect(row.account_id).toBe(11);
-  });
-
-  it("falls back to the selected account when the row carries none", () => {
-    const row = mapTurboFlowOrderToOrder(item({ id: "1" }), "22");
+  // The row's own account_id is TurboFlow's exchange UID, a different id space from accounts.id.
+  // The account filter and the account-name lookup both key on the local id, so the selected local
+  // account must win.
+  it("stamps the selected local account, not the exchange uid on the row", () => {
+    const row = mapTurboFlowOrderToOrder(item({ id: "1", account_id: "90183726" }), "22");
 
     expect(row.account_id).toBe(22);
+  });
+
+  it("falls back to the row's value only when no account is selected", () => {
+    const row = mapTurboFlowOrderToOrder(item({ id: "1", account_id: 11 }), "");
+
+    expect(row.account_id).toBe(11);
   });
 
   it("does not turn a zero price or pnl into undefined", () => {
