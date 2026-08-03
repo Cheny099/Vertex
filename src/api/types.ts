@@ -171,7 +171,10 @@ export interface Order {
         code: string;
         message: string;
         action: string;
-        details?: JsonValue;
+        // Always an object on the wire (see subscription_guard.build_public_error), and consumers
+        // read named keys out of it - `blocked_by` in particular. Typing it as the wider JsonValue
+        // made every one of those reads a type error.
+        details?: JsonObject;
     };
 
     // �?New: PnL Backfill

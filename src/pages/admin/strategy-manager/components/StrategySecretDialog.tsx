@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import React from 'react';
 import { Copy, Key } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,7 +20,7 @@ interface StrategySecretDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     currentSecret: StrategyWebhookSecretResponse | null;
-    t: (key: string, fallback?: string) => string;
+    t: TFunction;
 }
 
 export const StrategySecretDialog = React.memo(({

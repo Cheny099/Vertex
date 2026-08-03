@@ -61,3 +61,16 @@ export const safeT = (
 
 export const toRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+
+/**
+ * `AuditItem.detail` is `Record<string, unknown>` because its shape varies by item kind, so every
+ * field read out of it is `unknown` — which React cannot render. This narrows to the primitives
+ * that can be, and yields a dash for anything else rather than crashing on an object.
+ */
+export const detailText = (value: unknown, fallback = '-'): string => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'string') return value || fallback;
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : fallback;
+  if (typeof value === 'boolean') return String(value);
+  return fallback;
+};

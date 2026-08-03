@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import React from 'react';
 import { Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,7 +23,7 @@ interface StrategyImportDialogProps {
     onDrop: (e: React.DragEvent) => void;
     onImport: () => void;
     isPending: boolean;
-    t: (key: string, fallback?: string) => string;
+    t: TFunction;
 }
 
 export const StrategyImportDialog = React.memo(({
