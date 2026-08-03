@@ -22,9 +22,8 @@ interface HistoryTradesTableProps {
   getMappedFailureAction: (trade: Order) => string | undefined;
   isCancelPending: boolean;
   isRetryPending: boolean;
-  isReorderPending: boolean;
   isDebugPending: boolean;
-  onRetryOrReorder: (trade: Order) => void;
+  onRetry: (trade: Order) => void;
   onCancel: (trade: Order) => void;
   onDebug: (trade: Order) => void;
   pagination: ReactNode;
@@ -42,9 +41,8 @@ function HistoryTradesTableComponent({
   getMappedFailureAction,
   isCancelPending,
   isRetryPending,
-  isReorderPending,
   isDebugPending,
-  onRetryOrReorder,
+  onRetry,
   onCancel,
   onDebug,
   pagination,
@@ -95,9 +93,8 @@ function HistoryTradesTableComponent({
                   getMappedFailureAction={getMappedFailureAction}
                   isCancelPending={isCancelPending}
                   isRetryPending={isRetryPending}
-                  isReorderPending={isReorderPending}
                   isDebugPending={isDebugPending}
-                  onRetryOrReorder={onRetryOrReorder}
+                  onRetry={onRetry}
                   onCancel={onCancel}
                   onDebug={onDebug}
                 />

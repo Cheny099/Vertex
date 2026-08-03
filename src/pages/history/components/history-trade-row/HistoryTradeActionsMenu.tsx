@@ -16,11 +16,10 @@ interface HistoryTradeActionsMenuProps {
   canRetry: boolean;
   isCancelPending: boolean;
   isDebugPending: boolean;
-  isReorderPending: boolean;
   isRetryPending: boolean;
   onCancel: () => void;
   onDebug: () => void;
-  onRetryOrReorder: () => void;
+  onRetry: () => void;
 }
 
 function HistoryTradeActionsMenuComponent({
@@ -30,11 +29,10 @@ function HistoryTradeActionsMenuComponent({
   canRetry,
   isCancelPending,
   isDebugPending,
-  isReorderPending,
   isRetryPending,
   onCancel,
   onDebug,
-  onRetryOrReorder,
+  onRetry,
 }: HistoryTradeActionsMenuProps) {
   return (
     <DropdownMenu>
@@ -46,8 +44,8 @@ function HistoryTradeActionsMenuComponent({
       <DropdownMenuContent align="end">
         {canRetry && (
           <DropdownMenuItem
-            disabled={isRetryPending || isReorderPending}
-            onClick={onRetryOrReorder}
+            disabled={isRetryPending}
+            onClick={onRetry}
           >
             <RotateCcw className="w-4 h-4 mr-2" />
             {t('history:actions.retry')}
