@@ -31,15 +31,17 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const { t } = useTranslation(['admin', 'common']);
 
+  // Dismissal stays available while pending - the X and Esc must not be dead, or a slow exchange
+  // call traps the admin in the modal. Only re-submission is blocked.
   return (
-    <Dialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{desc}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('common:cancel')}
           </Button>
           {/* This dialog fronts irreversible actions (force-close sends a market order and the

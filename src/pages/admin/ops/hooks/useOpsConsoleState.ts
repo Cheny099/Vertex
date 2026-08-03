@@ -9,6 +9,9 @@ export type CloseParams = {
   reason: string;
 };
 
+/** The value this card has always used; also the fallback when the field is left empty. */
+export const DEFAULT_REQUEUE_LIMIT = 50;
+
 export type BatchRequeueParams = {
   statuses: string[];
   /** null while the field is empty; the request then omits it and the backend default applies. */
@@ -57,7 +60,7 @@ export function useOpsConsoleState() {
 
   const [batchParams, setBatchParams] = useState<BatchRequeueParams>({
     statuses: ['FAILED', 'CANCELLED'],
-    limit: 50,
+    limit: DEFAULT_REQUEUE_LIMIT,
     reason: 'Admin Batch Requeue',
   });
 
