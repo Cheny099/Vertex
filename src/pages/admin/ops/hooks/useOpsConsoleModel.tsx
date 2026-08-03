@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { usePageVisibility } from '@/hooks/use-page-visibility';
+import { parseNumberInput } from '@/lib/utils';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { ActiveOrderRow } from '../components/ActiveOrderRow';
 import {
@@ -52,7 +53,10 @@ export function useOpsConsoleModel() {
         limit: 10,
         status: state.statusFilter === 'all' ? undefined : state.statusFilter,
         symbol: debouncedSymbolFilter || undefined,
-        account_id: debouncedAccountIdFilter ? parseInt(debouncedAccountIdFilter) : undefined,
+        // The filter is a free-text input, so parseInt can yield NaN - which is neither undefined,
+        // null nor '', so the API layer's guard lets it through and serialises `account_id=NaN`,
+        // producing a 422 the admin cannot attribute to the field they typed in.
+        account_id: parseNumberInput(debouncedAccountIdFilter, { min: 1, integer: true }) ?? undefined,
       }),
     refetchInterval: state.isAutoRefresh && isPageVisible ? 5000 : false,
     refetchOnWindowFocus: false,

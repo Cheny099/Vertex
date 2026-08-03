@@ -44,9 +44,8 @@ const HistoryPage = () => {
     getMappedFailureAction,
     cancelMutation,
     retryMutation,
-    reorderMutation,
     debugMutation,
-    handleRetryOrReorder,
+    handleRetry,
     handleCancel,
     handleDebug,
     showingStart,
@@ -104,9 +103,8 @@ const HistoryPage = () => {
         getMappedFailureAction={getMappedFailureAction}
         isCancelPending={cancelMutation.isPending}
         isRetryPending={retryMutation.isPending}
-        isReorderPending={reorderMutation.isPending}
         isDebugPending={debugMutation.isPending}
-        onRetryOrReorder={handleRetryOrReorder}
+        onRetry={handleRetry}
         onCancel={handleCancel}
         onDebug={handleDebug}
         pagination={(

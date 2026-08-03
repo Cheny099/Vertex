@@ -1,8 +1,7 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { useMutation, type QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { orderApi, type Order } from '@/api';
-import { logger } from '@/lib/logger';
 
 type UseHistoryActionsParams = {
   queryClient: QueryClient;
@@ -41,25 +40,11 @@ export function useHistoryActions({
     onError: (error: unknown) => toast.error(getToastErrorMessage(error)),
   });
 
-  const reorderMutation = useMemo(
-    () => ({
-      isPending: false,
-      mutate: (order: Order) => {
-        logger.debug('Reorder', order);
-      },
-    }),
-    []
-  );
-
-  const handleRetryOrReorder = useCallback(
+  const handleRetry = useCallback(
     (trade: Order) => {
-      if (trade.status === 'EXPIRED') {
-        reorderMutation.mutate(trade);
-      } else {
-        retryMutation.mutate(trade.id as number);
-      }
+      retryMutation.mutate(trade.id as number);
     },
-    [reorderMutation, retryMutation]
+    [retryMutation]
   );
 
   const handleCancel = useCallback(
@@ -80,8 +65,7 @@ export function useHistoryActions({
     cancelMutation,
     retryMutation,
     debugMutation,
-    reorderMutation,
-    handleRetryOrReorder,
+    handleRetry,
     handleCancel,
     handleDebug,
   };
