@@ -127,8 +127,10 @@ function HelpPage() {
         </div>
 
         <div className="space-y-0">
-          {faqCategories[activeCategory].items.map((faq, index) => (
-            <FaqItem key={index} question={faq.question} answer={faq.answer} />
+          {/* FaqItem owns its expanded state, so keying by position would carry that state onto a
+              different question when the category changes. */}
+          {faqCategories[activeCategory].items.map((faq) => (
+            <FaqItem key={`${activeCategory}:${faq.question}`} question={faq.question} answer={faq.answer} />
           ))}
         </div>
       </motion.div>
