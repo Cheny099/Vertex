@@ -68,8 +68,10 @@ function OrderStatsTableBase({
               </TableCell>
             </TableRow>
           ) : (
+            // Each row holds an uncontrolled Collapsible, so a positional key would leave that
+            // panel expanded on whatever row lands at the same index after a regroup.
             rows.map((row, idx) => (
-              <TableRow key={idx}>
+              <TableRow key={getGroupLabel(row) || idx}>
                 <TableCell className="font-medium">{getGroupLabel(row)}</TableCell>
                 <TableCell className="text-right font-mono py-4">
                   <div className="flex flex-col items-end">
