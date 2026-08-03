@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -7,7 +8,7 @@ import type { Strategy, StrategyWebhookSecretResponse } from '@/api/types';
 import { DEFAULT_ACTION_CONFIRM, type ActionConfirmState } from '../utils';
 
 interface UseStrategyManagerModelOptions {
-    t: (key: string, fallback?: string) => string;
+    t: TFunction;
 }
 
 export const useStrategyManagerModel = ({ t }: UseStrategyManagerModelOptions) => {

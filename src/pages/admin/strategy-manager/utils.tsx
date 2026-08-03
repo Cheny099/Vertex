@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import { AlertTriangle, Check, Pause } from 'lucide-react';
 import type { Strategy, StrategyMetricsItem, StrategyWebhookSecretResponse } from '@/api/types';
 import { Badge } from '@/components/ui/badge';
@@ -63,7 +64,7 @@ export const parseStrategyConfig = (strategy: Strategy, allPairsLabel: string) =
 
 export const getStrategyMetrics = (strategy: Strategy): Partial<StrategyMetricsItem> => strategy.metrics?.all || {};
 
-export const renderStrategyTypeBadge = (type: string, t: (key: string, fallback?: string) => string) => {
+export const renderStrategyTypeBadge = (type: string, t: TFunction) => {
     const typeLower = type?.toLowerCase() || 'signal';
     switch (typeLower) {
         case 'grid':
@@ -79,7 +80,7 @@ export const renderStrategyTypeBadge = (type: string, t: (key: string, fallback?
     }
 };
 
-export const renderStrategyStatusBadge = (status: string, t: (key: string, fallback?: string) => string) => {
+export const renderStrategyStatusBadge = (status: string, t: TFunction) => {
     switch (status) {
         case 'active':
             return (

@@ -11,7 +11,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { parseStrategyConfig } from '@/api/strategy-utils';
+import type { JsonValue } from '@/api/contracts';
 import type { Strategy } from '@/api';
+
+// config values are free-form JSON; only primitives are renderable.
+const toDisplayText = (value: JsonValue | undefined): string | undefined =>
+  typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
 import type { StatusTone } from '../hooks/useStrategiesPageModel';
 
 interface StrategyMarketCardProps {
@@ -153,7 +159,9 @@ function StrategyMarketCardComponent({
         <div className="flex items-center gap-3 text-xs text-muted-foreground mb-4 bg-secondary/20 p-2 rounded-lg">
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-            <span>{strategy.pair || strategy.config?.pair || '-'}</span>
+            {/* config may still be a JSON string for a strategy that skipped strategyApi's
+                normalisation; reading `.pair` off it directly would silently render "-". */}
+            <span>{strategy.pair || toDisplayText(parseStrategyConfig(strategy.config).pair) || '-'}</span>
           </div>
           <div className="w-px h-3 bg-border"></div>
           <div>{getTypeLabel(strategy)}</div>
