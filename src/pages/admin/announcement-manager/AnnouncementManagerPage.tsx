@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useMemo, useRef } from 'react';
+﻿import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,6 +47,8 @@ const AnnouncementManager: React.FC = () => {
         filters,
         setFilters,
         openCreate,
+        editRequestRef,
+        invalidatePendingEdit,
     } = useAnnouncementManagerState();
 
     const { data: announcementsResponse, isLoading, isError, error } = useQuery({
@@ -144,12 +146,11 @@ const AnnouncementManager: React.FC = () => {
         onError: (e: unknown) => toast.error(toErrorText(e))
     });
 
-    // Identifies the most recent open request, so a slow detail response cannot land in a dialog
-    // that has since been closed, switched to another announcement, or reset for "create".
-    const editRequestRef = useRef(0);
-
     const handleEditOpen = useCallback(async (itemId: number) => {
-        const requestId = ++editRequestRef.current;
+        // Owned by the state hook, so resetEditor/openCreate invalidate a pending load too - a
+        // page-local counter only caught "a newer edit superseded an older one", and left the
+        // switch to "create" free to be overwritten by the previous record's late response.
+        const requestId = invalidatePendingEdit();
         // Clear the previous record before showing the dialog: it opens ahead of the fetch and its
         // footer sits outside the loading overlay, so stale values here let a single click PATCH
         // the newly selected announcement with the previously opened one's title and body.
@@ -184,7 +185,7 @@ const AnnouncementManager: React.FC = () => {
         } finally {
             if (editRequestRef.current === requestId) setIsLoadingDetail(false);
         }
-    }, [filters.include_deleted, setEditingId, setIsLoadingDetail, setIsCreateOpen, setFormData, setEditorTab, toErrorText]);
+    }, [filters.include_deleted, invalidatePendingEdit, editRequestRef, setEditingId, setIsLoadingDetail, setIsCreateOpen, setFormData, setEditorTab, toErrorText]);
 
     const handleSubmit = useCallback((publishNow = false) => {
         // The footer is outside the loading overlay, so block submitting a form whose record has
