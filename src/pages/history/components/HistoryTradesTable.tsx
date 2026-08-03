@@ -85,7 +85,7 @@ function HistoryTradesTableComponent({
             {displayedTrades.length > 0 ? (
               displayedTrades.map((trade: Order, index: number) => (
                 <HistoryTradeRow
-                  key={trade.id ?? `${trade.account_id}-${trade.created_at ?? index}`}
+                  key={trade.tf_row_key ?? trade.id ?? `${trade.account_id}-${trade.created_at ?? index}`}
                   t={t}
                   trade={trade}
                   rowIndex={index}
