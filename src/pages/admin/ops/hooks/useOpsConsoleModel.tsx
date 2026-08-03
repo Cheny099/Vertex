@@ -17,6 +17,7 @@ import { usePageVisibility } from '@/hooks/use-page-visibility';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { ActiveOrderRow } from '../components/ActiveOrderRow';
 import {
+  DEFAULT_REQUEUE_LIMIT,
   type BatchRequeueParams,
   type CloseParams,
   useOpsConsoleState,
@@ -125,10 +126,11 @@ export function useOpsConsoleModel() {
   });
 
   const batchRequeueMutation = useMutation({
-    // An empty limit field means "unspecified", not zero: drop the key and let the backend
-    // apply its own default rather than sending null.
+    // An empty limit field falls back to the value this card has always defaulted to. Omitting the
+    // key instead would hand the batch to the backend's own default of 200
+    // (AdminOrderBatchRequeueRequest.limit), quadrupling a batch the admin never asked for.
     mutationFn: ({ limit, ...data }: BatchRequeueParams) =>
-      adminApi.ops.batchRequeue({ ...data, limit: limit ?? undefined }),
+      adminApi.ops.batchRequeue({ ...data, limit: limit ?? DEFAULT_REQUEUE_LIMIT }),
     onSuccess: (res: BatchRequeueResult) => {
       if (res.dry_run) {
         toast.info(t('admin:batch_requeue_matched', { matched: res.matched }));

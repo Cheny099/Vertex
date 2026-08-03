@@ -97,11 +97,13 @@ export function BatchRequeueCard({
             <Input
               type="number"
               min={1}
+              max={1000}
               value={batchParams.limit ?? ''}
               onChange={(e) =>
                 setBatchParams((prev) => ({
                   ...prev,
-                  limit: parseNumberInput(e.target.value, { min: 1 }),
+                  // Backend contract: limit is an int in 1..1000.
+                  limit: parseNumberInput(e.target.value, { min: 1, max: 1000, integer: true }),
                 }))
               }
               className="h-10"
