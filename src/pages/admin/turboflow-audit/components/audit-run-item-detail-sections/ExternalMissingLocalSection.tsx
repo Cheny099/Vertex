@@ -1,4 +1,5 @@
 ﻿import { Database, Globe, History } from 'lucide-react';
+import { detailText } from '../../utils';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { formatSecure, safeT } from '../../utils';
@@ -69,12 +70,12 @@ export function ExternalMissingLocalSection({ t, item }: AuditDetailSectionsProp
           <div className="text-center group">
             <div className="text-xs text-muted-foreground uppercase font-black tracking-widest mb-1 group-hover:text-amber-600 transition-colors">{t('admin:scanned')}</div>
             <div className="font-mono text-sm font-black text-slate-700 bg-background/50 rounded-lg py-2 border border-border/30">
-              {item.detail.pages_fetched} <span className="text-xs opacity-40">/ {item.detail.max_pages}</span>
+              {detailText(item.detail.pages_fetched)} <span className="text-xs opacity-40">/ {detailText(item.detail.max_pages)}</span>
             </div>
           </div>
           <div className="text-center group">
             <div className="text-xs text-muted-foreground uppercase font-black tracking-widest mb-1 group-hover:text-amber-600 transition-colors">{t('admin:page_size')}</div>
-            <div className="font-mono text-sm font-black text-slate-700 bg-background/50 rounded-lg py-2 border border-border/30">{item.detail.page_size}</div>
+            <div className="font-mono text-sm font-black text-slate-700 bg-background/50 rounded-lg py-2 border border-border/30">{detailText(item.detail.page_size)}</div>
           </div>
           <div className="text-center group">
             <div className="text-xs text-muted-foreground uppercase font-black tracking-widest mb-1 group-hover:text-amber-600 transition-colors">{t('admin:unresolved')}</div>

@@ -3,9 +3,6 @@
 2 src/pages/admin/ops/hooks/useOpsConsoleModel.tsx|error TS2353
 1 src/pages/admin/strategy-create/hooks/useStrategyCreateModel.ts|error TS2322
 1 src/pages/admin/strategy-create/hooks/useStrategyCreateModel.ts|error TS2345
-5 src/pages/admin/strategy-manager/StrategyManagerPage.tsx|error TS2322
-3 src/pages/admin/turboflow-audit/components/audit-run-item-detail-sections/ExternalMissingLocalSection.tsx|error TS2322
-1 src/pages/admin/turboflow-audit/components/AuditRunItemDetailSections.tsx|error TS2322
 1 src/pages/history/HistoryPage.tsx|error TS2322
 1 src/pages/history/hooks/useHistoryActions.ts|error TS2345
 1 src/pages/history/hooks/useHistoryModel.ts|error TS2305
