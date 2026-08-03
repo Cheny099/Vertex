@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -28,8 +29,15 @@ const user: User = {
   email: "user@example.com",
 };
 
+// AuthProvider clears the query cache on every session change, so it must sit under a
+// QueryClientProvider the same way it does in App.tsx.
 function wrapper({ children }: PropsWithChildren) {
-  return <AuthProvider>{children}</AuthProvider>;
+  const queryClient = new QueryClient();
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>{children}</AuthProvider>
+    </QueryClientProvider>
+  );
 }
 
 describe("AuthProvider storage", () => {

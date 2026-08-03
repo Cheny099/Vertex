@@ -77,6 +77,12 @@ i18n
         fallbackLng: 'en',
         // lng: 'en', // Force initial language to English as requested - REVERTED to allow persistence
         defaultNS: 'common',
+        // The browser reports regional tags (`zh-CN`, `en-US`) and the detector would store
+        // them verbatim. Collapsing them to the base language keeps `i18n.language` equal to
+        // one of the two keys in `resources`, which the exact `=== 'zh'` comparisons around
+        // the app (calendar locales, the Settings language Select) depend on.
+        supportedLngs: ['en', 'zh'],
+        load: 'languageOnly',
         interpolation: {
             escapeValue: false, // not needed for react as it escapes by default
         },
@@ -84,6 +90,9 @@ i18n
             order: ['localStorage', 'navigator'], // Check localStorage then browser language
             caches: ['localStorage'],
             lookupLocalStorage: 'i18nextLng',
+            // Must be a function: the detector only special-cases the literal string '15897',
+            // and any other string is called as one, throwing during init.
+            convertDetectedLanguage: (lng: string) => lng.split('-')[0],
         },
     });
 

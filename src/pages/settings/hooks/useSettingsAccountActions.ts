@@ -27,6 +27,7 @@ export function useSettingsAccountActions({
     newAccount,
     resetNewAccount,
     handleOpenAddAccount,
+    handleCloseAddAccount,
     addAccountDialogBaseProps,
   } = useSettingsAddAccountForm({
     isLimitReached,
@@ -34,6 +35,14 @@ export function useSettingsAccountActions({
     t,
     turboflowCount,
   });
+
+  // A successful create used to blank the fields and leave the dialog open, which reads exactly
+  // like a rejected submission - users retried and created duplicate accounts, burning one of the
+  // limited exchange slots. Closing is part of succeeding.
+  const handleCreateSuccess = useCallback(() => {
+    resetNewAccount();
+    handleCloseAddAccount();
+  }, [resetNewAccount, handleCloseAddAccount]);
 
   const verifyAccountMutation = useMutation({
     mutationFn: (id: number) => accountApi.verify(id),
@@ -61,7 +70,7 @@ export function useSettingsAccountActions({
   } = useSettingsAccountMutations({
     formatVerifyError: accountStatusModel.formatVerifyError,
     invalidateAccountData,
-    onCreateSuccessReset: resetNewAccount,
+    onCreateSuccessReset: handleCreateSuccess,
     t,
     translateBackendErrorForDisplay: accountStatusModel.translateBackendErrorForDisplay,
     verifyAccountMutation,

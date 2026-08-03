@@ -52,34 +52,40 @@ export default function AnnouncementPopup() {
 
   const languageKey = useMemo(() => (i18n.language.startsWith("zh") ? "zh" : "en"), [i18n.language]);
 
-  const checkPopup = useCallback(async () => {
-    try {
-      const result = await announcementApi.getPopup(languageKey);
-      if (result && result.id) {
+  // The flag has to be honoured *after* the request resolves too, not only before it is launched.
+  // Switching language mid-flight otherwise let the previous language's popup open over the new
+  // UI - and dismissing it then wrote that id under the new language's dismissed key, so the real
+  // popup for that language was never marked as seen.
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkPopup = async () => {
+      try {
+        const result = await announcementApi.getPopup(languageKey);
+        if (cancelled || !result?.id) return;
+
         const dismissedId = localStorage.getItem(`vertex_popup_dismissed_${languageKey}`);
         if (String(result.id) !== dismissedId) {
           setAnnouncement(result);
           setIsOpen(true);
         }
+      } catch (error) {
+        if (cancelled) return;
+        logger.error("Failed to fetch announcement popup:", error);
       }
-    } catch (error) {
-      logger.error("Failed to fetch announcement popup:", error);
-    }
-  }, [languageKey]);
+    };
 
-  useEffect(() => {
-    let cancelled = false;
     const timer = setTimeout(() => {
-      if (!cancelled) {
-        void checkPopup();
-      }
+      if (!cancelled) void checkPopup();
     }, 200);
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      // A popup belonging to the language being left must not stay on screen.
+      setIsOpen(false);
     };
-  }, [checkPopup]);
+  }, [languageKey]);
 
   const handleClose = useCallback(() => {
     setIsOpen(false);

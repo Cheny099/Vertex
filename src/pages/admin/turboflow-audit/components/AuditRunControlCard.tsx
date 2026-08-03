@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { parseNumberInput } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -17,8 +18,8 @@ type AuditMode = 'local_only' | 'full';
 
 interface AuditRunControlCardProps {
   t: TFunction;
-  lookbackDays: number;
-  setLookbackDays: (value: number) => void;
+  lookbackDays: number | null;
+  setLookbackDays: (value: number | null) => void;
   mode: AuditMode;
   setMode: (value: AuditMode) => void;
   dryRun: boolean;
@@ -48,10 +49,15 @@ export function AuditRunControlCard({
         <div className="flex flex-wrap gap-4 items-end">
           <div className="space-y-2">
             <label className="text-sm font-medium">{t('admin:lookback_days')}</label>
+            {/* min/max on a bare input are inert here (no enclosing form), and Number('') is 0 -
+                which the API layer's `?? 7` preserves, so a cleared field audited a zero-day
+                window and reported a clean ledger it never checked. */}
             <Input
               type="number"
-              value={lookbackDays}
-              onChange={(e) => setLookbackDays(Number(e.target.value))}
+              value={lookbackDays ?? ''}
+              onChange={(e) =>
+                setLookbackDays(parseNumberInput(e.target.value, { min: 1, max: 30, integer: true }))
+              }
               className="w-24 h-10 border-border/50 bg-white/80"
               min={1}
               max={30}

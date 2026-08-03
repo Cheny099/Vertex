@@ -62,6 +62,35 @@ export function translateBackendErrorMessage(rawMsg: string): string {
   return normalized || rawMsg;
 }
 
+// Endpoints that establish or recover a session rather than consuming one.
+const UNAUTHENTICATED_ENDPOINTS = [
+  '/auth/login',
+  '/auth/login-with-code',
+  '/auth/send-login-code',
+  '/auth/register',
+  '/auth/send-register-code',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+];
+
+// FastAPI request-validation failures come back as `detail: [{loc, msg, type, input}]`.
+// `input` echoes what the user submitted — passwords and API secrets included — so it is
+// deliberately never read here; only `loc` and `msg` reach the UI.
+function formatValidationErrors(details: unknown[]): string {
+  return details
+    .map((item) => {
+      if (!isRecord(item)) return '';
+      const msg = isString(item.msg) ? item.msg : '';
+      if (!msg) return '';
+      const field = Array.isArray(item.loc)
+        ? item.loc.filter((part) => part !== 'body' && part !== 'query' && part !== 'path').join('.')
+        : '';
+      return field ? `${field}: ${msg}` : msg;
+    })
+    .filter(Boolean)
+    .join('; ');
+}
+
 export async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const token = getStoredAuthToken();
   const explicitAuthorization = options?.headers
@@ -79,7 +108,14 @@ export async function request<T>(endpoint: string, options?: RequestInit): Promi
   });
 
   if (response.status === 401) {
-    if (requestToken === getStoredAuthToken()) {
+    // A 401 from one of these means "these credentials are wrong", not "your session ended".
+    // They are unauthenticated endpoints, but request() attaches the stored token anyway, so a
+    // signed-in user who revisited /login and mistyped their code used to have their still-valid
+    // token wiped - and because /login is excluded from the notify branch below, AuthContext was
+    // never told, leaving a session that reported isAuthenticated with empty storage.
+    const isCredentialCheck = UNAUTHENTICATED_ENDPOINTS.some((prefix) => endpoint.startsWith(prefix));
+
+    if (!isCredentialCheck && requestToken === getStoredAuthToken()) {
       clearStoredAuth();
 
       if (
@@ -101,6 +137,10 @@ export async function request<T>(endpoint: string, options?: RequestInit): Promi
       let errMsg: unknown = response.statusText;
       if (isRecord(errBody)) {
         errMsg = errBody.detail ?? errBody.msg ?? errBody.message ?? response.statusText;
+      }
+
+      if (Array.isArray(errMsg)) {
+        errMsg = formatValidationErrors(errMsg) || response.statusText;
       }
 
       if (isRecord(errMsg)) {

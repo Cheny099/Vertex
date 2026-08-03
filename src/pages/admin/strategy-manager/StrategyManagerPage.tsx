@@ -23,7 +23,7 @@ const StrategyManagerPage = () => {
         csvFile,
         setCsvFile,
         importDialogOpen,
-        setImportDialogOpen,
+        handleImportDialogOpenChange,
         actionConfirm,
         setActionConfirm,
         isDragging,
@@ -92,7 +92,7 @@ const StrategyManagerPage = () => {
 
             <StrategyImportDialog
                 open={importDialogOpen}
-                onOpenChange={setImportDialogOpen}
+                onOpenChange={handleImportDialogOpenChange}
                 csvFile={csvFile}
                 setCsvFile={setCsvFile}
                 isDragging={isDragging}
