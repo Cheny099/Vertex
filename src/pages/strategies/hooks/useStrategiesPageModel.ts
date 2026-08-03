@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { strategyApi, subscriptionApi, type Strategy } from '@/api';
+import { parseStrategyConfig } from '@/api/strategy-utils';
 import { usePageVisibility } from '@/hooks/use-page-visibility';
 
 export type TabType = 'running' | 'library' | 'my';
@@ -56,7 +57,11 @@ export function useStrategiesPageModel() {
   }, [normalizeStatus]);
 
   const getTypeLabel = useCallback((strategy: Strategy) => {
-    const rawType = String(strategy.type || strategy.config?.type || '').toLowerCase();
+    // `config` is JsonValue and can still be a JSON *string* for a strategy that did not come
+    // through strategyApi's normalisation - reading `.type` off it directly would silently yield
+    // undefined and render "-". parseStrategyConfig handles both shapes.
+    const config = parseStrategyConfig(strategy.config);
+    const rawType = String(strategy.type || config.type || '').toLowerCase();
     if (!rawType) return '-';
 
     switch (rawType) {
