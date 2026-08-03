@@ -34,3 +34,6 @@ pnpm-debug.log*
 Thumbs.db
 .idea/
 .vscode/
+
+# Incremental build state written by `tsc -b`; not source.
+*.tsbuildinfo
