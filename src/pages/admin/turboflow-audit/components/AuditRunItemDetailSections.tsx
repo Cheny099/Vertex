@@ -1,4 +1,5 @@
 ﻿import { ShieldAlert } from 'lucide-react';
+import { detailText } from '../utils';
 import { Badge } from '@/components/ui/badge';
 import { FieldsBackfilledSection } from './audit-run-item-detail-sections/FieldsBackfilledSection';
 import { ExternalMissingLocalSection } from './audit-run-item-detail-sections/ExternalMissingLocalSection';
@@ -29,7 +30,7 @@ export function AuditAdviceSection({ t, item }: AuditDetailSectionsProps) {
             {t('admin:audit_advice')}
           </Badge>
         </div>
-        <p className="leading-relaxed font-bold text-slate-700 italic">"{item.detail.advice}"</p>
+        <p className="leading-relaxed font-bold text-slate-700 italic">"{detailText(item.detail.advice)}"</p>
       </div>
     </div>
   );

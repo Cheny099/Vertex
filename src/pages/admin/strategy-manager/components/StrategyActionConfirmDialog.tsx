@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import React from 'react';
 import {
     AlertDialog,
@@ -14,7 +15,7 @@ import type { ActionConfirmState } from '../utils';
 interface StrategyActionConfirmDialogProps {
     actionConfirm: ActionConfirmState;
     setActionConfirm: React.Dispatch<React.SetStateAction<ActionConfirmState>>;
-    t: (key: string, fallback?: string) => string;
+    t: TFunction;
 }
 
 export const StrategyActionConfirmDialog = React.memo(({

@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -43,7 +44,7 @@ interface StrategiesTableProps {
     isLoading: boolean;
     isError: boolean;
     strategyErrorText: string;
-    t: (key: string, fallback?: string) => string;
+    t: TFunction;
     onPublish: (id: number) => void;
     onUnpublish: (id: number) => void;
     onViewSecret: (id: number) => void;
