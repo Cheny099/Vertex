@@ -90,7 +90,9 @@ i18n
             order: ['localStorage', 'navigator'], // Check localStorage then browser language
             caches: ['localStorage'],
             lookupLocalStorage: 'i18nextLng',
-            convertDetectedLanguage: 'languageOnly',
+            // Must be a function: the detector only special-cases the literal string '15897',
+            // and any other string is called as one, throwing during init.
+            convertDetectedLanguage: (lng: string) => lng.split('-')[0],
         },
     });
 
