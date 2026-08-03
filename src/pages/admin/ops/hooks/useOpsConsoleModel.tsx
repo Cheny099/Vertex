@@ -14,9 +14,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { usePageVisibility } from '@/hooks/use-page-visibility';
+import { parseNumberInput } from '@/lib/utils';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { ActiveOrderRow } from '../components/ActiveOrderRow';
 import {
+  DEFAULT_REQUEUE_LIMIT,
   type BatchRequeueParams,
   type CloseParams,
   useOpsConsoleState,
@@ -37,6 +39,11 @@ export function useOpsConsoleModel() {
   const debouncedSymbolFilter = useDebouncedValue(state.symbolFilter, 300);
   const debouncedAccountIdFilter = useDebouncedValue(state.accountIdFilter, 300);
 
+  // Account ids are >= 1; anything else is not a filter this endpoint can honour.
+  const parsedAccountId = parseNumberInput(debouncedAccountIdFilter, { integer: true });
+  const accountIdFilterValue =
+    parsedAccountId !== null && parsedAccountId >= 1 ? parsedAccountId : undefined;
+
   const {
     data: ordersData,
     isLoading,
@@ -44,14 +51,19 @@ export function useOpsConsoleModel() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['adminOrders', state.page, state.statusFilter, debouncedSymbolFilter, debouncedAccountIdFilter],
+    queryKey: ['adminOrders', state.page, state.statusFilter, debouncedSymbolFilter, accountIdFilterValue],
     queryFn: () =>
       adminApi.ops.listOrders({
         page: state.page,
         limit: 10,
         status: state.statusFilter === 'all' ? undefined : state.statusFilter,
         symbol: debouncedSymbolFilter || undefined,
-        account_id: debouncedAccountIdFilter ? parseInt(debouncedAccountIdFilter) : undefined,
+        // Free-text input: parseInt could yield NaN, which is neither undefined, null nor '', so the
+        // API layer's guard let it through and serialised `account_id=NaN` - a 422 the admin could
+        // not attribute to the field. Out-of-range values are rejected rather than clamped: min:1
+        // would turn a typed "0" or a pasted "-1" into account #1 and list that account's live
+        // orders under a filter reading "0".
+        account_id: accountIdFilterValue,
       }),
     refetchInterval: state.isAutoRefresh && isPageVisible ? 5000 : false,
     refetchOnWindowFocus: false,
@@ -125,7 +137,11 @@ export function useOpsConsoleModel() {
   });
 
   const batchRequeueMutation = useMutation({
-    mutationFn: (data: BatchRequeueParams) => adminApi.ops.batchRequeue(data),
+    // An empty limit field falls back to the value this card has always defaulted to. Omitting the
+    // key instead would hand the batch to the backend's own default of 200
+    // (AdminOrderBatchRequeueRequest.limit), quadrupling a batch the admin never asked for.
+    mutationFn: ({ limit, ...data }: BatchRequeueParams) =>
+      adminApi.ops.batchRequeue({ ...data, limit: limit ?? DEFAULT_REQUEUE_LIMIT }),
     onSuccess: (res: BatchRequeueResult) => {
       if (res.dry_run) {
         toast.info(t('admin:batch_requeue_matched', { matched: res.matched }));
@@ -184,6 +200,9 @@ export function useOpsConsoleModel() {
   }, [refetch]);
 
   const handleClosePositionConfirm = useCallback(() => {
+    // A double click can land before the disabled state re-renders, and closePosition sends a
+    // market order with no idempotency key - a second one would flip the position, not close it.
+    if (closePositionMutation.isPending) return;
     closePositionMutation.mutate(state.closeParams);
   }, [closePositionMutation, state.closeParams]);
 

@@ -12,7 +12,7 @@ interface UseHistoryTradeRowModelParams {
   viewMode: ViewMode;
   getMappedFailureMessage: (trade: Order) => string | undefined;
   getMappedFailureAction: (trade: Order) => string | undefined;
-  onRetryOrReorder: (trade: Order) => void;
+  onRetry: (trade: Order) => void;
   onCancel: (trade: Order) => void;
   onDebug: (trade: Order) => void;
 }
@@ -72,7 +72,7 @@ export function useHistoryTradeRowModel({
   viewMode,
   getMappedFailureMessage,
   getMappedFailureAction,
-  onRetryOrReorder,
+  onRetry,
   onCancel,
   onDebug,
 }: UseHistoryTradeRowModelParams) {
@@ -141,7 +141,9 @@ export function useHistoryTradeRowModel({
     : '--';
   const displayPrice = trade.executed_price ?? trade.price ?? '--';
   const displayQuantity = trade.executed_qty ?? trade.quantity ?? '--';
-  const canRetry = viewMode === 'system' && (trade.status === 'FAILED' || trade.status === 'EXPIRED');
+  // The backend rejects anything but FAILED ("Only failed orders can be retried"), and there is
+  // no reorder endpoint, so offering this on EXPIRED rows was a button that could not work.
+  const canRetry = viewMode === 'system' && trade.status === 'FAILED';
   const canCancel = viewMode === 'system' && (trade.status === 'PENDING' || trade.status === 'PROCESSING');
   const canDebug = viewMode === 'system';
   const statusClass = isSuccess || statusLabel === t('history:table.status_map.filled')
@@ -153,8 +155,8 @@ export function useHistoryTradeRowModel({
         : 'bg-warning/10 text-warning';
 
   const handleRetryOrReorder = useCallback(() => {
-    onRetryOrReorder(trade);
-  }, [onRetryOrReorder, trade]);
+    onRetry(trade);
+  }, [onRetry, trade]);
 
   const handleDebug = useCallback(() => {
     onDebug(trade);

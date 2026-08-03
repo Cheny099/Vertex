@@ -56,7 +56,13 @@ function TurboFlowAuditContent() {
         () => (severityFilter ? (severityFilter === 'warning' ? 'WARN' : severityFilter.toUpperCase()) : undefined),
         [severityFilter]
     );
-    const { data: itemsData, isLoading: itemsLoading, isError: itemsError, error: itemsErrorObj } = useQuery({
+    const {
+        data: itemsData,
+        isLoading: itemsQueryLoading,
+        isPlaceholderData: itemsIsPlaceholder,
+        isError: itemsError,
+        error: itemsErrorObj,
+    } = useQuery({
         queryKey: ['auditRunItems', selectedRunId, kindFilter, severityFilter],
         queryFn: async () => adminApi.auditTurboflow.getRunItems(selectedRunId!, {
             kind: kindFilter || undefined,
@@ -68,6 +74,11 @@ function TurboFlowAuditContent() {
         refetchOnWindowFocus: false,
         placeholderData: (prev) => prev,
     });
+    // placeholderData keeps the previous run's items while a new run's request is in flight, and
+    // the detail payload is smaller so the header for the new run paints first. Without this the
+    // panel shows run A's mismatches under run B's heading, which an auditor reads as B's findings.
+    const itemsLoading = itemsQueryLoading || itemsIsPlaceholder;
+
     const toQueryErrorText = useCallback((err: unknown) => {
         const apiError = err as ApiError;
         const msg = typeof apiError?.message === 'string' ? apiError.message : '';
@@ -90,7 +101,9 @@ function TurboFlowAuditContent() {
     // Start audit mutation
     const runMutation = useMutation({
         mutationFn: () => adminApi.auditTurboflow.run({
-            lookback_days: lookbackDays,
+            // An empty field means "unspecified"; the API layer's `?? 7` then applies the real
+            // default. Sending 0 would audit a zero-day window and report a clean ledger.
+            lookback_days: lookbackDays ?? undefined,
             mode,
             dry_run: dryRun,
         }),
