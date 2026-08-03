@@ -45,7 +45,7 @@ function runTsc(extraArgs) {
 // --- 1 + 2: compile, and prove the compiler had inputs -------------------------------------
 const listing = runTsc(['--listFiles']);
 const sourceFileCount = listing
-  .split('\n')
+  .split(/\r?\n/)
   .filter((line) => /[\\/]src[\\/]/.test(line) && /\.tsx?$/.test(line.trim())).length;
 
 if (sourceFileCount < MIN_FILES) {
@@ -62,7 +62,7 @@ if (sourceFileCount < MIN_FILES) {
 // Line numbers are deliberately dropped: unrelated edits shift them, and that should not be
 // mistaken for a new error.
 const errorLines = runTsc([])
-  .split('\n')
+  .split(/\r?\n/)
   .map((line) => line.trim())
   .filter((line) => / error TS\d+: /.test(line));
 
@@ -94,8 +94,11 @@ if (updating) {
 
 const baseline = new Map();
 if (existsSync(BASELINE)) {
-  for (const line of readFileSync(BASELINE, 'utf8').split('\n')) {
-    const m = line.match(/^(\d+) (.+)$/);
+  // Split on either line ending and trim: git may check this file out with CRLF, and a trailing
+  // \r would make every key miss silently — the baseline would read as empty and every known
+  // error would be reported as new.
+  for (const line of readFileSync(BASELINE, 'utf8').split(/\r?\n/)) {
+    const m = line.trim().match(/^(\d+) (.+)$/);
     if (m) baseline.set(m[2], Number(m[1]));
   }
 }
