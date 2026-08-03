@@ -23,6 +23,10 @@ export function useAnnouncementManagerState() {
   const editRequestRef = useRef(0);
   const invalidatePendingEdit = () => {
     editRequestRef.current += 1;
+    // The abandoned request will now fail its id check and skip its own cleanup, so the loading
+    // flag has to be released here. Otherwise the spinner overlay never clears and the submit
+    // guard keeps rejecting silently - the create form becomes unusable for the rest of the mount.
+    setIsLoadingDetail(false);
     return editRequestRef.current;
   };
 

@@ -27,6 +27,26 @@ describe("useAnnouncementManagerState pending-edit invalidation", () => {
     expect(result.current.editingId).toBeNull();
   });
 
+  it("releases the loading flag when the pending load is abandoned", () => {
+    const { result } = renderHook(() => useAnnouncementManagerState());
+
+    // An edit is in flight: the dialog shows its spinner overlay.
+    act(() => {
+      result.current.invalidatePendingEdit();
+      result.current.setIsLoadingDetail(true);
+    });
+    expect(result.current.isLoadingDetail).toBe(true);
+
+    // Switching to create abandons that load. Its response will skip its own cleanup because the
+    // id no longer matches, so the flag must be released here or the create form stays covered by
+    // the spinner and silently refuses to submit.
+    act(() => {
+      result.current.openCreate();
+    });
+
+    expect(result.current.isLoadingDetail).toBe(false);
+  });
+
   it("invalidates the previous load when a different record is opened", () => {
     const { result } = renderHook(() => useAnnouncementManagerState());
 

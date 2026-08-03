@@ -195,5 +195,6 @@
   },
   "error_load_failed": "Failed to load. Please try again.",
   "error_operation_failed": "Operation failed. Please try again.",
-  "required": "is required"
+  "required": "is required",
+  "retry": "Retry"
 }

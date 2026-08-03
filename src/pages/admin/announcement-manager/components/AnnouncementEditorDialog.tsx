@@ -190,20 +190,22 @@ export function AnnouncementEditorDialog({
             </div>
           </div>
         </div>
+        {/* handleSubmit refuses while the record is still loading, so the footer has to reflect
+            that - otherwise the click is a silent no-op with no toast and no error. */}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>{t('admin:form.cancel')}</Button>
           {editingId ? (
-            <Button onClick={() => onSubmit(false)} disabled={isUpdatePending}>
+            <Button onClick={() => onSubmit(false)} disabled={isUpdatePending || isLoadingDetail}>
               {isUpdatePending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {t('admin:form.update', 'Update')}
             </Button>
           ) : (
             <>
-              <Button variant="outline" onClick={() => onSubmit(false)} disabled={isCreatePending}>
+              <Button variant="outline" onClick={() => onSubmit(false)} disabled={isCreatePending || isLoadingDetail}>
                 {isCreatePending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 {t('admin:announcements_save_draft', 'Save Draft')}
               </Button>
-              <Button onClick={() => onSubmit(true)} disabled={isCreatePending}>
+              <Button onClick={() => onSubmit(true)} disabled={isCreatePending || isLoadingDetail}>
                 {isCreatePending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 {t('admin:announcements_save_and_publish', 'Save & Publish')}
               </Button>
