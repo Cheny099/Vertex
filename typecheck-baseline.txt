@@ -1,0 +1,10 @@
+1 src/components/AnnouncementPopup.tsx|error TS2322
+1 src/pages/admin/announcement-manager/components/AnnouncementEditorDialog.tsx|error TS2322
+2 src/pages/admin/ops/hooks/useOpsConsoleModel.tsx|error TS2353
+1 src/pages/admin/strategy-create/hooks/useStrategyCreateModel.ts|error TS2322
+1 src/pages/admin/strategy-create/hooks/useStrategyCreateModel.ts|error TS2345
+1 src/pages/history/HistoryPage.tsx|error TS2322
+1 src/pages/history/hooks/useHistoryActions.ts|error TS2345
+1 src/pages/history/hooks/useHistoryModel.ts|error TS2305
+1 src/pages/history/hooks/useHistoryQueries.ts|error TS2352
+1 src/pages/strategies/components/StrategyMarketCard.tsx|error TS2322
