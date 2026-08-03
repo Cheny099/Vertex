@@ -28,9 +28,8 @@ interface HistoryTradeRowProps {
   getMappedFailureAction: (trade: Order) => string | undefined;
   isCancelPending: boolean;
   isRetryPending: boolean;
-  isReorderPending: boolean;
   isDebugPending: boolean;
-  onRetryOrReorder: (trade: Order) => void;
+  onRetry: (trade: Order) => void;
   onCancel: (trade: Order) => void;
   onDebug: (trade: Order) => void;
 }
@@ -45,9 +44,8 @@ function HistoryTradeRowComponent({
   getMappedFailureAction,
   isCancelPending,
   isRetryPending,
-  isReorderPending,
   isDebugPending,
-  onRetryOrReorder,
+  onRetry,
   onCancel,
   onDebug,
 }: HistoryTradeRowProps) {
@@ -80,7 +78,7 @@ function HistoryTradeRowComponent({
     viewMode,
     getMappedFailureMessage,
     getMappedFailureAction,
-    onRetryOrReorder,
+    onRetry,
     onCancel,
     onDebug,
   });
@@ -190,11 +188,10 @@ function HistoryTradeRowComponent({
           canRetry={canRetry}
           isCancelPending={isCancelPending}
           isDebugPending={isDebugPending}
-          isReorderPending={isReorderPending}
           isRetryPending={isRetryPending}
           onCancel={handleCancel}
           onDebug={handleDebug}
-          onRetryOrReorder={handleRetryOrReorder}
+          onRetry={handleRetryOrReorder}
         />
       </td>
     </motion.tr>

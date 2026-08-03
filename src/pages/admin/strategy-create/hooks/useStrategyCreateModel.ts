@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -46,19 +46,31 @@ export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => 
         queryKey: ['strategy', id],
         queryFn: () => strategyApi.get(parseInt(id!, 10)),
         enabled: !!id,
+        // An editor is not a live view: refetching under an open form is pure churn. What actually
+        // protects the admin's typing is the seed guard below, so this deliberately does NOT set a
+        // staleTime - a fresh mount must still fetch current data, or reopening the editor within
+        // the cache window would show pre-edit values and save them back over someone else's change.
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
     });
 
+    // Seed the form once per record. Re-seeding on later data would overwrite unsaved edits, so it
+    // is keyed on the strategy id rather than on the fetched object's identity.
+    const seededIdRef = useRef<string | null>(null);
     useEffect(() => {
-        if (initialData) {
-            form.reset({
-                ...DEFAULT_STRATEGY_VALUES,
-                ...initialData,
-                strategyKey: initialData.strategy_key,
-                name: isCopyMode ? `${initialData.name} (Copy)` : initialData.name,
-                status: initialData.status || 'active',
-            });
-        }
-    }, [form, initialData, isCopyMode]);
+        if (!initialData) return;
+        const key = String(id ?? '');
+        if (seededIdRef.current === key) return;
+        seededIdRef.current = key;
+
+        form.reset({
+            ...DEFAULT_STRATEGY_VALUES,
+            ...initialData,
+            strategyKey: initialData.strategy_key,
+            name: isCopyMode ? `${initialData.name} (Copy)` : initialData.name,
+            status: initialData.status || 'active',
+        });
+    }, [form, id, initialData, isCopyMode]);
 
     const submitMutation = useMutation({
         mutationFn: async (data: StrategyFormValues): Promise<StrategyMutationResult> => {
@@ -98,6 +110,9 @@ export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => 
                 description: isEditMode ? t('strategies:create.toast_updated') : t('strategies:create.toast_created'),
             });
             queryClient.invalidateQueries({ queryKey: ['strategies'] });
+            // The list key does not cover the single-strategy cache this editor reads, so without
+            // this a second visit would re-seed the form from the pre-save copy.
+            if (id) queryClient.invalidateQueries({ queryKey: ['strategy', id] });
             navigate('/admin/strategies');
         },
         onError: (error: unknown) => {

@@ -100,8 +100,7 @@ export function useHistoryModel() {
     cancelMutation,
     retryMutation,
     debugMutation,
-    reorderMutation,
-    handleRetryOrReorder,
+    handleRetry,
     handleCancel,
     handleDebug,
   } = useHistoryActions({
@@ -135,14 +134,16 @@ export function useHistoryModel() {
 
   const displayedTrades = filteredTrades;
 
+  // Derived from the unfiltered page: building this from displayedTrades would drop every option
+  // except the one already selected, leaving no way to switch pair without clearing the filter.
   const pairOptions = useMemo(() => {
     const set = new Set<string>();
-    displayedTrades.forEach((trade) => {
+    allTrades.forEach((trade) => {
       const symbol = String(trade.symbol || '').trim();
       if (symbol && symbol !== '--') set.add(symbol);
     });
     return ['all', ...Array.from(set)];
-  }, [displayedTrades]);
+  }, [allTrades]);
 
   const hasLocalFilters = selectedPair !== 'all' || selectedType !== 'all' || searchTerm.trim() !== '';
 
@@ -224,9 +225,17 @@ export function useHistoryModel() {
   const tfTotal = tfOrdersData?.count ?? 0;
   const tfPageCount = tfOrdersData?.page_count ?? 0;
   const systemHasMore = !!systemOrdersData?.has_more;
-  const showingStart = displayedTrades.length === 0 ? 0 : (currentPage - 1) * currentPageSize + 1;
+  // The server range only describes the page when no local filter has removed rows from it.
+  // With a filter active the offset is meaningless, so report a plain 1..n count of what is shown.
+  const showingStart = displayedTrades.length === 0 ? 0 : hasLocalFilters ? 1 : (currentPage - 1) * currentPageSize + 1;
   const showingEnd = displayedTrades.length === 0 ? 0 : showingStart + displayedTrades.length - 1;
-  const showingTotal = viewMode === 'turboflow' ? tfTotal : systemHasMore ? `${showingEnd}+` : showingEnd;
+  const showingTotal = hasLocalFilters
+    ? displayedTrades.length
+    : viewMode === 'turboflow'
+      ? tfTotal
+      : systemHasMore
+        ? `${showingEnd}+`
+        : showingEnd;
 
   const handleSearchChange = useCallback(
     (value: string) => {
@@ -311,9 +320,8 @@ export function useHistoryModel() {
     getMappedFailureAction,
     cancelMutation,
     retryMutation,
-    reorderMutation,
     debugMutation,
-    handleRetryOrReorder,
+    handleRetry,
     handleCancel,
     handleDebug,
     showingStart,

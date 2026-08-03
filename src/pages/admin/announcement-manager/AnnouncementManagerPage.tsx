@@ -47,6 +47,8 @@ const AnnouncementManager: React.FC = () => {
         filters,
         setFilters,
         openCreate,
+        editRequestRef,
+        invalidatePendingEdit,
     } = useAnnouncementManagerState();
 
     const { data: announcementsResponse, isLoading, isError, error } = useQuery({
@@ -145,6 +147,14 @@ const AnnouncementManager: React.FC = () => {
     });
 
     const handleEditOpen = useCallback(async (itemId: number) => {
+        // Owned by the state hook, so resetEditor/openCreate invalidate a pending load too - a
+        // page-local counter only caught "a newer edit superseded an older one", and left the
+        // switch to "create" free to be overwritten by the previous record's late response.
+        const requestId = invalidatePendingEdit();
+        // Clear the previous record before showing the dialog: it opens ahead of the fetch and its
+        // footer sits outside the loading overlay, so stale values here let a single click PATCH
+        // the newly selected announcement with the previously opened one's title and body.
+        setFormData(DEFAULT_FORM);
         setEditingId(itemId);
         setIsLoadingDetail(true);
         setIsCreateOpen(true);
@@ -154,6 +164,8 @@ const AnnouncementManager: React.FC = () => {
             });
             const rawContent = detail.content_md || detail.content || '';
             const cleanContent = typeof rawContent === 'string' ? rawContent.replace(/\\n/g, '\n') : '';
+
+            if (editRequestRef.current !== requestId) return;
 
             setFormData({
                 title: detail.title,
@@ -166,15 +178,19 @@ const AnnouncementManager: React.FC = () => {
             });
             setEditorTab('edit');
         } catch (e) {
+            if (editRequestRef.current !== requestId) return;
             logger.error('Fetch announcement error:', e);
             toast.error(toErrorText(e));
             setIsCreateOpen(false);
         } finally {
-            setIsLoadingDetail(false);
+            if (editRequestRef.current === requestId) setIsLoadingDetail(false);
         }
-    }, [filters.include_deleted, setEditingId, setIsLoadingDetail, setIsCreateOpen, setFormData, setEditorTab, toErrorText]);
+    }, [filters.include_deleted, invalidatePendingEdit, editRequestRef, setEditingId, setIsLoadingDetail, setIsCreateOpen, setFormData, setEditorTab, toErrorText]);
 
     const handleSubmit = useCallback((publishNow = false) => {
+        // The footer is outside the loading overlay, so block submitting a form whose record has
+        // not arrived yet.
+        if (isLoadingDetail) return;
         if (!formData.title || !formData.content_md) return toast.error(t('admin:error_title_content_required'));
 
         if (editingId) {
@@ -182,7 +198,7 @@ const AnnouncementManager: React.FC = () => {
         } else {
             createMutation.mutate({ data: formData, publishNow });
         }
-    }, [formData, t, editingId, updateMutation, createMutation]);
+    }, [formData, t, editingId, isLoadingDetail, updateMutation, createMutation]);
 
     const handlePublish = useCallback((id: number) => {
         publishMutation.mutate(id);

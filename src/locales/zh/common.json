@@ -151,8 +151,7 @@
     "positions.close currently supports TurboFlow accounts only": "强平操作目前仅支持 TurboFlow 账户",
     "Holding position not found": "未找到持仓记录",
     "Unable to resolve hold_size for position": "无法解析持仓数量",
-    "Resolved qty must be > 0": "解析后的数量必须大于 0"
-    ,
+    "Resolved qty must be > 0": "解析后的数量必须大于 0",
     "Internal Server Error": "服务器内部错误"
   },
   "nav": {
@@ -203,5 +202,9 @@
     "modal_desc": "请输入您的邀请码以解锁极值量化实盘交易与量化策略订阅功能。",
     "submitting": "验证中...",
     "submit_btn": "兑换邀请码"
-  }
+  },
+  "error_load_failed": "加载失败，请重试",
+  "error_operation_failed": "操作失败，请重试",
+  "required": "不能为空",
+  "retry": "重试"
 }

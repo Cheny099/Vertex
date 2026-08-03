@@ -122,8 +122,7 @@
     "positions.close currently supports TurboFlow accounts only": "Force close currently supports TurboFlow accounts only",
     "Holding position not found": "Holding position not found",
     "Unable to resolve hold_size for position": "Unable to resolve position hold size",
-    "Resolved qty must be > 0": "Resolved quantity must be greater than 0"
-    ,
+    "Resolved qty must be > 0": "Resolved quantity must be greater than 0",
     "Internal Server Error": "Internal Server Error"
   },
   "exchanges": {
@@ -193,5 +192,9 @@
     "modal_desc": "Please enter your invite code to unlock live trading capabilities and strategy subscriptions.",
     "submitting": "Verifying...",
     "submit_btn": "Redeem Code"
-  }
+  },
+  "error_load_failed": "Failed to load. Please try again.",
+  "error_operation_failed": "Operation failed. Please try again.",
+  "required": "is required",
+  "retry": "Retry"
 }

@@ -52,6 +52,20 @@ function useRegisterModel() {
   const { toast } = useToast();
   const { t } = useTranslation(["auth", "common"]);
   const otpRef = useRef<HTMLInputElement | null>(null);
+  // Timers that outlive the component: the focus one is harmless after unmount, but the redirect
+  // performs a real navigation and would yank the user off whatever they opened in the meantime
+  // (the Terms or Privacy link on this very form).
+  const pendingTimers = useRef<number[]>([]);
+  useEffect(
+    () => () => {
+      pendingTimers.current.forEach((id) => window.clearTimeout(id));
+      pendingTimers.current = [];
+    },
+    []
+  );
+  const scheduleTimeout = (fn: () => void, ms: number) => {
+    pendingTimers.current.push(window.setTimeout(fn, ms));
+  };
 
   const [formData, setFormData] = useState<RegisterFormState>({
     username: "",
@@ -119,7 +133,7 @@ function useRegisterModel() {
         title: t("errors.code_sent"),
         description: t("errors.code_sent_desc", { email: maskEmail(normalizedEmail) }),
       });
-      window.setTimeout(() => otpRef.current?.focus(), 200);
+      scheduleTimeout(() => otpRef.current?.focus(), 200);
     } catch (error: unknown) {
       const errorKey = humanizeAuthError(error);
       toast({
@@ -166,7 +180,7 @@ function useRegisterModel() {
       });
 
       toast({ title: t("errors.register_success"), description: t("errors.register_success") });
-      window.setTimeout(() => navigate("/login", { state: location.state }), 900);
+      scheduleTimeout(() => navigate("/login", { state: location.state }), 900);
     } catch (error: unknown) {
       const errorKey = humanizeAuthError(error);
       toast({

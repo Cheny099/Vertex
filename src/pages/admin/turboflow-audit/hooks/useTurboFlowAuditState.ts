@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 export function useTurboFlowAuditState() {
-  const [lookbackDays, setLookbackDays] = useState(7);
+  const [lookbackDays, setLookbackDays] = useState<number | null>(7);
   const [mode, setMode] = useState<'local_only' | 'full'>('local_only');
   const [dryRun, setDryRun] = useState(false);
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
