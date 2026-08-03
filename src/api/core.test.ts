@@ -71,6 +71,44 @@ describe("request authentication cleanup", () => {
   });
 });
 
+describe("401 handling on unauthenticated endpoints", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+    window.history.replaceState({}, "", "/");
+  });
+
+  it("keeps an existing session when a sign-in attempt is rejected", async () => {
+    localStorage.setItem("auth_token", "still-valid-token");
+    localStorage.setItem("user_data", "still-valid-user");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 401 })));
+
+    await expect(request("/auth/login-with-code", { method: "POST" })).rejects.toMatchObject({
+      status: 401,
+    });
+
+    // Wrong credentials must not sign the current user out.
+    expect(localStorage.getItem("auth_token")).toBe("still-valid-token");
+    expect(localStorage.getItem("user_data")).toBe("still-valid-user");
+  });
+
+  it("still clears the session when an authenticated endpoint returns 401", async () => {
+    localStorage.setItem("auth_token", "expired-token");
+    localStorage.setItem("user_data", "expired-user");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 401 })));
+
+    await expect(request("/accounts/")).rejects.toMatchObject({ status: 401 });
+
+    expect(localStorage.getItem("auth_token")).toBeNull();
+    expect(localStorage.getItem("user_data")).toBeNull();
+  });
+});
+
 describe("request error message formatting", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
