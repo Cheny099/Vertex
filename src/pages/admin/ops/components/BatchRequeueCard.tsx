@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { parseNumberInput } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -95,8 +96,14 @@ export function BatchRequeueCard({
             <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('admin:limit_count')}</Label>
             <Input
               type="number"
-              value={batchParams.limit}
-              onChange={(e) => setBatchParams({ ...batchParams, limit: parseInt(e.target.value) || 50 })}
+              min={1}
+              value={batchParams.limit ?? ''}
+              onChange={(e) =>
+                setBatchParams((prev) => ({
+                  ...prev,
+                  limit: parseNumberInput(e.target.value, { min: 1 }),
+                }))
+              }
               className="h-10"
             />
           </div>

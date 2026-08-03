@@ -11,7 +11,8 @@ export type CloseParams = {
 
 export type BatchRequeueParams = {
   statuses: string[];
-  limit: number;
+  /** null while the field is empty; the request then omits it and the backend default applies. */
+  limit: number | null;
   reason: string;
 };
 
