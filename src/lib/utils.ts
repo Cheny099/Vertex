@@ -18,11 +18,14 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function parseNumberInput(
   raw: string,
-  { min, max }: { min?: number; max?: number } = {}
+  { min, max, integer }: { min?: number; max?: number; integer?: boolean } = {}
 ): number | null {
   if (raw.trim() === '') return null;
-  const n = Number(raw);
+  let n = Number(raw);
   if (!Number.isFinite(n)) return null;
+  // Number() accepts "2.5" where the old parseInt() silently truncated it; endpoints that declare
+  // an int would reject the fraction, so callers for those fields opt into truncation explicitly.
+  if (integer) n = Math.trunc(n);
   if (min !== undefined && n < min) return min;
   if (max !== undefined && n > max) return max;
   return n;
