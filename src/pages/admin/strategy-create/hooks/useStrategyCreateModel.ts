@@ -46,12 +46,12 @@ export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => 
         queryKey: ['strategy', id],
         queryFn: () => strategyApi.get(parseInt(id!, 10)),
         enabled: !!id,
-        // An editor is not a live view. Refetching while it is open produces a new object identity
-        // whenever any server-side field moves (metrics, updated_at, subscriber counts), which used
-        // to re-run the reset below and wipe whatever the admin had typed.
+        // An editor is not a live view: refetching under an open form is pure churn. What actually
+        // protects the admin's typing is the seed guard below, so this deliberately does NOT set a
+        // staleTime - a fresh mount must still fetch current data, or reopening the editor within
+        // the cache window would show pre-edit values and save them back over someone else's change.
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
-        staleTime: Infinity,
     });
 
     // Seed the form once per record. Re-seeding on later data would overwrite unsaved edits, so it
@@ -110,6 +110,9 @@ export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => 
                 description: isEditMode ? t('strategies:create.toast_updated') : t('strategies:create.toast_created'),
             });
             queryClient.invalidateQueries({ queryKey: ['strategies'] });
+            // The list key does not cover the single-strategy cache this editor reads, so without
+            // this a second visit would re-seed the form from the pre-save copy.
+            if (id) queryClient.invalidateQueries({ queryKey: ['strategy', id] });
             navigate('/admin/strategies');
         },
         onError: (error: unknown) => {
