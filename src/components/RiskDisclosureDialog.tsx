@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -32,25 +32,44 @@ const RiskDisclosureDialog: React.FC<RiskDisclosureDialogProps> = ({
     const [agreed, setAgreed] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    const loadDoc = useCallback(async () => {
-        setLoading(true);
-        try {
-            // Default to current language, backend handles fallback
-            const doc = await legalApi.getPublicDoc(docKey, i18n.language);
-            setContent(doc.content_md);
-        } catch (error) {
-            toast.error(t('common:error.load_failed'));
-            onOpenChange(false);
-        } finally {
-            setLoading(false);
-        }
-    }, [docKey, i18n.language, onOpenChange, t]);
+    // `onOpenChange` and `t` are recreated by the parent on every one of its renders, and the
+    // strategy detail page behind this dialog polls every 5s. Keeping them out of the fetch
+    // effect's deps stops each poll from re-fetching the document, which would swap the article
+    // for the spinner and reset `hasScrolledBottom` — re-locking the agree checkbox so a long
+    // disclosure could never be read to the end and signed.
+    const onOpenChangeRef = useRef(onOpenChange);
+    const tRef = useRef(t);
+    useEffect(() => {
+        onOpenChangeRef.current = onOpenChange;
+        tRef.current = t;
+    });
+
+    const lang = i18n.language;
 
     useEffect(() => {
-        if (open && docKey) {
-            void loadDoc();
-        }
-    }, [open, docKey, loadDoc]);
+        if (!open || !docKey) return;
+
+        let cancelled = false;
+        setLoading(true);
+        // Default to current language, backend handles fallback
+        legalApi
+            .getPublicDoc(docKey, lang)
+            .then((doc) => {
+                if (!cancelled) setContent(doc.content_md);
+            })
+            .catch(() => {
+                if (cancelled) return;
+                toast.error(tRef.current('common:error_load_failed'));
+                onOpenChangeRef.current(false);
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [open, docKey, lang]);
 
     // Check if content is scrollable when loaded
     useEffect(() => {
@@ -88,7 +107,7 @@ const RiskDisclosureDialog: React.FC<RiskDisclosureDialogProps> = ({
             onAccept();
             onOpenChange(false);
         } catch (error) {
-            toast.error(t('common:error.operation_failed'));
+            toast.error(t('common:error_operation_failed'));
         } finally {
             setAccepting(false);
         }
