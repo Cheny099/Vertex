@@ -127,6 +127,7 @@ const OpsConsole = () => {
             pos_side: state.closeParams.pos_side,
             account_id: state.closeParams.account_id,
           })}
+          pending={closePositionPending}
         />
 
         <OrderDetailDialog

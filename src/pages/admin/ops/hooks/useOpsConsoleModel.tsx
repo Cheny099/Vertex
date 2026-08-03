@@ -125,7 +125,10 @@ export function useOpsConsoleModel() {
   });
 
   const batchRequeueMutation = useMutation({
-    mutationFn: (data: BatchRequeueParams) => adminApi.ops.batchRequeue(data),
+    // An empty limit field means "unspecified", not zero: drop the key and let the backend
+    // apply its own default rather than sending null.
+    mutationFn: ({ limit, ...data }: BatchRequeueParams) =>
+      adminApi.ops.batchRequeue({ ...data, limit: limit ?? undefined }),
     onSuccess: (res: BatchRequeueResult) => {
       if (res.dry_run) {
         toast.info(t('admin:batch_requeue_matched', { matched: res.matched }));
@@ -184,6 +187,9 @@ export function useOpsConsoleModel() {
   }, [refetch]);
 
   const handleClosePositionConfirm = useCallback(() => {
+    // A double click can land before the disabled state re-renders, and closePosition sends a
+    // market order with no idempotency key - a second one would flip the position, not close it.
+    if (closePositionMutation.isPending) return;
     closePositionMutation.mutate(state.closeParams);
   }, [closePositionMutation, state.closeParams]);
 
