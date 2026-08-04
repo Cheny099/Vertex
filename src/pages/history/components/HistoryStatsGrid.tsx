@@ -5,7 +5,8 @@ import { cn } from '@/lib/utils';
 interface HistoryStatItem {
   label: string;
   value: string | number;
-  color: string;
+  /** Only the PnL tile is tinted; cn() drops it when absent. */
+  color?: string;
   subValue: string;
 }
 

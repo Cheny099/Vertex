@@ -140,7 +140,7 @@ export function useOpsConsoleModel() {
     // An empty limit field falls back to the value this card has always defaulted to. Omitting the
     // key instead would hand the batch to the backend's own default of 200
     // (AdminOrderBatchRequeueRequest.limit), quadrupling a batch the admin never asked for.
-    mutationFn: ({ limit, ...data }: BatchRequeueParams) =>
+    mutationFn: ({ limit, ...data }: BatchRequeueParams & { dry_run: boolean }) =>
       adminApi.ops.batchRequeue({ ...data, limit: limit ?? DEFAULT_REQUEUE_LIMIT }),
     onSuccess: (res: BatchRequeueResult) => {
       if (res.dry_run) {

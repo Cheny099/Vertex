@@ -1,3 +1,4 @@
+import type { AnnouncementLang } from '@/api';
 import type { Locale } from 'date-fns';
 import type { TFunction } from 'i18next';
 import ReactMarkdown from 'react-markdown';
@@ -79,7 +80,11 @@ export function AnnouncementEditorDialog({
             <label className="text-sm font-medium">{t('admin:form.language')}</label>
             <Select
               value={formData.lang}
-              onValueChange={(value) => onFormDataChange({ ...formData, lang: value })}
+              onValueChange={(value) =>
+                // Radix hands back a plain string; the three SelectItems below are exactly the
+                // AnnouncementLang union, so narrow rather than widen the form field.
+                onFormDataChange({ ...formData, lang: value as AnnouncementLang })
+              }
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>

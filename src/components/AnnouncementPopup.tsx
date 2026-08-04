@@ -1,4 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Components } from "react-markdown";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -14,33 +15,32 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { announcementApi, PopupAnnouncement } from "@/api";
 import { logger } from "@/lib/logger";
 
-type MarkdownNodeProps = {
-  node?: unknown;
-} & Record<string, unknown>;
-
-const markdownComponents = {
-  p: ({ node, ...props }: MarkdownNodeProps) => (
+// Typed as react-markdown's own Components so the element props are inferred per tag; the previous
+// hand-rolled `Record<string, unknown>` shape did not satisfy it for any of them.
+// NOTE: these renderers are duplicated in announcement-manager/ and legal-manager/ markdownRenderers.
+const markdownComponents: Components = {
+  p: ({ node: _node, ...props }) => (
     <p className="mb-4 last:mb-0 whitespace-pre-wrap text-slate-700 dark:text-slate-300 leading-relaxed" {...props} />
   ),
-  li: ({ node, ...props }: MarkdownNodeProps) => (
+  li: ({ node: _node, ...props }) => (
     <li className="whitespace-pre-wrap text-slate-700 dark:text-slate-300" {...props} />
   ),
-  ol: ({ node, ...props }: MarkdownNodeProps) => (
+  ol: ({ node: _node, ...props }) => (
     <ol className="list-decimal pl-6 mb-4 space-y-2" {...props} />
   ),
-  ul: ({ node, ...props }: MarkdownNodeProps) => (
+  ul: ({ node: _node, ...props }) => (
     <ul className="list-disc pl-6 mb-4 space-y-2" {...props} />
   ),
-  h1: ({ node, ...props }: MarkdownNodeProps) => (
+  h1: ({ node: _node, ...props }) => (
     <h1 className="text-2xl font-black mb-6 pb-2 border-b tracking-tight" {...props} />
   ),
-  h2: ({ node, ...props }: MarkdownNodeProps) => (
+  h2: ({ node: _node, ...props }) => (
     <h2 className="text-xl font-bold mb-4 tracking-tight" {...props} />
   ),
-  h3: ({ node, ...props }: MarkdownNodeProps) => (
+  h3: ({ node: _node, ...props }) => (
     <h3 className="text-lg font-bold mb-3 tracking-tight" {...props} />
   ),
-  strong: ({ node, ...props }: MarkdownNodeProps) => (
+  strong: ({ node: _node, ...props }) => (
     <strong className="font-black text-slate-900 dark:text-white" {...props} />
   ),
 };
