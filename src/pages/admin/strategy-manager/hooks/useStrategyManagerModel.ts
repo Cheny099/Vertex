@@ -35,10 +35,21 @@ export const useStrategyManagerModel = ({ t }: UseStrategyManagerModelOptions) =
     const strategies = useMemo<Strategy[]>(() => (Array.isArray(data) ? data : []), [data]);
     const strategyErrorText = isError ? toErrorText(error) : '';
 
+    // The list key does not cover the single-strategy entry the editor reads: ['strategies'] and
+    // ['strategy', id] differ in their first element, so prefix matching never reaches it. Leaving
+    // it behind is what let the editor reopen on a pre-publish copy of the record.
+    const invalidateStrategy = useCallback(
+        (id: number) => {
+            queryClient.invalidateQueries({ queryKey: ['strategies'] });
+            queryClient.invalidateQueries({ queryKey: ['strategy', String(id)] });
+        },
+        [queryClient]
+    );
+
     const publishMutation = useMutation({
         mutationFn: (id: number) => adminApi.strategies.publish(id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['strategies'] });
+        onSuccess: (_data, id) => {
+            invalidateStrategy(id);
             toast.success(t('strategies:create.toast_success'));
         },
         onError: (err: unknown) => toast.error(toErrorText(err)),
@@ -46,8 +57,8 @@ export const useStrategyManagerModel = ({ t }: UseStrategyManagerModelOptions) =
 
     const unpublishMutation = useMutation({
         mutationFn: (id: number) => adminApi.strategies.unpublish(id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['strategies'] });
+        onSuccess: (_data, id) => {
+            invalidateStrategy(id);
             toast.success(t('strategies:create.toast_success'));
         },
         onError: (err: unknown) => toast.error(toErrorText(err)),
