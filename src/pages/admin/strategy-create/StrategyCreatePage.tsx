@@ -14,6 +14,8 @@ const StrategyCreatePage = () => {
         isEditMode,
         isCopyMode,
         isInitialLoading,
+        isInitialError,
+        initialErrorText,
         form,
         watchStatus,
         submitMutation,
@@ -29,6 +31,20 @@ const StrategyCreatePage = () => {
             <div className="p-8 space-y-4 shadow-card animate-pulse">
                 <div className="h-8 w-1/4 bg-muted rounded" />
                 <div className="h-64 w-full bg-muted rounded" />
+            </div>
+        );
+    }
+
+    // The skeleton above waits for this mount's fetch rather than for `isLoading`, so a failed
+    // fetch has to have somewhere to land - otherwise the editor would sit on the skeleton for good.
+    if (isInitialError) {
+        return (
+            <div className="p-8 space-y-4">
+                <p className="text-sm text-destructive">{initialErrorText}</p>
+                <Button variant="outline" onClick={() => navigate('/admin/strategies')}>
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    {t('common:back')}
+                </Button>
             </div>
         );
     }
