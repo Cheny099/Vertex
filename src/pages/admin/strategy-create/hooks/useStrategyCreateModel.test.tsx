@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, renderHook, waitFor } from '@testing-library/react';
 import type { TFunction } from 'i18next';
 import type { PropsWithChildren } from 'react';
@@ -17,6 +17,7 @@ vi.mock('@/api', () => ({
     strategyApi: { get: mocks.get },
     adminApi: { strategies: { create: vi.fn(), update: vi.fn(), getWebhookSecret: vi.fn() } },
     getStrategySchema: () => z.object({}).passthrough(),
+    translateBackendErrorMessage: (message: string) => message,
 }));
 
 vi.mock('@/components/ui/use-toast', () => ({
@@ -63,7 +64,23 @@ describe('useStrategyCreateModel seeding', () => {
 
     afterEach(() => {
         cleanup();
+        onlineManager.setOnline(true);
         vi.clearAllMocks();
+    });
+
+    it('does not strand the page on a skeleton while the browser is offline', async () => {
+        // networkMode defaults to 'online', so query-core pauses instead of failing: fetchStatus
+        // goes to 'paused' and neither update count moves, which leaves isSuccess, isError and
+        // isFetchedAfterMount all unchanged. A loading gate built only on those has no exit.
+        onlineManager.setOnline(false);
+        mocks.get.mockResolvedValue(strategy('active', 'Momentum'));
+
+        const { result } = renderHook(() => useStrategyCreateModel({ t }), { wrapper });
+
+        await waitFor(() => expect(result.current.isInitialLoading).toBe(false));
+        expect(result.current.isInitialError).toBe(true);
+        expect(result.current.initialErrorText).toBe('common:offline_hint');
+        expect(mocks.get).not.toHaveBeenCalled();
     });
 
     it('seeds a reopened editor from the current record, not the cached one', async () => {

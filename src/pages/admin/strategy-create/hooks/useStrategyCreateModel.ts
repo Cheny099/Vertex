@@ -4,7 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { strategyApi, adminApi, getStrategySchema } from '@/api';
+import { strategyApi, adminApi, getStrategySchema, translateBackendErrorMessage } from '@/api';
 import { useToast } from '@/components/ui/use-toast';
 import type { ApiError } from '@/api/contracts';
 import type { StrategyWebhookSecretResponse } from '@/api';
@@ -49,6 +49,8 @@ export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => 
         isFetchedAfterMount,
         isError: isFetchError,
         error: initialError,
+        fetchStatus,
+        refetch: refetchInitial,
     } = useQuery({
         queryKey: ['strategy', id],
         queryFn: () => strategyApi.get(parseInt(id!, 10)),
@@ -100,13 +102,22 @@ export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => 
         });
     }, [form, id, initialData, hasCurrentRecord, seededId, isCopyMode]);
 
-    // Both gates hang off `isSeeded` rather than off the query status, so the three states are
+    // Offline is a third terminal state, and the one that is easy to miss. With the default
+    // networkMode 'online', query-core does not fail an offline fetch - it pauses it: fetchStatus
+    // becomes 'paused' and neither dataUpdateCount nor errorUpdateCount moves (query.js:326-330),
+    // so `isSuccess`, `isFetchError` and `isFetchedAfterMount` all stay put. Without this term the
+    // loading gate below has no exit at all while the browser is offline, and the editor is a
+    // skeleton with no header, no message and no way off the page.
+    const isPausedOffline = fetchStatus === 'paused';
+
+    // All three gates hang off `isSeeded` rather than off the query status, so the states are
     // exclusive and none of them can strand the page:
-    //  - not seeded, no error  -> skeleton, never the stale form
-    //  - not seeded, error     -> error branch, so a failed first load is not a permanent skeleton
-    //  - seeded                -> the form, and it stays even if a later refetch fails, because the
-    //                             admin may have unsaved edits in it by then
-    const isInitialError = !!id && isFetchError && !isSeeded;
+    //  - not seeded, still fetching -> skeleton, never the stale form
+    //  - not seeded, failed/paused  -> error branch, so neither a failed load nor an offline
+    //                                  browser leaves a skeleton that never resolves
+    //  - seeded                     -> the form, and it stays even if a later refetch fails,
+    //                                  because the admin may have unsaved edits in it by then
+    const isInitialError = !!id && (isFetchError || isPausedOffline) && !isSeeded;
     const isInitialLoading = !!id && !isSeeded && !isInitialError;
 
     const submitMutation = useMutation({
@@ -180,8 +191,14 @@ export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => 
         isCopyMode,
         isInitialLoading,
         isInitialError,
-        initialErrorText:
-            (initialError as Partial<ApiError> | null)?.message || t('strategies:detail.toast_error'),
+        // Backend messages go through the same translator every other surface uses, rather than
+        // being rendered raw. A paused query has no error object at all, so it needs its own text.
+        initialErrorText: isPausedOffline
+            ? t('common:offline_hint')
+            : translateBackendErrorMessage((initialError as Partial<ApiError> | null)?.message || '') ||
+              (initialError as Partial<ApiError> | null)?.message ||
+              t('strategies:detail.toast_error'),
+        retryInitialLoad: refetchInitial,
         initialData,
         form,
         watchStatus,

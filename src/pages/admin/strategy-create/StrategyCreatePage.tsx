@@ -16,6 +16,7 @@ const StrategyCreatePage = () => {
         isInitialLoading,
         isInitialError,
         initialErrorText,
+        retryInitialLoad,
         form,
         watchStatus,
         submitMutation,
@@ -35,16 +36,21 @@ const StrategyCreatePage = () => {
         );
     }
 
-    // The skeleton above waits for this mount's fetch rather than for `isLoading`, so a failed
-    // fetch has to have somewhere to land - otherwise the editor would sit on the skeleton for good.
+    // The skeleton above waits for this mount's fetch rather than for `isLoading`, so a failed or
+    // paused fetch has to have somewhere to land - otherwise the editor would sit on the skeleton
+    // for good. Retry matters as much as the message: the cached record is deliberately not shown,
+    // so without it a transient 502 would cost a round trip back through the list.
     if (isInitialError) {
         return (
             <div className="p-8 space-y-4">
                 <p className="text-sm text-destructive">{initialErrorText}</p>
-                <Button variant="outline" onClick={() => navigate('/admin/strategies')}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    {t('common:back')}
-                </Button>
+                <div className="flex items-center gap-3">
+                    <Button onClick={() => retryInitialLoad()}>{t('common:retry')}</Button>
+                    <Button variant="outline" onClick={() => navigate('/admin/strategies')}>
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        {t('common:back')}
+                    </Button>
+                </div>
             </div>
         );
     }

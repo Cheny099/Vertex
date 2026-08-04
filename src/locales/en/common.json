@@ -196,5 +196,6 @@
   "error_load_failed": "Failed to load. Please try again.",
   "error_operation_failed": "Operation failed. Please try again.",
   "required": "is required",
-  "retry": "Retry"
+  "retry": "Retry",
+  "offline_hint": "No network connection, so this strategy could not be loaded. Reconnect and try again."
 }
