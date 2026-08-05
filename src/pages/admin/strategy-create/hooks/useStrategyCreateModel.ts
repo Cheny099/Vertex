@@ -217,6 +217,10 @@ export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => 
         setShowWebhookDialog,
         closeWebhookDialog,
         webhookData,
-        generateStrategyKey: () => form.setValue('strategyKey', buildGeneratedStrategyKey()),
+        // shouldValidate, because the field can now hold an error. setValue does not clear one on
+        // its own, so regenerating after a blocked save would fill the box with a valid key and
+        // leave the red border and the "key is required" message sitting under it.
+        generateStrategyKey: () =>
+            form.setValue('strategyKey', buildGeneratedStrategyKey(), { shouldValidate: true }),
     };
 };
