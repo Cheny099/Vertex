@@ -7,6 +7,22 @@ export const PROMOTED_CONFIG_KEYS = ['risk_level', 'recommended_leverage', 'pair
 
 export const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 
+/**
+ * Clamps a fixed-amount position value.
+ *
+ * `max` is null whenever the account's available margin is unknown, which is currently always:
+ * nothing writes Account.available_margin. The upper bound is skipped in that case rather than
+ * substituted, because an invented ceiling is not a limit the user is subject to - the backend's
+ * only rule for fixed_amount is `>= 1` (routes/subscriptions.py:48-55), and a made-up maximum
+ * silently refuses positions the server would have accepted.
+ */
+export const clampAmount = (n: number, max: number | null) =>
+  // The lower bound is applied last, so it wins. `clamp(n, 1, max)` would return `max` for any
+  // max below 1 - i.e. this helper would hand back a value the backend rejects, breaking the very
+  // rule the paragraph above cites. Unreachable today, since fixedAmountMax is either null or
+  // `Math.max(1, ...)`, but it should not depend on its caller to stay true.
+  Math.max(1, max === null ? n : Math.min(max, n));
+
 export const toRecord = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
 

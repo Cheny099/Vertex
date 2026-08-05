@@ -13,7 +13,7 @@ import {
   type SymbolMeta,
 } from '@/api';
 import type { StrategySubscriptionDraft } from './useStrategyDetailState';
-import { PROMOTED_CONFIG_KEYS, SUPPORTED_META_EXCHANGES, toRecord } from '../utils';
+import { PROMOTED_CONFIG_KEYS, SUPPORTED_META_EXCHANGES } from '../utils';
 
 type UseStrategyDetailQueriesParams = {
   strategyId: number;
@@ -57,31 +57,29 @@ export function useStrategyDetailQueries({
     return accounts.find((a) => a.id === aid);
   }, [accounts, newSub.accountId]);
 
+  // `available_margin` is the only name this can arrive under: it is the one the Account type
+  // declares (api/types.ts:34) and the one AccountResponse serialises (schemas/account.py:199),
+  // and the route has no extra="allow", so nothing else survives the response model. Nine further
+  // candidate spellings used to be tried here - availableMargin, free_margin, balance_available,
+  // detail.* and so on - none of which exists in either. They read as if the value arrives under
+  // some name, somewhere, which is what made the 10,000 fallback below look like a rare path
+  // rather than the only one.
   const availableMargin = useMemo(() => {
-    const accountRecord = toRecord(selectedAccount);
-    const detailRecord = toRecord(accountRecord?.detail);
-    const raw =
-      selectedAccount?.available_margin ??
-      accountRecord?.availableMargin ??
-      accountRecord?.free_margin ??
-      accountRecord?.freeMargin ??
-      accountRecord?.balance_available ??
-      accountRecord?.balanceAvailable ??
-      accountRecord?.margin_available ??
-      accountRecord?.marginAvailable ??
-      detailRecord?.available_margin ??
-      detailRecord?.availableMargin ??
-      null;
-
+    const raw = selectedAccount?.available_margin;
     if (raw === null || raw === undefined) return null;
     const n = Number(raw);
     if (!Number.isFinite(n) || n <= 0) return null;
     return n;
   }, [selectedAccount]);
 
+  // null means "no client-side ceiling", not "zero". It used to fall back to 10000, which read as a
+  // sane default and was in practice the only value this ever took: nothing in the backend writes
+  // Account.available_margin - the column is migrated and exposed but never assigned - so
+  // availableMargin above resolves to null on every account. Every user was therefore capped at
+  // 10,000 USDT regardless of their real balance, while the server's only rule is `>= 1`.
   const fixedAmountMax = useMemo(() => {
     if (availableMargin && availableMargin > 0) return Math.max(1, Math.floor(availableMargin));
-    return 10000;
+    return null;
   }, [availableMargin]);
 
   const { data: exchangeMeta } = useQuery({
@@ -100,8 +98,12 @@ export function useStrategyDetailQueries({
   });
 
   const minNotional = exchangeMeta?.min_notional || 0;
+  // An empty field is mid-edit, not a violation: flagging it would put a red warning under the box
+  // the moment the user selects the amount and starts retyping it.
   const isMinNotionalViolated =
-    newSub.positionMode === 'fixed_amount' && Number(newSub.positionValue || 0) < minNotional;
+    newSub.positionMode === 'fixed_amount' &&
+    newSub.positionValue !== null &&
+    Number(newSub.positionValue) < minNotional;
 
   const { data: leaderboard } = useQuery({
     queryKey: ['leaderboard', 'strategy', strategyId],
