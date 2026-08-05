@@ -57,15 +57,25 @@ describe('useRecentTradesModel with TurboFlow rows', () => {
     expect((await firstRow()).side).toBe('buy');
   });
 
-  it('shows a base quantity, not the USD notional', async () => {
+  it('shows a base quantity derived from done_size, not a raw USD figure', async () => {
     // 600 USDT of BTC at 60000 is 0.01 BTC. The volume column used to read done_vol straight out.
     mocks.getTfOrders.mockResolvedValue({
-      data: [{ id: '1', order_way: 1, done_vol: '600', deal_price: '60000' }],
+      data: [{ id: '1', order_way: 1, done_size: '600', deal_price: '60000' }],
     });
 
     const row = await firstRow();
     expect(row.volumeValue).not.toBe('600');
     expect(Number(row.volumeValue)).toBeCloseTo(0.01, 10);
+  });
+
+  it('shows nothing rather than a leverage-scaled guess when only done_vol is present', async () => {
+    // done_vol is the margin, so done_vol / price is quantity ÷ leverage.
+    mocks.getTfOrders.mockResolvedValue({
+      data: [{ id: '1', order_way: 1, done_vol: '60', deal_price: '60000' }],
+    });
+
+    const row = await firstRow();
+    expect(row.volumeValue).toBeUndefined();
   });
 
   it('keys rows on the snowflake string so adjacent ids stay distinct', async () => {

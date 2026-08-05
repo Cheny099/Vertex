@@ -40,26 +40,44 @@ const resolveSide = (item: TurboFlowOrderItem) => {
 /**
  * TurboFlow does not send a base quantity. It sends notionals, and the base quantity is derived.
  *
- * services/exchanges/execution_extractors.py:140-200 is the backend's own reading of these fields,
- * and its docstring is explicit: "TF 常见 done_amount=0，但 done_size>0（notional）". It takes
- * `done_size` as the notional, derives quantity as `done_size / deal_price`, and falls back to
- * `done_vol` as a notional only when nothing else produced one. `done_amount` is deliberately not
- * used here: the same extractor treats it as ambiguous - it can be either a base quantity or a
- * notional, and it disambiguates by comparing against `done_size / price` with a 2% tolerance.
- * Reproducing that heuristic in the browser is not worth the chance of getting it backwards.
+ * `done_size / deal_price` is the backend's own derivation and the only one reproduced here.
+ * services/exchanges/execution_extractors.py:152-155 computes exactly that as `qty_from_size`
+ * (`qty_source = "done_size_div_price"`), and the audit layer consumes it as the base quantity -
+ * `_extract_tf_execution_metrics` (audit/turboflow_audit.py:340-380) takes `executed_qty` from the
+ * same extractor.
+ *
+ * Two fields are deliberately NOT used, and both would look reasonable:
+ *
+ * - `done_vol` is the **margin**, not a notional. `_tf_vol_mode()`
+ *   (turboflow/_internal/service_utils.py:595-603) defaults to "margin" - `vol=保证金` - and
+ *   service_core.py:886-893 sends `submit_margin = submit_notional / leverage` as `vol` in that
+ *   mode. The audit layer names it accordingly: `margin_usd = safe_float(raw_meta.get("done_vol"))`
+ *   (turboflow_audit.py:352), kept as a field distinct from the notional. Dividing it by price
+ *   yields quantity ÷ leverage - a plausible-looking coin figure that is silently 20x low on a 20x
+ *   position, which is worse than the obviously-wrong USD number it would replace. The extractor
+ *   never divides it by price either; it uses it only as a last-resort notional and leaves qty
+ *   unset.
+ * - `done_amount` is ambiguous. The same extractor treats it as either a base quantity or a
+ *   notional and disambiguates against `done_size / price` with a 2% tolerance
+ *   (execution_extractors.py:162-183). Reproducing that heuristic in the browser is not worth the
+ *   chance of reading it backwards.
+ *
+ * So a row that carries neither a positive `done_size` nor a price renders '--'. That is narrower
+ * than what the backend can quantify, and deliberately so: a blank beats a number whose unit this
+ * side cannot establish.
  *
  * The column is `history:table.amount`, which is 数量 - a quantity - and is filled for system
  * orders from `executed_qty`, a base quantity. Putting `done_vol` there, as this used to, printed a
- * USD figure under a coin-quantity header: orders of magnitude off on any high-priced pair, and
- * silently comparable against the system rows above it.
+ * margin figure in USD under a coin-quantity header.
  */
 const resolveQuantity = (item: TurboFlowOrderItem, price: number | undefined) => {
   if (price === undefined || price <= 0) return undefined;
-  const notional = [item.done_size, item.done_vol]
-    .map(parseNum)
-    .find((value) => value !== undefined && value > 0);
-  if (notional === undefined) return undefined;
-  return notional / price;
+  const notional = parseNum(item.done_size);
+  if (notional === undefined || notional <= 0) return undefined;
+  // Trimmed to 8 significant digits. The quotient is a derived value, and printing it raw asserts
+  // 17 digits of precision it does not have - 100 / 94512.3 renders as 0.0010580633420200333 in a
+  // cell with no formatter. 8 is finer than any exchange's lot size.
+  return Number((notional / price).toPrecision(8));
 };
 
 export const mapTurboFlowOrderToOrder = (

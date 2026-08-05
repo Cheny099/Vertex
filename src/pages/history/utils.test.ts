@@ -81,33 +81,35 @@ describe("mapTurboFlowOrderToOrder", () => {
       expect(row.quantity).toBeCloseTo(0.01, 10);
     });
 
-    it("does not print the notional as if it were a quantity", () => {
-      // 600 USDT of BTC is 0.01 BTC, not 600 BTC. That is the whole defect.
+    it("does not print done_vol as if it were a quantity", () => {
+      // done_vol used to be rendered straight into this column: 600 under a coin header.
       const row = mapTurboFlowOrderToOrder(
         item({ id: "1", done_vol: "600", deal_price: "60000" }),
         "22"
       );
 
       expect(row.quantity).not.toBe(600);
-      expect(row.quantity).toBeCloseTo(0.01, 10);
     });
 
-    it("prefers done_size over done_vol, as the extractor does", () => {
+    it("never derives a quantity from done_vol, because done_vol is the margin", () => {
+      // _tf_vol_mode() defaults to "margin" (service_utils.py:595-603) and service_core.py:886-893
+      // sends submit_notional / leverage as vol, so done_vol / price is quantity ÷ leverage. On a
+      // 20x position that is a plausible-looking coin figure 20x too small - worse than the
+      // obviously-wrong USD number, because nothing about it looks off.
       const row = mapTurboFlowOrderToOrder(
-        item({ id: "1", done_size: "600", done_vol: "999", deal_price: "60000" }),
+        item({ id: "1", done_vol: "60", deal_price: "60000" }),
         "22"
       );
 
-      expect(row.quantity).toBeCloseTo(0.01, 10);
+      expect(row.quantity).toBeUndefined();
+      expect(row.quantity).not.toBe(0.001);
     });
 
-    it("skips a zero notional rather than treating it as a fill", () => {
-      const row = mapTurboFlowOrderToOrder(
-        item({ id: "1", done_size: "0", done_vol: "600", deal_price: "60000" }),
-        "22"
-      );
-
-      expect(row.quantity).toBeCloseTo(0.01, 10);
+    it("ignores done_vol even when done_size is absent or zero", () => {
+      expect(
+        mapTurboFlowOrderToOrder(item({ id: "1", done_size: "0", done_vol: "600", deal_price: "60000" }), "22")
+          .quantity
+      ).toBeUndefined();
     });
 
     it("renders nothing rather than a wrong number when it cannot derive one", () => {
@@ -119,6 +121,17 @@ describe("mapTurboFlowOrderToOrder", () => {
       expect(
         mapTurboFlowOrderToOrder(item({ id: "1", deal_price: "60000" }), "22").quantity
       ).toBeUndefined();
+    });
+
+    it("trims the derived value instead of asserting 17 digits of precision", () => {
+      const row = mapTurboFlowOrderToOrder(
+        item({ id: "1", done_size: "100", deal_price: "94512.3" }),
+        "22"
+      );
+
+      // Raw, this is 0.0010580633420200333.
+      expect(String(row.quantity).replace(/^0\.0*/, '').length).toBeLessThanOrEqual(8);
+      expect(row.quantity).toBeCloseTo(0.00105806, 8);
     });
 
     it("ignores done_amount, which the backend treats as ambiguous", () => {
