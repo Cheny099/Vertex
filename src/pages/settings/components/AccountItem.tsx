@@ -71,7 +71,11 @@ function AccountItemComponent({
               <p className="text-muted-foreground font-mono truncate max-w-[120px]">
                 {account.api_key || (account.exchange === 'week' ? t('settings:accounts.browser_session') : '********')}
               </p>
-              {account.available_margin !== undefined && (
+              {/* `!= null`, not `!== undefined`: the backend serialises this as null rather than
+                  omitting it (no exclude_none on the accounts routes), and null is not undefined -
+                  so the row rendered with an empty value between the label and "USDT" on every
+                  account. Nothing writes Account.available_margin, so that is every account today. */}
+              {account.available_margin != null && (
                 <div className="flex items-center gap-1.5 border-l border-border/50 pl-2">
                   <span className="text-muted-foreground">{t('common:finance.available')}:</span>
                   <span className="font-bold text-primary">{account.available_margin} {account.currency || 'USDT'}</span>
