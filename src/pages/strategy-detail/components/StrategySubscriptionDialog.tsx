@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import type { UiMode } from '../utils';
+import { parseNumberInput } from '@/lib/utils';
 import { clamp, clampAmount } from '../utils';
 import type { StrategySubscriptionDraft } from '../hooks/useStrategyDetailState';
 
@@ -153,15 +154,21 @@ export function StrategySubscriptionDialog({
                       min={1}
                       max={fixedAmountMax ?? undefined}
                       step={0.01}
-                      value={newSub.positionValue}
-                      onChange={(e) => {
-                        const n = Number(e.target.value);
-                        if (!Number.isFinite(n)) {
-                          setNewSub({ ...newSub, positionValue: 1 });
-                          return;
-                        }
-                        setNewSub({ ...newSub, positionValue: clampAmount(n, fixedAmountMax) });
-                      }}
+                      value={newSub.positionValue ?? ''}
+                      onChange={(e) =>
+                        setNewSub({
+                          ...newSub,
+                          // Deliberately no lower clamp while typing. Clamping to 1 on every
+                          // keystroke means backspacing 100 down to 50 gives "1" and then "150" -
+                          // the field cannot be cleared, only retyped. That is #30's bug, and it
+                          // used to be survivable because the slider was there to drag instead.
+                          // Save stays disabled below 1 and both mutations clamp before they send,
+                          // so nothing under 1 can escape.
+                          positionValue: parseNumberInput(e.target.value, {
+                            max: fixedAmountMax ?? undefined,
+                          }),
+                        })
+                      }
                     />
 
                     <div className="text-[10px] text-muted-foreground">

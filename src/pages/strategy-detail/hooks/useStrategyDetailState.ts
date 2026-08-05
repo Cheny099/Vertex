@@ -6,7 +6,9 @@ import type { UiMode } from '../utils';
 export interface StrategySubscriptionDraft {
   accountId: string;
   positionMode: UiMode;
-  positionValue: number;
+  // null is "the field is empty or mid-edit", which a number input needs to be able to express -
+  // see #30. Every consumer already reads it as `Number(positionValue || fallback)`.
+  positionValue: number | null;
   positionPct: number;
   leverage: number;
 }

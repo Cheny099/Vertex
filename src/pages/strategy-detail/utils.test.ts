@@ -24,8 +24,16 @@ describe('clampAmount', () => {
 
     it('does not treat a zero maximum as unknown', () => {
         // `max === null` rather than `!max`: 0 is a real, if degenerate, ceiling and must not
-        // silently reopen the field.
-        expect(clampAmount(500, 0)).toBe(0);
+        // silently reopen the field to unlimited.
+        expect(clampAmount(500, 0)).not.toBe(500);
+    });
+
+    it('never returns below 1, even for a maximum below 1', () => {
+        // A plain clamp(n, 1, max) returns `max` when max < 1, i.e. it would hand back a value the
+        // backend rejects with "position_value must be >= 1". The lower bound is applied last so it
+        // always wins, regardless of what the caller passes as the ceiling.
+        expect(clampAmount(500, 0)).toBe(1);
+        expect(clampAmount(500, 0.4)).toBe(1);
     });
 });
 

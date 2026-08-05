@@ -98,8 +98,12 @@ export function useStrategyDetailQueries({
   });
 
   const minNotional = exchangeMeta?.min_notional || 0;
+  // An empty field is mid-edit, not a violation: flagging it would put a red warning under the box
+  // the moment the user selects the amount and starts retyping it.
   const isMinNotionalViolated =
-    newSub.positionMode === 'fixed_amount' && Number(newSub.positionValue || 0) < minNotional;
+    newSub.positionMode === 'fixed_amount' &&
+    newSub.positionValue !== null &&
+    Number(newSub.positionValue) < minNotional;
 
   const { data: leaderboard } = useQuery({
     queryKey: ['leaderboard', 'strategy', strategyId],

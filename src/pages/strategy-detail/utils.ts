@@ -17,7 +17,11 @@ export const clamp = (n: number, min: number, max: number) => Math.min(max, Math
  * silently refuses positions the server would have accepted.
  */
 export const clampAmount = (n: number, max: number | null) =>
-  max === null ? Math.max(1, n) : clamp(n, 1, max);
+  // The lower bound is applied last, so it wins. `clamp(n, 1, max)` would return `max` for any
+  // max below 1 - i.e. this helper would hand back a value the backend rejects, breaking the very
+  // rule the paragraph above cites. Unreachable today, since fixedAmountMax is either null or
+  // `Math.max(1, ...)`, but it should not depend on its caller to stay true.
+  Math.max(1, max === null ? n : Math.min(max, n));
 
 export const toRecord = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
