@@ -272,7 +272,8 @@
     "multiplier_fallback": "倍率 (需调整)",
     "amount_range": "范围：1 ~ {{max}}（USDT）",
     "fixed_amount_desc": "* 无论信号量大小，每次固定开仓 {{amount}} USDT。",
-    "ratio_desc": "* 每次开仓将动用账户可用余额的 {{percent}}% 作为保证金。"
+    "ratio_desc": "* 每次开仓将动用账户可用余额的 {{percent}}% 作为保证金。",
+    "amount_min_only": "最小 1 USDT（未获取到可用保证金，不设上限）"
   },
   "switch_step": {
     "PRECHECK_API": "API 预检",

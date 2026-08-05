@@ -10,12 +10,12 @@ import {
   type SubscriptionCreateDto,
 } from '@/api';
 import type { StrategySubscriptionDraft } from './useStrategyDetailState';
-import { clamp, normalizeLegalDocKey, parseApiError } from '../utils';
+import { clamp, clampAmount, normalizeLegalDocKey, parseApiError } from '../utils';
 
 type UseStrategySubscriptionActionsParams = {
   strategyId: number;
   strategy: Strategy | undefined;
-  fixedAmountMax: number;
+  fixedAmountMax: number | null;
   editingSub: Subscription | null;
   newSub: StrategySubscriptionDraft;
   setIsAddSubOpen: (open: boolean) => void;
@@ -72,7 +72,7 @@ export function useStrategySubscriptionActions({
       const leverage = data.leverage > 0 ? data.leverage : undefined;
 
       if (data.positionMode === 'fixed_amount') {
-        const amount = clamp(Number(data.positionValue || 1), 1, fixedAmountMax);
+        const amount = clampAmount(Number(data.positionValue || 1), fixedAmountMax);
         return subscriptionApi.create({
           strategy_id: strategyId,
           strategy_key: strategy.strategy_key,
@@ -111,7 +111,7 @@ export function useStrategySubscriptionActions({
         position_mode: data.positionMode,
         position_value:
           data.positionMode === 'fixed_amount'
-            ? clamp(Number(data.positionValue || 1), 1, fixedAmountMax)
+            ? clampAmount(Number(data.positionValue || 1), fixedAmountMax)
             : undefined,
         position_pct:
           data.positionMode === 'fixed'

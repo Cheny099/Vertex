@@ -293,7 +293,8 @@
     "multiplier_fallback": "Multiplier (deprecated)",
     "amount_range": "Range: 1 ~ {{max}} (USDT)",
     "fixed_amount_desc": "* Fixed position size of {{amount}} USDT per signal, regardless of signal volume.",
-    "ratio_desc": "* Each trade uses {{percent}}% of available margin."
+    "ratio_desc": "* Each trade uses {{percent}}% of available margin.",
+    "amount_min_only": "Minimum 1 USDT (available margin unknown, so no upper limit is applied)"
   },
   "periods": {
     "1m": "1M",

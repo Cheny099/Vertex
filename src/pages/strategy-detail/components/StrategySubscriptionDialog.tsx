@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import type { UiMode } from '../utils';
-import { clamp } from '../utils';
+import { clamp, clampAmount } from '../utils';
 import type { StrategySubscriptionDraft } from '../hooks/useStrategyDetailState';
 
 interface StrategySubscriptionDialogProps {
@@ -27,7 +27,7 @@ interface StrategySubscriptionDialogProps {
   newSub: StrategySubscriptionDraft;
   setNewSub: Dispatch<SetStateAction<StrategySubscriptionDraft>>;
   accounts?: Account[];
-  fixedAmountMax: number;
+  fixedAmountMax: number | null;
   availableMargin: number | null;
   isMinNotionalViolated: boolean;
   minNotional: number;
@@ -106,7 +106,7 @@ export function StrategySubscriptionDialog({
                     setNewSub({
                       ...newSub,
                       positionMode: 'fixed_amount',
-                      positionValue: clamp(Number(newSub.positionValue || 1), 1, fixedAmountMax),
+                      positionValue: clampAmount(Number(newSub.positionValue || 1), fixedAmountMax),
                     });
                   } else {
                     setNewSub({
@@ -151,7 +151,7 @@ export function StrategySubscriptionDialog({
                       type="number"
                       inputMode="decimal"
                       min={1}
-                      max={fixedAmountMax}
+                      max={fixedAmountMax ?? undefined}
                       step={0.01}
                       value={newSub.positionValue}
                       onChange={(e) => {
@@ -160,11 +160,15 @@ export function StrategySubscriptionDialog({
                           setNewSub({ ...newSub, positionValue: 1 });
                           return;
                         }
-                        setNewSub({ ...newSub, positionValue: clamp(n, 1, fixedAmountMax) });
+                        setNewSub({ ...newSub, positionValue: clampAmount(n, fixedAmountMax) });
                       }}
                     />
 
-                    <div className="text-[10px] text-muted-foreground">{t('strategies:hints.amount_range', { max: fixedAmountMax })}</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {fixedAmountMax === null
+                        ? t('strategies:hints.amount_min_only')
+                        : t('strategies:hints.amount_range', { max: fixedAmountMax })}
+                    </div>
 
                     {isMinNotionalViolated && (
                       <p className="text-[10px] text-destructive flex items-center gap-1 mt-1">
@@ -174,14 +178,19 @@ export function StrategySubscriptionDialog({
                     )}
                   </div>
 
-                  <Slider
-                    value={[Number(newSub.positionValue || 1)]}
-                    min={1}
-                    max={fixedAmountMax}
-                    step={1}
-                    onValueChange={(val) => setNewSub({ ...newSub, positionValue: val[0] })}
-                    className="py-2"
-                  />
+                  {/* A slider needs a range. With the available margin unknown there is no upper
+                      bound to draw one against, and the old 10,000 fallback made one up - so the
+                      number input is the only honest control in that case. */}
+                  {fixedAmountMax !== null && (
+                    <Slider
+                      value={[Number(newSub.positionValue || 1)]}
+                      min={1}
+                      max={fixedAmountMax}
+                      step={1}
+                      onValueChange={(val) => setNewSub({ ...newSub, positionValue: val[0] })}
+                      className="py-2"
+                    />
+                  )}
 
                   <p className="text-[10px] text-muted-foreground leading-relaxed italic">
                     * {t('strategies:hints.fixed_amount_desc', { amount: Number(newSub.positionValue || 1).toFixed(2) })}
@@ -239,8 +248,12 @@ export function StrategySubscriptionDialog({
             disabled={
               !newSub.accountId ||
               isSubmitting ||
+              // The upper bound only blocks Save when there is a real one. `> null` coerces to
+              // `> 0`, so leaving fixedAmountMax in the comparison unguarded would disable Save for
+              // every positive amount the moment the ceiling became unknown.
               (newSub.positionMode === 'fixed_amount' &&
-                (Number(newSub.positionValue || 0) < 1 || Number(newSub.positionValue || 0) > fixedAmountMax)) ||
+                (Number(newSub.positionValue || 0) < 1 ||
+                  (fixedAmountMax !== null && Number(newSub.positionValue || 0) > fixedAmountMax))) ||
               (newSub.positionMode === 'fixed' && (newSub.positionPct < 0.02 || newSub.positionPct > 1))
             }
           >
