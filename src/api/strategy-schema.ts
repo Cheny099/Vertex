@@ -25,8 +25,18 @@ interface StrategySchemaOptions {
 // Dynamic schema generator for i18n
 export const getStrategySchema = (t: TFunction, { requireStrategyKey = false }: StrategySchemaOptions = {}) =>
   z.object({
+    // `refine`, not `.trim().min(1)`. zodResolver hands react-hook-form the *parsed* object
+    // (`values: s.raw ? t : e`, and `raw` defaults to false), so a transforming schema rewrites what
+    // gets submitted. `.trim()` would therefore silently strip a stored key that has surrounding
+    // whitespace - which the create branch does not prevent and the backend does not normalise - and
+    // saving an unrelated edit would rotate that strategy's identity. That is the exact failure this
+    // field is being guarded against. Validate on the trimmed value; submit the value as typed.
     strategyKey: requireStrategyKey
-      ? z.string().trim().min(1, t('strategies:validation.strategy_key_required'))
+      ? z
+          .string()
+          .refine((value) => value.trim().length > 0, {
+            message: t('strategies:validation.strategy_key_required'),
+          })
       : z.string().optional(),
     name: z.string().min(1, t('strategies:validation.name_required')),
     description: z.string().optional(),

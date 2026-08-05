@@ -160,6 +160,50 @@ describe('useStrategyCreateModel seeding', () => {
         expect(mocks.update.mock.calls[0][1]).toMatchObject({ strategy_key: 'sk-5' });
     });
 
+    it('submits a padded key exactly as stored, without trimming it', async () => {
+        // zodResolver passes handleSubmit the PARSED object, so a `.trim()` in the schema would
+        // rewrite the key on the way out. A stored key with surrounding whitespace is creatable -
+        // the create branch does not trim and the backend does not normalise - so trimming here
+        // would rotate that strategy's identity on an unrelated edit, which is the bug this field
+        // is guarded against in the first place.
+        mocks.get.mockResolvedValue({ ...strategy('active', 'Momentum'), strategy_key: ' sk-padded ' });
+        mocks.update.mockResolvedValue({ ...strategy('active', 'Momentum'), id: 5 });
+
+        const { result } = renderHook(() => useStrategyCreateModel({ t }), { wrapper });
+        await waitFor(() => expect(result.current.form.getValues('name')).toBe('Momentum'));
+
+        await act(async () => {
+            result.current.form.setValue('description', 'edited elsewhere');
+        });
+        await act(async () => {
+            await result.current.form.handleSubmit(result.current.handleSubmit)();
+        });
+
+        await waitFor(() => expect(mocks.update).toHaveBeenCalled());
+        expect(mocks.update.mock.calls[0][1]).toMatchObject({ strategy_key: ' sk-padded ' });
+    });
+
+    it('clears the key error when the regenerate button fills the field', async () => {
+        mocks.get.mockResolvedValue(strategy('active', 'Momentum'));
+        const { result } = renderHook(() => useStrategyCreateModel({ t }), { wrapper });
+        await waitFor(() => expect(result.current.form.getValues('name')).toBe('Momentum'));
+
+        await act(async () => {
+            result.current.form.setValue('strategyKey', '');
+        });
+        await act(async () => {
+            await result.current.form.handleSubmit(result.current.handleSubmit)();
+        });
+        expect(result.current.form.getFieldState('strategyKey').error).toBeDefined();
+
+        await act(async () => {
+            result.current.generateStrategyKey();
+        });
+
+        expect(result.current.form.getValues('strategyKey')).toMatch(/^sk_/);
+        expect(result.current.form.getFieldState('strategyKey').error).toBeUndefined();
+    });
+
     it('seeds an edit with the record\'s own key', async () => {
         mocks.get.mockResolvedValue(strategy('active', 'Momentum'));
 
