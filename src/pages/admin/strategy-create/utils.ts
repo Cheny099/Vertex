@@ -63,7 +63,12 @@ export const buildStrategyPayload = ({
     const { name, description, status, type, pair, strategyKey } = form;
 
     return {
-        strategy_key: strategyKey || buildGeneratedStrategyKey(),
+        // The `||` generator is for create, where there is no key yet and minting one is the point.
+        // In edit mode it was a trapdoor: clearing the field made this read "generate a replacement",
+        // so an admin who emptied the box - to retype it, or by tabbing through - silently rotated a
+        // live strategy's identity and broke every TradingView alert aimed at the old key, under a
+        // success toast. Edit mode now sends what the form holds, and the schema refuses an empty one.
+        strategy_key: isEditMode ? strategyKey ?? '' : strategyKey || buildGeneratedStrategyKey(),
         name,
         description,
         status: toFinalStrategyStatus(status),

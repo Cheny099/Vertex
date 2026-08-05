@@ -13,10 +13,21 @@ const strategySchemaBase = z.object({
 
 export type StrategyFormData = z.infer<typeof strategySchemaBase>;
 
+interface StrategySchemaOptions {
+  /**
+   * Edit only. Creating a strategy may leave the key blank - the payload builder generates one -
+   * but editing may not: a blank key there used to be read as "generate a replacement", which
+   * rotated a live strategy's webhook identity and broke every TradingView alert pointing at it.
+   */
+  requireStrategyKey?: boolean;
+}
+
 // Dynamic schema generator for i18n
-export const getStrategySchema = (t: TFunction) =>
+export const getStrategySchema = (t: TFunction, { requireStrategyKey = false }: StrategySchemaOptions = {}) =>
   z.object({
-    strategyKey: z.string().optional(),
+    strategyKey: requireStrategyKey
+      ? z.string().trim().min(1, t('strategies:validation.strategy_key_required'))
+      : z.string().optional(),
     name: z.string().min(1, t('strategies:validation.name_required')),
     description: z.string().optional(),
     type: z.string().optional().default('signal'),
