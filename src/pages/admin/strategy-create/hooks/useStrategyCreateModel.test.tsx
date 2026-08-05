@@ -1,5 +1,5 @@
 import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, renderHook, waitFor } from '@testing-library/react';
+import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';
 import type { TFunction } from 'i18next';
 import type { PropsWithChildren } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,16 +9,27 @@ import { useStrategyCreateModel } from './useStrategyCreateModel';
 
 const mocks = vi.hoisted(() => ({
     get: vi.fn(),
+    update: vi.fn(),
+    create: vi.fn(),
     navigate: vi.fn(),
     toast: vi.fn(),
 }));
 
-vi.mock('@/api', () => ({
-    strategyApi: { get: mocks.get },
-    adminApi: { strategies: { create: vi.fn(), update: vi.fn(), getWebhookSecret: vi.fn() } },
-    getStrategySchema: () => z.object({}).passthrough(),
-    translateBackendErrorMessage: (message: string) => message,
-}));
+// The real schema, not a passthrough stub: these tests are partly about whether the resolver
+// actually blocks a submit, which a permissive stub would hide.
+vi.mock('@/api', async () => {
+    const { getStrategySchema } = await vi.importActual<typeof import('@/api/strategy-schema')>(
+        '@/api/strategy-schema'
+    );
+    return {
+        strategyApi: { get: mocks.get },
+        adminApi: {
+            strategies: { create: mocks.create, update: mocks.update, getWebhookSecret: vi.fn() },
+        },
+        getStrategySchema,
+        translateBackendErrorMessage: (message: string) => message,
+    };
+});
 
 vi.mock('@/components/ui/use-toast', () => ({
     useToast: () => ({ toast: mocks.toast }),
@@ -79,6 +90,74 @@ describe('useStrategyCreateModel seeding', () => {
         const key = result.current.form.getValues('strategyKey');
         expect(key).not.toBe('sk-5');
         expect(key).toMatch(/^sk_/);
+    });
+
+    it('blocks an edit whose key was cleared, and reports why', async () => {
+        mocks.get.mockResolvedValue(strategy('active', 'Momentum'));
+        const { result } = renderHook(() => useStrategyCreateModel({ t }), { wrapper });
+        await waitFor(() => expect(result.current.form.getValues('name')).toBe('Momentum'));
+
+        await act(async () => {
+            result.current.form.setValue('strategyKey', '');
+        });
+        await act(async () => {
+            await result.current.form.handleSubmit(result.current.handleSubmit)();
+        });
+
+        // Blocked is only half of it. Without an error on the field the Save button would be dead
+        // with no explanation, which is worse than the rotation it prevents.
+        expect(mocks.update).not.toHaveBeenCalled();
+        expect(result.current.form.getFieldState('strategyKey').error?.message).toBe(
+            'strategies:validation.strategy_key_required'
+        );
+    });
+
+    it('renders the strategyKey error through a component that subscribes to formState', async () => {
+        // getFieldState above proves the error exists; it does not prove anyone can see it.
+        // react-hook-form's formState is a proxy that only re-renders subscribers, so a message
+        // that never reaches a rendering component is a Save button that silently does nothing.
+        // This harness reads formState.errors during render, exactly as StrategyCreatePage.tsx:102
+        // passes it to StrategyCreateFormCard.
+        mocks.get.mockResolvedValue(strategy('active', 'Momentum'));
+
+        let model: ReturnType<typeof useStrategyCreateModel> | undefined;
+        const Harness = () => {
+            model = useStrategyCreateModel({ t });
+            const { errors } = model.form.formState;
+            return <span data-testid="key-error">{(errors.strategyKey?.message as string) ?? ''}</span>;
+        };
+
+        render(<Harness />, { wrapper });
+        await waitFor(() => expect(model!.form.getValues('name')).toBe('Momentum'));
+
+        await act(async () => {
+            model!.form.setValue('strategyKey', '   ');
+        });
+        await act(async () => {
+            await model!.form.handleSubmit(model!.handleSubmit)();
+        });
+
+        expect(mocks.update).not.toHaveBeenCalled();
+        expect(screen.getByTestId('key-error').textContent).toBe(
+            'strategies:validation.strategy_key_required'
+        );
+    });
+
+    it('sends the unchanged key back when an edit does not touch it', async () => {
+        mocks.get.mockResolvedValue(strategy('active', 'Momentum'));
+        mocks.update.mockResolvedValue({ ...strategy('active', 'Momentum'), id: 5 });
+        const { result } = renderHook(() => useStrategyCreateModel({ t }), { wrapper });
+        await waitFor(() => expect(result.current.form.getValues('name')).toBe('Momentum'));
+
+        await act(async () => {
+            result.current.form.setValue('description', 'edited elsewhere');
+        });
+        await act(async () => {
+            await result.current.form.handleSubmit(result.current.handleSubmit)();
+        });
+
+        await waitFor(() => expect(mocks.update).toHaveBeenCalled());
+        expect(mocks.update.mock.calls[0][1]).toMatchObject({ strategy_key: 'sk-5' });
     });
 
     it('seeds an edit with the record\'s own key', async () => {

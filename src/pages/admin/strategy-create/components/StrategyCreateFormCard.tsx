@@ -51,7 +51,10 @@ export const StrategyCreateFormCard = ({
                                     <Input
                                         {...register('strategyKey')}
                                         placeholder="sk_..."
-                                        className="pl-12 font-mono text-xs h-12 bg-white/50 border-white/20 rounded-2xl shadow-inner-sm focus-visible:ring-primary/20"
+                                        className={cn(
+                                            'pl-12 font-mono text-xs h-12 bg-white/50 border-white/20 rounded-2xl shadow-inner-sm focus-visible:ring-primary/20',
+                                            errors.strategyKey && 'border-destructive ring-destructive/20'
+                                        )}
                                     />
                                 </div>
                                 <Button
@@ -65,6 +68,14 @@ export const StrategyCreateFormCard = ({
                                     <Zap className="w-4.5 h-4.5 text-primary" />
                                 </Button>
                             </div>
+                            {/* Without this the key requirement added for edit mode would be a Save
+                                button that silently does nothing: react-hook-form blocks the submit
+                                and nothing else in this card reports why. */}
+                            {errors.strategyKey && (
+                                <p className="text-xs text-destructive font-medium mt-1.5 ml-1">
+                                    {errors.strategyKey.message as string}
+                                </p>
+                            )}
                             <p className="text-xs text-muted-foreground ml-1">{t('strategies:create.key_desc')}</p>
                         </div>
 
