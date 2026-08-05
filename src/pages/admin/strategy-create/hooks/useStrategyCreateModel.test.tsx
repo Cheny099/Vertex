@@ -24,13 +24,16 @@ vi.mock('@/components/ui/use-toast', () => ({
     useToast: () => ({ toast: mocks.toast }),
 }));
 
+// Mutable so a test can put the hook on the ?copy=true route without a second mock factory.
+const search = { value: '' };
+
 vi.mock('react-router-dom', async () => {
     const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
     return {
         ...actual,
         useParams: () => ({ id: '5' }),
         useNavigate: () => mocks.navigate,
-        useSearchParams: () => [new URLSearchParams(''), vi.fn()] as const,
+        useSearchParams: () => [new URLSearchParams(search.value), vi.fn()] as const,
     };
 });
 
@@ -59,7 +62,32 @@ function wrapper({ children }: PropsWithChildren) {
 
 describe('useStrategyCreateModel seeding', () => {
     beforeEach(() => {
+        search.value = '';
         queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    });
+
+    it('seeds a copy with a fresh strategy key, not the source key', async () => {
+        // strategy_key is unique=True on the model and the create route answers a duplicate with
+        // 400 "strategy_key already exists", so carrying the source key made Copy -> Save always
+        // fail unless the admin noticed and pressed regenerate.
+        search.value = 'copy=true';
+        mocks.get.mockResolvedValue(strategy('active', 'Momentum'));
+
+        const { result } = renderHook(() => useStrategyCreateModel({ t }), { wrapper });
+        await waitFor(() => expect(result.current.form.getValues('name')).toBe('Momentum (Copy)'));
+
+        const key = result.current.form.getValues('strategyKey');
+        expect(key).not.toBe('sk-5');
+        expect(key).toMatch(/^sk_/);
+    });
+
+    it('seeds an edit with the record\'s own key', async () => {
+        mocks.get.mockResolvedValue(strategy('active', 'Momentum'));
+
+        const { result } = renderHook(() => useStrategyCreateModel({ t }), { wrapper });
+        await waitFor(() => expect(result.current.form.getValues('name')).toBe('Momentum'));
+
+        expect(result.current.form.getValues('strategyKey')).toBe('sk-5');
     });
 
     afterEach(() => {

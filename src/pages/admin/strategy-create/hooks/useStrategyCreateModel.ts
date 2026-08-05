@@ -34,7 +34,11 @@ export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => 
     const isEditMode = !!id && !isCopy;
     const isCopyMode = !!id && isCopy;
 
-    const schema = useMemo(() => getStrategySchema(t), [t]);
+    // Required only when editing: create and copy both generate a key when the field is blank.
+    const schema = useMemo(
+        () => getStrategySchema(t, { requireStrategyKey: isEditMode }),
+        [t, isEditMode]
+    );
 
     const form = useForm<StrategyFormValues>({
         resolver: zodResolver(schema),
@@ -94,7 +98,12 @@ export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => 
         form.reset({
             ...DEFAULT_STRATEGY_VALUES,
             ...initialData,
-            strategyKey: initialData.strategy_key,
+            // A copy may not carry the source key: strategy_key is `unique=True` on the model, and
+            // the create route answers a duplicate with 400 "strategy_key already exists". Seeding
+            // the original's key meant Copy -> Save always failed unless the admin happened to press
+            // the regenerate button first. Generate here so the field shows the key it will be saved
+            // with, rather than leaving a blank box the admin has to notice.
+            strategyKey: isCopyMode ? buildGeneratedStrategyKey() : initialData.strategy_key,
             name: isCopyMode ? `${initialData.name} (Copy)` : initialData.name,
             // Strategy.status is an open string on the wire; the form field is a closed union,
             // so anything unexpected falls back to 'inactive' rather than being forced through.
