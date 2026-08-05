@@ -156,7 +156,9 @@ export function StrategyMainInfoGrid({
             <LinkIcon className="w-5 h-5 text-primary" />
             <h3 className="text-lg font-bold">{t('strategies:detail.my_subscription')}</h3>
           </div>
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-primary/10 text-primary" onClick={onAddSub}>
+          {/* Wrapped, not point-free: React passes the click event as the first argument, and this
+              handler's first parameter is the flag that skips the invite-code check. */}
+          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-primary/10 text-primary" onClick={() => onAddSub()}>
             <Plus className="w-5 h-5" />
           </Button>
         </div>

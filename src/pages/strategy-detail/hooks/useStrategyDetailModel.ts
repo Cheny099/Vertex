@@ -103,8 +103,13 @@ export const useStrategyDetailModel = () => {
   );
 
   const handleAddSub = useCallback(
-    (force = false) => {
-      if (!force && !isAdmin && user && !user.can_subscribe) {
+    // `force` skips an access check, so only a literal `true` counts. It used to be tested for
+    // truthiness, and a caller that wired this straight into onClick handed it a MouseEvent -
+    // truthy - which opened the subscription dialog for a user who had no invite. TypeScript
+    // cannot catch that: a zero-argument function is assignable to a MouseEventHandler, so
+    // `onClick={onAddSub}` type-checks while React still passes the event.
+    (force?: unknown) => {
+      if (force !== true && !isAdmin && user && !user.can_subscribe) {
         setIsInviteModalOpen(true);
         return;
       }
