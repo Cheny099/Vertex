@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { keepPreviousData, useQuery, type QueryClient } from '@tanstack/react-query';
+import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { accountApi, orderApi, turboflowApi, type Order } from '@/api';
 import type { TurboFlowOrderItem } from '@/api/types';
 import { mapTurboFlowOrderToOrder } from '../utils';
@@ -32,10 +32,11 @@ export function useHistoryQueries({
   setTfPage,
   queryClient,
 }: UseHistoryQueriesParams) {
-  const { data: accounts = [] } = useQuery({
+  const accountsQuery = useQuery({
     queryKey: ['accounts'],
     queryFn: accountApi.list,
   });
+  const accounts = useMemo(() => accountsQuery.data ?? [], [accountsQuery.data]);
 
   const turboflowAccounts = useMemo(
     () => accounts.filter((acc) => acc.exchange === 'turboflow'),
@@ -43,7 +44,7 @@ export function useHistoryQueries({
   );
 
   useEffect(() => {
-    if (viewMode !== 'turboflow') return;
+    if (viewMode !== 'turboflow' || !accountsQuery.isSuccess) return;
     if (turboflowAccounts.length === 0) {
       if (selectedTfAccount !== '') setSelectedTfAccount('');
       return;
@@ -53,7 +54,7 @@ export function useHistoryQueries({
       setSelectedTfAccount(turboflowAccounts[0].id.toString());
       setTfPage(1);
     }
-  }, [viewMode, turboflowAccounts, selectedTfAccount, setSelectedTfAccount, setTfPage]);
+  }, [viewMode, accountsQuery.isSuccess, turboflowAccounts, selectedTfAccount, setSelectedTfAccount, setTfPage]);
 
   const systemOrdersQuery = useQuery({
     queryKey: ['orders', 'history', selectedSystemAccount, systemPage, systemPageSize],
@@ -64,35 +65,21 @@ export function useHistoryQueries({
         page_size: systemPageSize,
         account_id: selectedSystemAccount === 'all' ? undefined : Number(selectedSystemAccount),
       }),
-    placeholderData: keepPreviousData,
     enabled: viewMode === 'system',
   });
 
+  // Only data belonging to this exact account/status/page/size may be actionable. Cached
+  // pages and prefetching still work; an unresolved key no longer borrows another key's rows.
+  const hasTfAccount = turboflowAccounts.some((account) => String(account.id) === selectedTfAccount);
   const tfOrdersQuery = useQuery({
     queryKey: ['turboflow-orders', selectedTfAccount, tfStatus, tfPage, tfPageSize],
-    queryFn: async () => {
-      if (!selectedTfAccount) {
-        return {
-          data: [],
-          count: 0,
-          page_count: 0,
-          page_num: tfPage,
-          page_size: tfPageSize,
-          account_scope: selectedTfAccount,
-        };
-      }
-      const res = await turboflowApi.getOrders({
-        account_id: Number(selectedTfAccount),
-        status: tfStatus === 'all' ? undefined : tfStatus,
-        page_num: tfPage,
-        page_size: tfPageSize,
-      });
-      // Tag the payload with the account it was fetched for, so a kept-previous result from
-      // another account can be told apart from a genuine one.
-      return { ...res, account_scope: selectedTfAccount };
-    },
-    placeholderData: keepPreviousData,
-    enabled: viewMode === 'turboflow' && !!selectedTfAccount,
+    queryFn: () => turboflowApi.getOrders({
+      account_id: Number(selectedTfAccount),
+      status: tfStatus === 'all' ? undefined : tfStatus,
+      page_num: tfPage,
+      page_size: tfPageSize,
+    }),
+    enabled: viewMode === 'turboflow' && hasTfAccount,
   });
 
   useEffect(() => {
@@ -114,62 +101,52 @@ export function useHistoryQueries({
 
   useEffect(() => {
     if (viewMode !== 'turboflow') return;
-    if (!selectedTfAccount) return;
+    if (!hasTfAccount) return;
     const pageCount = tfOrdersQuery.data?.page_count ?? 0;
     if (pageCount === 0 || tfPage >= pageCount) return;
 
     const nextPage = tfPage + 1;
     queryClient.prefetchQuery({
       queryKey: ['turboflow-orders', selectedTfAccount, tfStatus, nextPage, tfPageSize],
-      // Must carry account_scope like the main query does, or this prefetched entry is later
-      // mistaken for another account's data when it is reused as placeholder data.
-      queryFn: async () => {
-        const res = await turboflowApi.getOrders({
-          account_id: Number(selectedTfAccount),
-          status: tfStatus === 'all' ? undefined : tfStatus,
-          page_num: nextPage,
-          page_size: tfPageSize,
-        });
-        return { ...res, account_scope: selectedTfAccount };
-      },
+      queryFn: () => turboflowApi.getOrders({
+        account_id: Number(selectedTfAccount),
+        status: tfStatus === 'all' ? undefined : tfStatus,
+        page_num: nextPage,
+        page_size: tfPageSize,
+      }),
     });
-  }, [queryClient, viewMode, selectedTfAccount, tfOrdersQuery.data?.page_count, tfPage, tfPageSize, tfStatus]);
-
-  // keepPreviousData is what makes paging feel smooth, but query-core applies it to a disabled,
-  // never-fetched key too - so when the last TurboFlow account disappears and selectedTfAccount
-  // becomes '', the removed account's rows would otherwise stay on screen indefinitely.
-  // Data is therefore discarded whenever the placeholder belongs to a different account, while
-  // "loading" is only claimed when a fetch can actually resolve it; otherwise the table would spin
-  // forever on a key that will never be requested.
-  const tfScopeMismatch =
-    tfOrdersQuery.isPlaceholderData &&
-    tfOrdersQuery.data?.account_scope !== selectedTfAccount;
-  const tfPlaceholderIsOtherAccount = tfScopeMismatch && !!selectedTfAccount;
+  }, [queryClient, viewMode, hasTfAccount, selectedTfAccount, tfOrdersQuery.data?.page_count, tfPage, tfPageSize, tfStatus]);
 
   const allTrades = useMemo<Order[]>(() => {
-    if (viewMode === 'system') {
-      return systemOrdersQuery.data?.items || [];
-    }
-    if (tfScopeMismatch) return [];
-    const list = tfOrdersQuery.data?.data || [];
-    return list.map((item: TurboFlowOrderItem) => mapTurboFlowOrderToOrder(item, selectedTfAccount));
-  }, [viewMode, systemOrdersQuery.data, tfOrdersQuery.data, selectedTfAccount, tfScopeMismatch]);
+    if (viewMode === 'system') return systemOrdersQuery.data?.items ?? [];
+    if (!hasTfAccount) return [];
+    return (tfOrdersQuery.data?.data ?? []).map((item: TurboFlowOrderItem) =>
+      mapTurboFlowOrderToOrder(item, selectedTfAccount));
+  }, [viewMode, systemOrdersQuery.data, tfOrdersQuery.data, selectedTfAccount, hasTfAccount]);
 
-  const isLoading =
-    viewMode === 'system'
-      ? systemOrdersQuery.isLoading
-      : tfOrdersQuery.isLoading || tfPlaceholderIsOtherAccount;
-  const isError = viewMode === 'system' ? systemOrdersQuery.isError : tfOrdersQuery.isError;
-  const queryError = viewMode === 'system' ? systemOrdersQuery.error : tfOrdersQuery.error;
+  const activeQuery = viewMode === 'system' ? systemOrdersQuery : tfOrdersQuery;
+  const isPaused = accountsQuery.isPaused || activeQuery.isPaused;
+  const isError = accountsQuery.isError || activeQuery.isError || isPaused;
+  const isLoading = !isError && (viewMode === 'system'
+    ? systemOrdersQuery.isLoading
+    : accountsQuery.isLoading || (hasTfAccount && tfOrdersQuery.isLoading));
+  const queryError = activeQuery.error ?? accountsQuery.error;
+  const retry = () => {
+    if (accountsQuery.isError || accountsQuery.isPaused) void accountsQuery.refetch();
+    if (viewMode === 'system') void systemOrdersQuery.refetch();
+    else if (hasTfAccount) void tfOrdersQuery.refetch();
+  };
 
   return {
     accounts,
     turboflowAccounts,
     systemOrdersData: systemOrdersQuery.data,
-    tfOrdersData: tfScopeMismatch ? undefined : tfOrdersQuery.data,
+    tfOrdersData: hasTfAccount ? tfOrdersQuery.data : undefined,
     allTrades,
     isLoading,
     isError,
+    isPaused,
     queryError,
+    retry,
   };
 }

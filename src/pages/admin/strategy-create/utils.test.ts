@@ -3,9 +3,16 @@ import { z } from 'zod';
 import type { TFunction } from 'i18next';
 
 import { getStrategySchema } from '@/api/strategy-schema';
-import { buildStrategyPayload, type StrategyFormValues } from './utils';
+import { buildStrategyPayload, buildWebhookJson, type StrategyFormValues } from './utils';
 
 const t = ((key: string) => key) as unknown as TFunction;
+
+it('escapes credential values without changing the copied Webhook JSON', () => {
+    const credentials = { strategy_key: 'sk_"quoted"\\key', secret: 'secret\nline' };
+    expect(JSON.parse(buildWebhookJson(credentials))).toEqual({
+        ...credentials, symbol: '{{ticker}}', side: 'buy', action: 'open',
+    });
+});
 
 const form = (overrides: Partial<StrategyFormValues> = {}): StrategyFormValues => ({
     strategyKey: 'sk_existing_live_key',

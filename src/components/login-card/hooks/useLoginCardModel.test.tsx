@@ -20,7 +20,11 @@ vi.mock("@/api", () => ({
 }));
 
 vi.mock("@/hooks/use-auth", () => ({
-  useAuth: () => ({ login: mocks.persistLogin }),
+  useAuth: () => ({ beginLogin: () => {
+    const controller = new AbortController();
+    return { signal: controller.signal, isCurrent: () => !controller.signal.aborted,
+      cancel: () => controller.abort(), complete: (...args: unknown[]) => { mocks.persistLogin(...args); return true; } };
+  } }),
 }));
 
 vi.mock("@/hooks/use-toast", () => ({
@@ -75,7 +79,7 @@ describe("useLoginCardModel persistence", () => {
       "session-token",
       false,
     );
-    expect(mocks.getProfile).toHaveBeenCalledWith("session-token");
+    expect(mocks.getProfile).toHaveBeenCalledWith("session-token", expect.any(AbortSignal));
   });
 
   it("does not persist authentication before the auth provider handles it", async () => {

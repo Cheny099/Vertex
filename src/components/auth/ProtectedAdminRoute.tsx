@@ -1,9 +1,10 @@
 ﻿
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
+import { SessionValidationError } from './SessionValidationError';
 
 const ProtectedAdminRoute = () => {
-    const { isAuthenticated, isAdmin, isLoading } = useAuth();
+    const { isAuthenticated, isAdmin, isLoading, validationFailed } = useAuth();
 
     if (isLoading) {
         return (
@@ -12,6 +13,8 @@ const ProtectedAdminRoute = () => {
             </div>
         );
     }
+
+    if (validationFailed) return <SessionValidationError />;
 
     // Double check: Must be authenticated AND be an admin
     if (!isAuthenticated || !isAdmin) {

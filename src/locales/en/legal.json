@@ -9,5 +9,6 @@
     "scroll_to_read_all": "Please scroll to the bottom",
     "accept_and_continue": "Sign and Continue",
     "accept_success": "Signed successfully",
-    "high_risk_warning": "High Risk Warning"
+    "high_risk_warning": "High Risk Warning",
+    "document_version_mismatch": "The requested document version is unavailable or has changed. Close this dialog and submit again to obtain the current version."
 }

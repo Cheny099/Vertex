@@ -1,6 +1,8 @@
 import { logger } from '@/lib/logger';
 import { request } from '../core';
 import { toFiniteNumber } from '../guards';
+import { decodeResponse } from '../response-validation';
+import { adminOrderDetailSchema, adminOrderListSchema, type ClosePositionRequest } from './operations-contracts';
 import type {
   AdminAuditLogListResponse,
   AdminOrderEventsResponse,
@@ -9,8 +11,6 @@ import type {
   AuditRunListResponse,
   AuditRunRequest,
   AuditRunResponse,
-  Order,
-  OrderListResponse,
   OrderTurnoverStatsRow,
   Subscription,
 } from '../types';
@@ -28,16 +28,18 @@ export const adminOpsApi = {
       }
     });
 
-    return request<OrderListResponse>(`/admin/orders?${new URLSearchParams(cleanParams).toString()}`);
+    return request<unknown>(`/admin/orders?${new URLSearchParams(cleanParams).toString()}`)
+      .then(value => decodeResponse(adminOrderListSchema, value));
   },
-  getOrder: (id: number) => request<Order>(`/admin/orders/${id}`),
+  getOrder: (id: number) => request<unknown>(`/admin/orders/${id}`)
+    .then(value => decodeResponse(adminOrderDetailSchema.refine(order => order.id === id), value)),
   getOrderEvents: (id: number) => request<AdminOrderEventsResponse>(`/admin/orders/${id}/events`),
   cancelOrder: (id: number, reason?: string) =>
     request<{ success: boolean; detail: string }>(
       `/admin/orders/${id}/cancel?reason=${encodeURIComponent(reason || '')}`,
       { method: 'POST' }
     ),
-  closePosition: (data: { account_id: number; symbol: string; pos_side: 'long' | 'short'; position_id?: string; qty?: number; reason?: string }) =>
+  closePosition: (data: ClosePositionRequest) =>
     request<void>('/admin/positions/close', { method: 'POST', body: JSON.stringify(data) }),
   requeueOrder: (id: number, reason?: string) =>
     request<{ success?: boolean; detail?: string }>(

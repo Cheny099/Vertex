@@ -1,4 +1,5 @@
 import { request } from './core';
+import type { ApiError } from './contracts';
 import type {
   Announcement,
   AnnouncementDetail,
@@ -23,8 +24,16 @@ export const announcementApi = {
     request<Announcement[]>(`/public/announcements?lang=${toApiLang(lang)}&limit=${limit}`),
 
   // Detail - public read
-  get: (id: number, lang: string) =>
-    request<AnnouncementDetail>(`/public/announcements/${id}?lang=${toApiLang(lang)}`),
+  get: async (id: number, lang: string) => {
+    const preferred = toApiLang(lang);
+    try {
+      return await request<AnnouncementDetail>(`/public/announcements/${id}?lang=${preferred}`);
+    } catch (error: unknown) {
+      if ((error as Partial<ApiError>)?.status !== 404) throw error;
+      // IDs are shared links; a language-scoped miss does not establish that the ID is missing.
+      return request<AnnouncementDetail>(`/public/announcements/${id}?lang=${preferred === 'zh' ? 'en' : 'zh'}`);
+    }
+  },
 
   // Homepage popup - public read
   getPopup: (lang: string) =>

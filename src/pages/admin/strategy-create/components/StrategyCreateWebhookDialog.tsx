@@ -16,6 +16,9 @@ interface StrategyCreateWebhookDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     webhookData: { url: string; secret: string; strategy_key: string } | null;
+    isLoading: boolean;
+    error: string;
+    onRetry: () => void;
     t: (key: string) => string;
 }
 
@@ -23,6 +26,9 @@ export const StrategyCreateWebhookDialog = ({
     open,
     onOpenChange,
     webhookData,
+    isLoading,
+    error,
+    onRetry,
     t,
 }: StrategyCreateWebhookDialogProps) => {
     const { toast } = useToast();
@@ -36,11 +42,18 @@ export const StrategyCreateWebhookDialog = ({
                     </div>
                     <DialogTitle className="text-2xl font-black">{t('strategies:create.webhook_created_title')}</DialogTitle>
                     <DialogDescription className="text-muted-foreground font-medium mt-2 leading-relaxed">
-                        {t('strategies:create.webhook_created_desc')}
+                        {t(webhookData ? 'strategies:create.webhook_created_desc' : 'strategies:create.webhook_saved_desc')}
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-6 py-6">
+                {isLoading && <p role="status">{t('common:loading')}</p>}
+                {error && (
+                    <div className="space-y-3">
+                        <p role="alert" className="text-sm text-destructive">{error}</p>
+                        <Button variant="outline" onClick={onRetry} disabled={isLoading}>{t('common:retry')}</Button>
+                    </div>
+                )}
+                {webhookData && <div className="space-y-6 py-6">
                     <div className="space-y-3">
                         <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
                             {t('strategies:create.webhook_url_label')}
@@ -90,7 +103,7 @@ export const StrategyCreateWebhookDialog = ({
                             </p>
                         </div>
                     </div>
-                </div>
+                </div>}
 
                 <DialogFooter>
                     <Button className="w-full h-14 rounded-2xl font-black text-lg gradient-primary shadow-button hover:scale-[1.02] active:scale-[0.98] transition-all" onClick={() => onOpenChange(false)}>

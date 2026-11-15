@@ -16,7 +16,8 @@ export interface Account {
     name: string;
     type: string;
     description?: string;
-    exchange: 'week' | 'turboflow' | 'binance_futures' | 'gate_futures';
+    // Read responses may include exchanges not yet offered by the create form.
+    exchange: string;
     week_mode?: string;
     week_status?: string; // 'need_login' | 'connected' | 'expired' | 'api_ready' | 'config_missing' | 'api_invalid'
     week_last_ok_at?: string;

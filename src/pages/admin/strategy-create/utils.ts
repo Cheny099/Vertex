@@ -1,4 +1,4 @@
-import type { Strategy, StrategyCreatePayload, StrategyWebhookSecretResponse } from '@/api';
+import type { Strategy, StrategyCreatePayload } from '@/api';
 
 export const containerVariants = {
     hidden: { opacity: 0 },
@@ -42,10 +42,6 @@ export type StrategyFormValues = {
     status?: 'active' | 'inactive' | boolean;
 };
 
-export type StrategyMutationResult = Strategy & {
-    webhookSecret?: StrategyWebhookSecretResponse;
-};
-
 export const buildGeneratedStrategyKey = () => `sk_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
 export const toFinalStrategyStatus = (status?: 'active' | 'inactive' | boolean) =>
@@ -87,10 +83,10 @@ export const buildWebhookUrl = () => {
     return `${apiBase.replace(/\/api\/v1$/, '')}/api/v1/tradingview/webhook`;
 };
 
-export const buildWebhookJson = (webhookData: { secret: string; strategy_key: string } | null) => `{
-  "secret": "${webhookData?.secret || ''}",
-  "strategy_key": "${webhookData?.strategy_key || ''}",
-  "symbol": "{{ticker}}",
-  "side": "buy",
-  "action": "open"
-}`;
+export const buildWebhookJson = (webhookData: { secret: string; strategy_key: string } | null) => JSON.stringify({
+    secret: webhookData?.secret ?? '',
+    strategy_key: webhookData?.strategy_key ?? '',
+    symbol: '{{ticker}}',
+    side: 'buy',
+    action: 'open',
+}, null, 2);

@@ -7,5 +7,8 @@
     "back": "返回",
     "detail": {
         "title": "公告详情"
-    }
+    },
+    "not_found": "该公告不存在或已下线。",
+    "load_failed": "公告加载失败，请稍后重试。",
+    "original_language": "当前界面语言下没有此公告，正在显示公告原文。"
 }

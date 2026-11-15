@@ -617,5 +617,21 @@
         "list_title": "All Issued Codes",
         "list_desc": "Only the last 4 characters of the code are visible for security.",
         "warning_not_copied": "You have not copied the code! Once closed, you will NEVER see the full code again. Close anyway?"
-    }
+    },
+    "close_mode": "Close amount",
+    "close_quantity": "Specified quantity",
+    "close_all": "Entire position",
+    "close_all_hint": "The server will resolve and close the entire position for this account, symbol and side.",
+    "close_invalid_input": "Enter a valid account ID, symbol and positive quantity, or explicitly select the entire position.",
+    "planned_qty": "Planned quantity",
+    "order_detail_failed": "Order details could not be loaded. Execution price is unavailable.",
+    "order_events_failed": "Order events could not be loaded.",
+    "local_minus_remote": "Local − remote",
+    "notional_mismatch": "Notional mismatch",
+  "strategy_switch_invalid_form": "Enter valid integer IDs and a symbol.",
+  "strategy_switch_storage_failed": "Unable to save recovery information. Enable browser storage for this site and try again. The operation has not been sent.",
+  "strategy_switch_recover": "Resume submitted operation",
+  "strategy_switch_recovery_hint": "The previous submission has not been confirmed. Resume uses the original parameters and the same operation identifier.",
+  "strategy_switch_preview_hint": "Preview before executing. Changing parameters requires a new preview.",
+  "strategy_switch_new_operation": "Start a new operation with these parameters"
 }

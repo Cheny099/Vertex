@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { announcementApi, PopupAnnouncement } from "@/api";
 import { logger } from "@/lib/logger";
+import { useAuth } from "@/hooks/use-auth";
 
 // Typed as react-markdown's own Components so the element props are inferred per tag; the previous
 // hand-rolled `Record<string, unknown>` shape did not satisfy it for any of them.
@@ -47,10 +48,14 @@ const markdownComponents: Components = {
 
 export default function AnnouncementPopup() {
   const { i18n, t } = useTranslation("common");
+  const { user, isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [announcement, setAnnouncement] = useState<PopupAnnouncement | null>(null);
+  const [announcementScope, setAnnouncementScope] = useState<string | null>(null);
 
   const languageKey = useMemo(() => (i18n.language.startsWith("zh") ? "zh" : "en"), [i18n.language]);
+  const scope = isAuthenticated && user
+    ? `vertex_popup_dismissed_${encodeURIComponent(user.id)}_${languageKey}` : null;
 
   // The flag has to be honoured *after* the request resolves too, not only before it is launched.
   // Switching language mid-flight otherwise let the previous language's popup open over the new
@@ -58,15 +63,19 @@ export default function AnnouncementPopup() {
   // popup for that language was never marked as seen.
   useEffect(() => {
     let cancelled = false;
+    setIsOpen(false);
+    setAnnouncement(null);
+    if (!scope) return;
 
     const checkPopup = async () => {
       try {
         const result = await announcementApi.getPopup(languageKey);
         if (cancelled || !result?.id) return;
 
-        const dismissedId = localStorage.getItem(`vertex_popup_dismissed_${languageKey}`);
+        const dismissedId = localStorage.getItem(scope);
         if (String(result.id) !== dismissedId) {
           setAnnouncement(result);
+          setAnnouncementScope(scope);
           setIsOpen(true);
         }
       } catch (error) {
@@ -82,17 +91,15 @@ export default function AnnouncementPopup() {
     return () => {
       cancelled = true;
       clearTimeout(timer);
-      // A popup belonging to the language being left must not stay on screen.
-      setIsOpen(false);
     };
-  }, [languageKey]);
+  }, [languageKey, scope]);
 
   const handleClose = useCallback(() => {
     setIsOpen(false);
-    if (announcement) {
-      localStorage.setItem(`vertex_popup_dismissed_${languageKey}`, String(announcement.id));
+    if (announcement && announcementScope === scope && scope) {
+      localStorage.setItem(scope, String(announcement.id));
     }
-  }, [announcement, languageKey]);
+  }, [announcement, announcementScope, scope]);
 
   const handleDialogOpenChange = useCallback((open: boolean) => {
     if (!open) {
@@ -100,11 +107,11 @@ export default function AnnouncementPopup() {
     }
   }, [handleClose]);
 
-  if (!announcement) return null;
+  if (!announcement || announcementScope !== scope) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="max-w-md md:max-w-2xl bg-white dark:bg-slate-950 border-border shadow-2xl p-0 overflow-hidden rounded-2xl">
+      <DialogContent aria-describedby={undefined} className="max-w-md md:max-w-2xl bg-white dark:bg-slate-950 border-border shadow-2xl p-0 overflow-hidden rounded-2xl">
         <DialogHeader className="p-6 pb-4 bg-slate-50/50 dark:bg-slate-900/50 border-b">
           <div className="flex items-center gap-4">
             <div className="p-3 rounded-xl bg-primary/10 text-primary">

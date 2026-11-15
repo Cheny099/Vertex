@@ -220,6 +220,9 @@
     "conf_not_avail": "配置将在创建后可用",
     "webhook_created_title": "Webhook 策略已创建",
     "webhook_created_desc": "请复制以下凭证到您的 TradingView 报警设置中。",
+    "webhook_saved_desc": "策略已保存。若凭证加载失败，可在这里重试，或稍后前往策略管理查看。",
+    "record_load_error": "无法加载指定策略",
+    "webhook_load_error": "无法加载 Webhook 凭证",
     "webhook_url_label": "Webhook URL",
     "secret_json_label": "Secret 消息体 (JSON)",
     "webhook_secret_hint": "请务必在每条报警消息中包含此 \"secret\" 字段。",
@@ -292,5 +295,6 @@
     "6m": "6月",
     "1y": "1年",
     "all": "全部"
-  }
+  },
+  "invalid_subscription": "订阅配置无效，请检查执行账户、仓位金额或比例及杠杆。"
 }

@@ -2,6 +2,7 @@ import { memo, useMemo, type ReactNode } from 'react';
 import type { TFunction } from 'i18next';
 import { motion } from 'framer-motion';
 import type { Order } from '@/api';
+import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { HistoryTradeRow } from './HistoryTradeRow';
 
@@ -18,6 +19,7 @@ interface HistoryTradesTableProps {
   isLoading: boolean;
   isError: boolean;
   queryErrorMessage: string;
+  onRetryLoad: () => void;
   getMappedFailureMessage: (trade: Order) => string | undefined;
   getMappedFailureAction: (trade: Order) => string | undefined;
   isCancelPending: boolean;
@@ -37,6 +39,7 @@ function HistoryTradesTableComponent({
   isLoading,
   isError,
   queryErrorMessage,
+  onRetryLoad,
   getMappedFailureMessage,
   getMappedFailureAction,
   isCancelPending,
@@ -62,6 +65,13 @@ function HistoryTradesTableComponent({
       transition={{ delay: 0.3 }}
       className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden"
     >
+      {isError && (
+        <div role="alert" className="p-4 border-b border-border text-sm text-destructive">
+          <p className="font-medium">{t('history:table.error_title')}</p>
+          <p>{queryErrorMessage || t('common:unknown_error')}</p>
+          <Button variant="outline" size="sm" onClick={onRetryLoad}>{t('common:retry')}</Button>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
@@ -105,10 +115,7 @@ function HistoryTradesTableComponent({
                   {isLoading ? (
                     t('common:loading')
                   ) : isError ? (
-                    <div className="flex flex-col items-center gap-1">
-                      <span className="text-sm font-medium text-destructive">{t('history:table.error_title')}</span>
-                      <span className="text-xs text-muted-foreground">{queryErrorMessage || t('common:unknown_error')}</span>
-                    </div>
+                    t('history:table.error_title')
                   ) : (
                     t('history:table.empty')
                   )}

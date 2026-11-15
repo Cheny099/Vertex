@@ -17,6 +17,7 @@ interface HistoryPaginationProps {
   viewMode: 'system' | 'turboflow';
   tfPageCount: number;
   systemHasMore: boolean;
+  isPageUnavailable: boolean;
   onPageSelect: (page: number) => void;
   onNext: () => void;
 }
@@ -34,6 +35,7 @@ function HistoryPaginationComponent({
   viewMode,
   tfPageCount,
   systemHasMore,
+  isPageUnavailable,
   onPageSelect,
   onNext,
 }: HistoryPaginationProps) {
@@ -84,6 +86,7 @@ function HistoryPaginationComponent({
                 variant={page === currentPage ? 'default' : 'ghost'}
                 size="sm"
                 className="w-8 h-8 p-0"
+                disabled={isPageUnavailable}
                 onClick={() => onPageSelect(page)}
               >
                 {page}
@@ -99,7 +102,7 @@ function HistoryPaginationComponent({
         <Button
           variant="outline"
           size="sm"
-          disabled={viewMode === 'system' ? !systemHasMore : currentPage >= tfPageCount}
+          disabled={isPageUnavailable || (viewMode === 'system' ? !systemHasMore : currentPage >= tfPageCount)}
           onClick={onNext}
         >
           {t('history:pagination.next')}

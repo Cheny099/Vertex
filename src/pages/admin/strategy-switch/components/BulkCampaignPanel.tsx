@@ -25,6 +25,10 @@ interface BulkCampaignPanelProps {
   bulkPreviewStats: BulkPreviewStat[];
   bulkPreviewPending: boolean;
   bulkExecutePending: boolean;
+  canExecute: boolean;
+  recovering: boolean;
+  canStartNew: boolean;
+  onStartNew: () => void;
   getStatusLabel: (status?: string) => string;
   onPreview: () => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
@@ -49,6 +53,10 @@ export const BulkCampaignPanel = memo(({
   bulkPreviewStats,
   bulkPreviewPending,
   bulkExecutePending,
+  canExecute,
+  recovering,
+  canStartNew,
+  onStartNew,
   getStatusLabel,
   onPreview,
   onSubmit,
@@ -68,67 +76,71 @@ export const BulkCampaignPanel = memo(({
           </CardHeader>
           <CardContent>
             <form onSubmit={onSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{t('admin:strategy_switch.from_strategy_id')}</Label>
-                  <Input
-                    type="number"
-                    value={form.from_strategy_id || ''}
-                    onChange={(event) => onFromStrategyChange(event.target.value)}
-                    className="h-10"
-                    required
-                  />
+              <fieldset disabled={bulkExecutePending} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{t('admin:strategy_switch.from_strategy_id')}</Label>
+                    <Input
+                      type="number"
+                      value={form.from_strategy_id || ''}
+                      onChange={(event) => onFromStrategyChange(event.target.value)}
+                      className="h-10"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t('admin:strategy_switch.to_strategy_id')}</Label>
+                    <Input
+                      type="number"
+                      value={form.to_strategy_id || ''}
+                      onChange={(event) => onToStrategyChange(event.target.value)}
+                      className="h-10"
+                      required
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>{t('admin:strategy_switch.to_strategy_id')}</Label>
-                  <Input
-                    type="number"
-                    value={form.to_strategy_id || ''}
-                    onChange={(event) => onToStrategyChange(event.target.value)}
-                    className="h-10"
-                    required
-                  />
-                </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label>{t('admin:strategy_switch.symbol')}</Label>
-                <Input
-                  value={form.symbol}
-                  onChange={(event) => onSymbolChange(event.target.value)}
-                  placeholder={t('admin:strategy_switch.symbol_placeholder')}
-                  className="h-10"
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t('admin:strategy_switch.symbol_hint')}
+                <div className="space-y-2">
+                  <Label>{t('admin:strategy_switch.symbol')}</Label>
+                  <Input
+                    value={form.symbol}
+                    onChange={(event) => onSymbolChange(event.target.value)}
+                    placeholder={t('admin:strategy_switch.symbol_placeholder')}
+                    className="h-10"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t('admin:strategy_switch.symbol_hint')}
+                  </p>
+                </div>
+
+                <p className="text-xs text-muted-foreground pb-4 uppercase font-medium">
+                  {t('admin:strategy_switch.migrate_all_hint')}
                 </p>
-              </div>
 
-              <p className="text-xs text-muted-foreground pb-4 uppercase font-medium">
-                {t('admin:strategy_switch.migrate_all_hint')}
-              </p>
-
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="w-full h-10 rounded-xl"
-                  onClick={onPreview}
-                  disabled={bulkPreviewPending}
-                >
-                  {bulkPreviewPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4 mr-2" />}
-                  {t('admin:strategy_switch.btn_preview')}
-                </Button>
-                <Button
-                  type="submit"
-                  className="w-full h-10 rounded-xl"
-                  disabled={bulkExecutePending}
-                >
-                  {bulkExecutePending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
-                  {t('admin:strategy_switch.btn_start_bulk')}
-                </Button>
-              </div>
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full h-10 rounded-xl"
+                    onClick={onPreview}
+                    disabled={bulkPreviewPending || bulkExecutePending}
+                  >
+                    {bulkPreviewPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4 mr-2" />}
+                    {t('admin:strategy_switch.btn_preview')}
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="w-full h-10 rounded-xl"
+                    disabled={!canExecute}
+                  >
+                    {bulkExecutePending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+                    {t(recovering ? 'admin:strategy_switch_recover' : 'admin:strategy_switch.btn_start_bulk')}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">{t(recovering ? 'admin:strategy_switch_recovery_hint' : 'admin:strategy_switch_preview_hint')}</p>
+                {canStartNew && <Button type="button" variant="outline" onClick={onStartNew}>{t('admin:strategy_switch_new_operation')}</Button>}
+              </fieldset>
             </form>
           </CardContent>
         </Card>

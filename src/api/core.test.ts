@@ -173,3 +173,38 @@ describe("request error message formatting", () => {
     expect(error).toMatchObject({ code: "LEGAL_ACCEPTANCE_REQUIRED" });
   });
 });
+
+describe("response protocol", () => {
+  afterEach(() => { vi.unstubAllGlobals(); localStorage.clear(); sessionStorage.clear(); });
+
+  it.each(['<html>proxy fallback</html>', '{broken', ''])("rejects a 200 response without valid JSON: %s", async body => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
+    await expect(request('/accounts/')).rejects.toMatchObject({ status: 200, code: 'INVALID_API_RESPONSE' });
+  });
+
+  it.each([204, 205])("accepts a legitimate bodyless %s response", async status => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status })));
+    await expect(request<void>('/accounts/7', { method: 'DELETE' })).resolves.toBeUndefined();
+  });
+
+  it('preserves HTTP status when an error body is not JSON', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>down</html>', { status: 503 })));
+    await expect(request('/accounts/')).rejects.toMatchObject({ status: 503 });
+  });
+
+  it('does not classify a backend error by words in its message', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ detail: 'Unexpected token in upstream configuration' }), { status: 400 })));
+    await expect(request('/accounts/')).rejects.toMatchObject({ status: 400, message: 'Unexpected token in upstream configuration' });
+  });
+
+  it('honors Headers objects and does not erase a different stored session', async () => {
+    localStorage.setItem('auth_token', 'current');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 401 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(request('/auth/me', { headers: new Headers({ Authorization: 'Bearer old', 'X-Test': 'kept' }) })).rejects.toMatchObject({ status: 401 });
+    const headers = new Headers(fetchMock.mock.calls[0][1].headers);
+    expect(headers.get('Authorization')).toBe('Bearer old');
+    expect(headers.get('X-Test')).toBe('kept');
+    expect(localStorage.getItem('auth_token')).toBe('current');
+  });
+});

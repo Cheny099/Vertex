@@ -104,5 +104,7 @@
   "notifications": {
     "developing": "Coming Soon",
     "desc": "Notification settings are under development."
-  }
+  },
+  "accounts_load_failed": "Accounts could not be loaded. The account list is unavailable; please retry.",
+  "accounts_refresh_failed": "Account refresh failed. Previously loaded data below may be out of date."
 }

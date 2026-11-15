@@ -34,15 +34,6 @@ interface AddAccountDialogProps {
   canSubmit: boolean;
   isPending: boolean;
   isApiKeyExchange: boolean;
-  limitReachedForSelected: boolean;
-  limitReachedTurboflow: boolean;
-  limitReachedGate: boolean;
-  limitReachedBinance: boolean;
-  limitReachedWeek: boolean;
-  turboflowCount: number;
-  otherCount: number;
-  limitTf: number;
-  limitOther: number;
   t: TranslateFn;
 }
 
@@ -59,15 +50,6 @@ export function AddAccountDialog({
   canSubmit,
   isPending,
   isApiKeyExchange,
-  limitReachedForSelected,
-  limitReachedTurboflow,
-  limitReachedGate,
-  limitReachedBinance,
-  limitReachedWeek,
-  turboflowCount,
-  otherCount,
-  limitTf,
-  limitOther,
   t,
 }: AddAccountDialogProps) {
   return (
@@ -78,7 +60,7 @@ export function AddAccountDialog({
           <DialogDescription>{t('settings:accounts.dialog.desc')}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <fieldset disabled={isPending} className="grid gap-4 py-4">
           <div className="grid gap-2">
             <Label htmlFor="account-name">{t('settings:accounts.dialog.name_label')}</Label>
             <Input
@@ -92,6 +74,7 @@ export function AddAccountDialog({
           <div className="grid gap-2">
             <Label htmlFor="exchange">{t('settings:accounts.dialog.exchange_label')}</Label>
             <Select
+              disabled={isPending}
               value={newAccount.exchange}
               onValueChange={(value) => onExchangeChange(value as AccountCreateDto['exchange'])}
             >
@@ -99,25 +82,20 @@ export function AddAccountDialog({
                 <SelectValue placeholder={t('settings:accounts.dialog.exchange_placeholder')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="turboflow" disabled={limitReachedTurboflow}>
-                  {t('common:exchanges.turboflow')} {limitReachedTurboflow ? `(${turboflowCount}/${limitTf} ${t('settings:accounts.limit_full')})` : `(${turboflowCount}/${limitTf})`}
+                <SelectItem value="turboflow">
+                  {t('common:exchanges.turboflow')}
                 </SelectItem>
-                <SelectItem value="gate_futures" disabled={limitReachedGate}>
+                <SelectItem value="gate_futures">
                   {t('common:exchanges.gate_futures')}
                 </SelectItem>
-                <SelectItem value="binance_futures" disabled={limitReachedBinance}>
+                <SelectItem value="binance_futures">
                   {t('common:exchanges.binance_futures')}
                 </SelectItem>
-                <SelectItem value="week" disabled={limitReachedWeek}>
-                  {t('common:exchanges.week')} ({t('settings:accounts.browser_session')}) {limitReachedWeek ? `(${otherCount}/${limitOther} ${t('settings:accounts.limit_full')})` : `(${otherCount}/${limitOther})`}
+                <SelectItem value="week">
+                  {t('common:exchanges.week')} ({t('settings:accounts.browser_session')})
                 </SelectItem>
               </SelectContent>
             </Select>
-            {limitReachedForSelected && (
-              <p className="text-[11px] text-destructive mt-1">
-                {t('settings:accounts.limit_warning')}
-              </p>
-            )}
           </div>
 
           {isApiKeyExchange && (
@@ -152,13 +130,13 @@ export function AddAccountDialog({
               </p>
             </div>
           )}
-        </div>
+        </fieldset>
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             {t('settings:accounts.dialog.cancel')}
           </Button>
-          <Button className="gradient-primary" onClick={onCreate} disabled={!canSubmit}>
+          <Button className="gradient-primary" onClick={onCreate} disabled={!canSubmit || isPending}>
             {isPending ? t('settings:accounts.dialog.submitting') : t('settings:accounts.dialog.confirm')}
           </Button>
         </DialogFooter>

@@ -17,7 +17,7 @@ import {
 import { Slider } from '@/components/ui/slider';
 import type { UiMode } from '../utils';
 import { parseNumberInput } from '@/lib/utils';
-import { clamp, clampAmount } from '../utils';
+import { clamp, clampAmount, isValidSubscriptionDraft } from '../utils';
 import type { StrategySubscriptionDraft } from '../hooks/useStrategyDetailState';
 
 interface StrategySubscriptionDialogProps {
@@ -66,7 +66,7 @@ export function StrategySubscriptionDialog({
           </DialogDescription>
         </div>
 
-        <div className="p-6 space-y-6">
+        <fieldset disabled={isSubmitting} className="p-6 space-y-6">
           <div className="space-y-3">
             <Label className="text-sm font-semibold flex items-center gap-2">
               <Shield className="w-4 h-4 text-muted-foreground" />
@@ -76,7 +76,7 @@ export function StrategySubscriptionDialog({
             <Select
               value={newSub.accountId}
               onValueChange={(val) => setNewSub({ ...newSub, accountId: val })}
-              disabled={!!editingSub}
+              disabled={!!editingSub || isSubmitting}
             >
               <SelectTrigger className="w-full bg-secondary/10 border-border h-11">
                 <SelectValue placeholder={t('strategies:detail.select_account')} />
@@ -101,6 +101,7 @@ export function StrategySubscriptionDialog({
 
               <Select
                 value={newSub.positionMode}
+                disabled={isSubmitting}
                 onValueChange={(val) => {
                   const mode = val as UiMode;
                   if (mode === 'fixed_amount') {
@@ -162,8 +163,7 @@ export function StrategySubscriptionDialog({
                           // keystroke means backspacing 100 down to 50 gives "1" and then "150" -
                           // the field cannot be cleared, only retyped. That is #30's bug, and it
                           // used to be survivable because the slider was there to drag instead.
-                          // Save stays disabled below 1 and both mutations clamp before they send,
-                          // so nothing under 1 can escape.
+                          // Save and the submission boundary both reject invalid values.
                           positionValue: parseNumberInput(e.target.value, {
                             max: fixedAmountMax ?? undefined,
                           }),
@@ -190,6 +190,7 @@ export function StrategySubscriptionDialog({
                       number input is the only honest control in that case. */}
                   {fixedAmountMax !== null && (
                     <Slider
+                      disabled={isSubmitting}
                       value={[Number(newSub.positionValue || 1)]}
                       min={1}
                       max={fixedAmountMax}
@@ -206,6 +207,7 @@ export function StrategySubscriptionDialog({
               ) : (
                 <>
                   <Slider
+                    disabled={isSubmitting}
                     value={[newSub.positionPct * 100]}
                     min={2}
                     max={100}
@@ -228,6 +230,7 @@ export function StrategySubscriptionDialog({
             </div>
 
             <Slider
+              disabled={isSubmitting}
               value={[newSub.leverage]}
               min={1}
               max={200}
@@ -242,7 +245,7 @@ export function StrategySubscriptionDialog({
               <span>{t('strategies:risk_levels.aggressive')}</span>
             </div>
           </div>
-        </div>
+        </fieldset>
 
         <div className="p-6 bg-secondary/10 flex justify-end gap-3 mt-2">
           <Button variant="ghost" onClick={onCancel}>
@@ -252,17 +255,7 @@ export function StrategySubscriptionDialog({
           <Button
             className="gradient-primary px-8 shadow-lg shadow-primary/20"
             onClick={onSubmit}
-            disabled={
-              !newSub.accountId ||
-              isSubmitting ||
-              // The upper bound only blocks Save when there is a real one. `> null` coerces to
-              // `> 0`, so leaving fixedAmountMax in the comparison unguarded would disable Save for
-              // every positive amount the moment the ceiling became unknown.
-              (newSub.positionMode === 'fixed_amount' &&
-                (Number(newSub.positionValue || 0) < 1 ||
-                  (fixedAmountMax !== null && Number(newSub.positionValue || 0) > fixedAmountMax))) ||
-              (newSub.positionMode === 'fixed' && (newSub.positionPct < 0.02 || newSub.positionPct > 1))
-            }
+            disabled={isSubmitting || !isValidSubscriptionDraft(newSub, fixedAmountMax)}
           >
             {isSubmitting && (
               <Activity className="w-4 h-4 mr-2 animate-spin" />

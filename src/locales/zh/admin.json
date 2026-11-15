@@ -614,5 +614,21 @@
         "list_title": "已发行的邀请码",
         "list_desc": "出于安全考虑，列表中仅显示邀请码的后4位。",
         "warning_not_copied": "您还没有复制邀请码！一旦关闭窗口，您将永远无法再次查看完整代码。确定要关闭吗？"
-    }
+    },
+    "close_mode": "平仓范围",
+    "close_quantity": "指定数量",
+    "close_all": "全部持仓",
+    "close_all_hint": "由服务器查询并平掉此账户、交易对和方向的全部持仓。",
+    "close_invalid_input": "请填写有效的账户 ID、交易对和大于 0 的数量，或明确选择全部持仓。",
+    "planned_qty": "计划数量",
+    "order_detail_failed": "订单详情加载失败，成交价暂不可用。",
+    "order_events_failed": "订单事件加载失败。",
+    "local_minus_remote": "本地 − 远端",
+    "notional_mismatch": "金额不一致",
+  "strategy_switch_invalid_form": "请填写有效的整数 ID 和交易对。",
+  "strategy_switch_storage_failed": "无法保存操作恢复信息，请允许本站使用浏览器存储后重试。尚未发送操作。",
+  "strategy_switch_recover": "恢复上次操作",
+  "strategy_switch_recovery_hint": "上次提交的结果尚未确认。恢复操作将使用原参数，不会创建新的操作标识。",
+  "strategy_switch_preview_hint": "执行前请先预览；更改参数后需要重新预览。",
+  "strategy_switch_new_operation": "新建同参数操作"
 }

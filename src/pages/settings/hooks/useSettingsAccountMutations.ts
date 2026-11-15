@@ -4,6 +4,9 @@ import { toast } from 'sonner';
 import type { TFunction } from 'i18next';
 import { accountApi, type Account, type AccountCreateDto } from '@/api';
 import type { ApiError } from '@/api/contracts';
+import type { IsCurrent } from '@/hooks/use-async-scope';
+
+type CreateAccountRequest = { data: AccountCreateDto; isCurrent: IsCurrent; isCurrentEditor: IsCurrent };
 
 type UseSettingsAccountMutationsParams = {
   formatVerifyError: (error: unknown) => string;
@@ -23,9 +26,13 @@ export function useSettingsAccountMutations({
   verifyAccountMutation,
 }: UseSettingsAccountMutationsParams) {
   const createAccountMutation = useMutation({
-    mutationFn: (data: AccountCreateDto) => accountApi.create(data),
-    onSuccess: (data: Account) => {
-      onCreateSuccessReset();
+    mutationFn: ({ data, isCurrent }: CreateAccountRequest) => {
+      if (!isCurrent()) throw new Error('Account operation expired');
+      return accountApi.create(data);
+    },
+    onSuccess: (data: Account, operation) => {
+      if (!operation.isCurrent()) return;
+      if (operation.isCurrentEditor()) onCreateSuccessReset();
       toast.success(t('settings:accounts.toast.add_success'));
 
       if (
@@ -33,32 +40,29 @@ export function useSettingsAccountMutations({
         data.exchange === 'gate_futures' ||
         data.exchange === 'binance_futures'
       ) {
-        toast.promise(
-          accountApi.verify(data.id).finally(() => {
-            invalidateAccountData();
-          }),
-          {
-            loading: t('settings:accounts.toast.verify_loading', { name: data.name }),
-            success: t('settings:accounts.toast.verify_success'),
-            error: (err) =>
-              `${t('settings:accounts.toast.verify_failed')}: ${formatVerifyError(err)}`,
-          }
-        );
+        void accountApi.verify(data.id).then(() => {
+          if (operation.isCurrent()) toast.success(t('settings:accounts.toast.verify_success'));
+        }, (error: unknown) => {
+          if (operation.isCurrent()) toast.error(`${t('settings:accounts.toast.verify_failed')}: ${formatVerifyError(error)}`);
+        }).finally(() => {
+          if (operation.isCurrent()) invalidateAccountData();
+        });
       }
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, operation) => {
+      if (!operation.isCurrent()) return;
       const apiError = error as ApiError;
       const raw = typeof apiError?.message === 'string' ? apiError.message : '';
-      if (/limit reached/i.test(raw) || raw.includes('409')) {
-        toast.error(t('settings:accounts.toast.limit_reached'));
+      if (/limit reached/i.test(raw)) {
+        toast.error(translateBackendErrorForDisplay(raw) || t('settings:accounts.toast.limit_reached'));
         return;
       }
 
       const translated = translateBackendErrorForDisplay(raw);
       toast.error(translated || t('settings:accounts.toast.add_failed'));
     },
-    onSettled: () => {
-      invalidateAccountData();
+    onSettled: (_data, _error, operation) => {
+      if (operation.isCurrent()) invalidateAccountData();
     },
   });
 
@@ -72,7 +76,7 @@ export function useSettingsAccountMutations({
       const apiError = error as ApiError;
       const raw = typeof apiError?.message === 'string' ? apiError.message : '';
       if (/limit reached/i.test(raw)) {
-        toast.error(t('settings:accounts.toast.limit_reached'));
+        toast.error(translateBackendErrorForDisplay(raw) || t('settings:accounts.toast.limit_reached'));
         return;
       }
 

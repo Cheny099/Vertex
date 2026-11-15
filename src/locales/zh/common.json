@@ -207,5 +207,6 @@
   "error_operation_failed": "操作失败，请重试",
   "required": "不能为空",
   "retry": "重试",
-  "offline_hint": "当前网络不可用，无法加载该策略。恢复连接后请重试。"
+  "offline_hint": "当前网络不可用，无法加载该策略。恢复连接后请重试。",
+  "invalid_api_response": "服务器返回的数据格式不正确，请重试。"
 }

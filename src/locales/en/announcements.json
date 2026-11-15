@@ -7,5 +7,8 @@
     "back": "Back",
     "detail": {
         "title": "Announcement Detail"
-    }
+    },
+    "not_found": "This announcement does not exist or is no longer published.",
+    "load_failed": "Unable to load the announcement. Please try again later.",
+    "original_language": "This announcement is shown in its original language because it is unavailable in the selected language."
 }

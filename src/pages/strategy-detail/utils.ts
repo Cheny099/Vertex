@@ -1,11 +1,20 @@
 import type { ApiError } from '@/api/contracts';
 import type { LegalDocKey, Subscription } from '@/api';
+import type { StrategySubscriptionDraft } from './hooks/useStrategyDetailState';
 
 export type UiMode = 'fixed_amount' | 'fixed';
 export const SUPPORTED_META_EXCHANGES = ['binance_futures', 'gate_futures'] as const;
 export const PROMOTED_CONFIG_KEYS = ['risk_level', 'recommended_leverage', 'pair', 'type', 'strategy_key'] as const;
 
 export const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
+
+export function isValidSubscriptionDraft(draft: StrategySubscriptionDraft, max: number | null): boolean {
+  const accountId = Number(draft.accountId);
+  if (!Number.isSafeInteger(accountId) || accountId <= 0 || !Number.isInteger(draft.leverage) || draft.leverage < 1 || draft.leverage > 200) return false;
+  if (draft.positionMode === 'fixed') return Number.isFinite(draft.positionPct) && draft.positionPct >= 0.02 && draft.positionPct <= 1;
+  return draft.positionMode === 'fixed_amount' && draft.positionValue !== null && Number.isFinite(draft.positionValue) &&
+    draft.positionValue >= 1 && (max === null || draft.positionValue <= max);
+}
 
 /**
  * Clamps a fixed-amount position value.
@@ -36,7 +45,7 @@ export const normalizeLegalDocKey = (value: unknown): LegalDocKey => {
 export const parseApiError = (
   error: unknown
 ): { message: string; code?: string; detail: Record<string, unknown> } => {
-  const apiError = error as ApiError;
+  const apiError = (error ?? {}) as Partial<ApiError>;
   const raw = toRecord(apiError.raw);
   const detail = toRecord(apiError.detail) ?? toRecord(raw?.detail) ?? {};
   const message = typeof apiError.message === 'string' ? apiError.message : '';

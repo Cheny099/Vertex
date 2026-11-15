@@ -14,9 +14,9 @@ export function useSettingsPageModel() {
     isProfileLoading,
     accounts,
     isAccountsLoading,
-    turboflowCount,
-    otherCount,
-    isLimitReached,
+    accountsFailed,
+    isAccountsFetching,
+    retryAccounts,
     invalidateAccountData,
   } = useSettingsQueries();
 
@@ -24,10 +24,7 @@ export function useSettingsPageModel() {
     useSettingsAccountActions({
       accounts,
       invalidateAccountData,
-      isLimitReached,
-      otherCount,
       t,
-      turboflowCount,
     });
 
   const handleCopyUserId = useCallback(() => {
@@ -83,8 +80,11 @@ export function useSettingsPageModel() {
     () => ({
       ...rawAccountsSectionProps,
       isLoading: isAccountsLoading,
+      isError: accountsFailed,
+      isFetching: isAccountsFetching,
+      onRetry: () => { void retryAccounts(); },
     }),
-    [isAccountsLoading, rawAccountsSectionProps]
+    [accountsFailed, isAccountsFetching, isAccountsLoading, rawAccountsSectionProps, retryAccounts]
   );
 
   return {

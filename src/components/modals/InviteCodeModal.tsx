@@ -12,6 +12,7 @@ import { authApi } from '@/api';
 import type { ApiError } from '@/api/contracts';
 import { useAuth } from '@/hooks/use-auth';
 import { logger } from '@/lib/logger';
+import { useAsyncScope, type IsCurrent } from '@/hooks/use-async-scope';
 
 interface InviteCodeModalProps {
     open: boolean;
@@ -19,18 +20,22 @@ interface InviteCodeModalProps {
     onSuccess?: () => void; // Optional callback to trigger after successful redemption
 }
 
-export function InviteCodeModal({ open, onOpenChange, onSuccess }: InviteCodeModalProps) {
+function InviteSession({ open, onOpenChange, onSuccess }: InviteCodeModalProps) {
     const { t, i18n } = useTranslation(['common']);
     const { updateUser } = useAuth();
     const [code, setCode] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
+    const submitting = useRef(false);
+    const { capture, invalidate } = useAsyncScope();
 
     const redeemMutation = useMutation({
-        mutationFn: async (inviteCode: string) => {
+        mutationFn: async ({ inviteCode, isCurrent }: { inviteCode: string; isCurrent: IsCurrent }) => {
+            if (!isCurrent()) throw new Error('Invite operation expired');
             // Backend validates and returns status 'ok' or 'already_redeemed'
             return authApi.redeemInvite({ code: inviteCode });
         },
-        onSuccess: (data) => {
+        onSuccess: (data, operation) => {
+            if (!operation.isCurrent()) return;
             if (data.can_subscribe) {
                 // Optimistically update the user context
                 updateUser({ can_subscribe: true, invite_channel: data.channel });
@@ -44,21 +49,29 @@ export function InviteCodeModal({ open, onOpenChange, onSuccess }: InviteCodeMod
                 }
             }
         },
-        onError: (error: unknown) => {
+        onError: (error: unknown, operation) => {
+            if (!operation.isCurrent()) return;
             // Map backend 400 errors to friendly messages
             const errorMsg = (error as Partial<ApiError>).message || t('common:invite.invalid_code');
             toast.error(errorMsg);
-        }
+        },
+        onSettled: () => { submitting.current = false; },
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!code.trim()) return;
-        redeemMutation.mutate(code.trim());
+        if (!code.trim() || submitting.current) return;
+        submitting.current = true;
+        redeemMutation.mutate({ inviteCode: code.trim(), isCurrent: capture() });
+    };
+
+    const handleOpenChange = (next: boolean) => {
+        if (!next) invalidate();
+        onOpenChange(next);
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-md glass-card border flex flex-col items-center pt-8 pb-6">
                 <DialogHeader className="flex flex-col items-center text-center space-y-3 relative z-10 w-full mb-2">
                     <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-2 animate-in zoom-in duration-300">
@@ -86,6 +99,7 @@ export function InviteCodeModal({ open, onOpenChange, onSuccess }: InviteCodeMod
                                 onChange={(e) => setCode(e.target.value.toUpperCase())}
                                 className={`text-center text-lg tracking-widest font-mono h-12 bg-secondary/30 border-border/50 uppercase ${!code ? 'px-16' : ''}`}
                                 autoComplete="off"
+                                disabled={redeemMutation.isPending}
                             />
                             {!code && (
                                 <Button
@@ -93,9 +107,11 @@ export function InviteCodeModal({ open, onOpenChange, onSuccess }: InviteCodeMod
                                     variant="ghost"
                                     className="absolute right-1 top-1.5 h-9 px-3 text-xs text-muted-foreground hover:text-primary"
                                     onClick={async () => {
+                                        const isCurrent = capture();
                                         try {
                                             if (navigator.clipboard && window.isSecureContext) {
                                                 const text = await navigator.clipboard.readText();
+                                                if (!isCurrent()) return;
                                                 if (text) {
                                                     setCode(text.toUpperCase().trim());
                                                     toast.success(t('common:paste_success', 'Pasted from clipboard'));
@@ -108,6 +124,7 @@ export function InviteCodeModal({ open, onOpenChange, onSuccess }: InviteCodeMod
                                                 inputRef.current?.focus();
                                             }
                                         } catch (err) {
+                                            if (!isCurrent()) return;
                                             toast.error(t('common:error_clipboard_denied', 'Clipboard permission denied. Please paste manually.'));
                                             inputRef.current?.focus();
                                             logger.error('Failed to read clipboard contents: ', err);
@@ -138,5 +155,9 @@ export function InviteCodeModal({ open, onOpenChange, onSuccess }: InviteCodeMod
             </DialogContent>
         </Dialog>
     );
+}
+
+export function InviteCodeModal(props: InviteCodeModalProps) {
+    return props.open ? <InviteSession {...props} /> : null;
 }
 
