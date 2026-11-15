@@ -81,7 +81,9 @@ export function useHistoryModel() {
     allTrades,
     isLoading,
     isError,
+    isPaused,
     queryError,
+    retry,
   } = useHistoryQueries({
     viewMode,
     selectedSystemAccount,
@@ -112,8 +114,9 @@ export function useHistoryModel() {
 
   const queryErrorMessage = useMemo(() => {
     if (!isError) return '';
+    if (isPaused) return t('common:offline_hint');
     return getToastErrorMessage(queryError);
-  }, [getToastErrorMessage, isError, queryError]);
+  }, [getToastErrorMessage, isError, isPaused, queryError, t]);
 
   const filteredTrades = useMemo(() => {
     const activeAccount = viewMode === 'system' ? selectedSystemAccount : selectedTfAccount;
@@ -283,12 +286,13 @@ export function useHistoryModel() {
   );
 
   const handlePrevPage = useCallback(() => {
-    setCurrentPage((p) => Math.max(1, p - 1));
-  }, [setCurrentPage]);
+    setCurrentPage(Math.max(1, currentPage - 1));
+  }, [setCurrentPage, currentPage]);
 
   const handleNextPage = useCallback(() => {
-    setCurrentPage((p) => p + 1);
-  }, [setCurrentPage]);
+    if (isLoading || isError || (viewMode === 'system' ? !systemHasMore : currentPage >= tfPageCount)) return;
+    setCurrentPage(currentPage + 1);
+  }, [setCurrentPage, currentPage, isLoading, isError, viewMode, systemHasMore, tfPageCount]);
 
   return {
     t,
@@ -316,6 +320,7 @@ export function useHistoryModel() {
     isLoading,
     isError,
     queryErrorMessage,
+    retry,
     getMappedFailureMessage,
     getMappedFailureAction,
     cancelMutation,

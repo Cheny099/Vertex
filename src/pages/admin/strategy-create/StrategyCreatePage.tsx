@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { ArrowLeft, Copy, Loader2, Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { itemVariants, containerVariants } from './utils';
 import { useStrategyCreateModel } from './hooks/useStrategyCreateModel';
@@ -17,13 +18,18 @@ const StrategyCreatePage = () => {
         isInitialError,
         initialErrorText,
         retryInitialLoad,
+        canRetryInitialLoad,
         form,
         watchStatus,
-        submitMutation,
+        isSubmitting,
+        isSaved,
         handleSubmit,
         showWebhookDialog,
         closeWebhookDialog,
         webhookData,
+        isWebhookLoading,
+        webhookError,
+        retryWebhook,
         generateStrategyKey,
     } = useStrategyCreateModel({ t });
 
@@ -45,7 +51,7 @@ const StrategyCreatePage = () => {
             <div className="p-8 space-y-4">
                 <p className="text-sm text-destructive">{initialErrorText}</p>
                 <div className="flex items-center gap-3">
-                    <Button onClick={() => retryInitialLoad()}>{t('common:retry')}</Button>
+                    {canRetryInitialLoad && <Button onClick={retryInitialLoad}>{t('common:retry')}</Button>}
                     <Button variant="outline" onClick={() => navigate('/admin/strategies')}>
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         {t('common:back')}
@@ -80,10 +86,10 @@ const StrategyCreatePage = () => {
                         </div>
                         <Button
                             onClick={form.handleSubmit(handleSubmit)}
-                            disabled={form.formState.isSubmitting || submitMutation.isPending}
+                            disabled={form.formState.isSubmitting || isSubmitting || isSaved}
                             className="gradient-primary shadow-button px-6 rounded-xl font-bold h-11"
                         >
-                            {(form.formState.isSubmitting || submitMutation.isPending) ? (
+                            {(form.formState.isSubmitting || isSubmitting) ? (
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                             ) : isCopyMode ? (
                                 <Copy className="w-4 h-4 mr-2" />
@@ -95,14 +101,16 @@ const StrategyCreatePage = () => {
                     </motion.div>
 
                     <motion.div variants={itemVariants}>
-                        <StrategyCreateFormCard
-                            t={t}
-                            register={form.register}
-                            control={form.control}
-                            errors={form.formState.errors}
-                            watchStatus={watchStatus}
-                            setStrategyKey={generateStrategyKey}
-                        />
+                        <fieldset disabled={isSubmitting || isSaved}>
+                            <StrategyCreateFormCard
+                                t={t}
+                                register={form.register}
+                                control={form.control}
+                                errors={form.formState.errors}
+                                watchStatus={watchStatus}
+                                setStrategyKey={generateStrategyKey}
+                            />
+                        </fieldset>
                     </motion.div>
                 </div>
             </motion.div>
@@ -111,10 +119,19 @@ const StrategyCreatePage = () => {
                 open={showWebhookDialog}
                 onOpenChange={closeWebhookDialog}
                 webhookData={webhookData}
+                isLoading={isWebhookLoading}
+                error={webhookError}
+                onRetry={retryWebhook}
                 t={t}
             />
         </>
     );
 };
 
-export default StrategyCreatePage;
+const StrategyCreateRoute = () => {
+    const { id } = useParams();
+    const [search] = useSearchParams();
+    return <StrategyCreatePage key={`${id ?? 'create'}:${search.get('copy') === 'true'}`} />;
+};
+
+export default StrategyCreateRoute;

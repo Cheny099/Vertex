@@ -40,6 +40,7 @@ const HistoryPage = () => {
     isLoading,
     isError,
     queryErrorMessage,
+    retry,
     getMappedFailureMessage,
     getMappedFailureAction,
     cancelMutation,
@@ -99,6 +100,7 @@ const HistoryPage = () => {
         isLoading={isLoading}
         isError={isError}
         queryErrorMessage={queryErrorMessage}
+        onRetryLoad={retry}
         getMappedFailureMessage={getMappedFailureMessage}
         getMappedFailureAction={getMappedFailureAction}
         isCancelPending={cancelMutation.isPending}
@@ -121,6 +123,7 @@ const HistoryPage = () => {
             viewMode={viewMode}
             tfPageCount={tfPageCount}
             systemHasMore={systemHasMore}
+            isPageUnavailable={isLoading || isError}
             onPageSelect={setCurrentPage}
             onNext={handleNextPage}
           />

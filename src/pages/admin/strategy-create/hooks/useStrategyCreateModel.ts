@@ -1,20 +1,20 @@
 import type { TFunction } from 'i18next';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { strategyApi, adminApi, getStrategySchema, translateBackendErrorMessage } from '@/api';
 import { useToast } from '@/components/ui/use-toast';
 import type { ApiError } from '@/api/contracts';
-import type { StrategyWebhookSecretResponse } from '@/api';
+import type { Strategy } from '@/api';
+import { useAsyncScope, type IsCurrent } from '@/hooks/use-async-scope';
 import {
     buildGeneratedStrategyKey,
     buildStrategyPayload,
     buildWebhookUrl,
     DEFAULT_STRATEGY_VALUES,
     type StrategyFormValues,
-    type StrategyMutationResult,
 } from '../utils';
 
 interface UseStrategyCreateModelOptions {
@@ -33,6 +33,17 @@ export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => 
     const isCopy = searchParams.get('copy') === 'true';
     const isEditMode = !!id && !isCopy;
     const isCopyMode = !!id && isCopy;
+    const strategyId = Number(id);
+    const hasValidId = /^\d+$/.test(id ?? '') && Number.isSafeInteger(strategyId) && strategyId > 0;
+    const { capture, invalidate } = useAsyncScope(`${id ?? 'create'}:${isCopy}`);
+    const saving = useRef<IsCurrent | null>(null);
+    const readingSecret = useRef<IsCurrent | null>(null);
+    const saved = useRef<{ strategy: Strategy; isCurrent: IsCurrent } | null>(null);
+    const generatedKey = useRef<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSaved, setIsSaved] = useState(false);
+    const [isWebhookLoading, setIsWebhookLoading] = useState(false);
+    const [webhookError, setWebhookError] = useState('');
 
     // Required only when editing: create and copy both generate a key when the field is blank.
     const schema = useMemo(
@@ -57,8 +68,13 @@ export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => 
         refetch: refetchInitial,
     } = useQuery({
         queryKey: ['strategy', id],
-        queryFn: () => strategyApi.get(parseInt(id!, 10)),
-        enabled: !!id,
+        queryFn: async () => {
+            if (!hasValidId) throw new Error(t('strategies:create.record_load_error'));
+            const strategy = await strategyApi.get(strategyId);
+            if (strategy.id !== strategyId) throw new Error(t('strategies:create.record_load_error'));
+            return strategy;
+        },
+        enabled: hasValidId,
         // An editor is not a live view: refetching under an open form is pure churn. What actually
         // protects the admin's typing is the seed guard below, so this deliberately does NOT set a
         // staleTime - a fresh mount must still fetch current data, or reopening the editor within
@@ -126,68 +142,96 @@ export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => 
     //                                  browser leaves a skeleton that never resolves
     //  - seeded                     -> the form, and it stays even if a later refetch fails,
     //                                  because the admin may have unsaved edits in it by then
-    const isInitialError = !!id && (isFetchError || isPausedOffline) && !isSeeded;
+    const isInitialError = !!id && (!hasValidId || isFetchError || isPausedOffline) && !isSeeded;
     const isInitialLoading = !!id && !isSeeded && !isInitialError;
 
-    const submitMutation = useMutation({
-        mutationFn: async (data: StrategyFormValues): Promise<StrategyMutationResult> => {
-            let strategy;
-            const payload = buildStrategyPayload({
-                form: data,
-                isEditMode,
-                initialConfig: initialData?.config,
+    // A successful save and its credential read have different recovery paths. Retain the
+    // confirmed record so a failed read can never turn a retry into another create.
+    const loadWebhook = async (strategy: Strategy, isCurrent: IsCurrent) => {
+        if (!isCurrent() || readingSecret.current?.()) return;
+        readingSecret.current = isCurrent;
+        setIsWebhookLoading(true);
+        setWebhookError('');
+        try {
+            const secret = await adminApi.strategies.getWebhookSecret(strategy.id);
+            if (!isCurrent()) return;
+            if (secret?.strategy_id !== strategy.id || secret.strategy_key !== strategy.strategy_key ||
+                typeof secret.secret !== 'string' || !secret.secret.trim()) {
+                throw new Error(t('strategies:create.webhook_load_error'));
+            }
+            setWebhookData({
+                url: buildWebhookUrl(), secret: secret.secret, strategy_key: strategy.strategy_key,
             });
-
-            if (isEditMode && id) {
-                strategy = await adminApi.strategies.update(parseInt(id, 10), payload);
-            } else {
-                strategy = await adminApi.strategies.create(payload);
+        } catch (error: unknown) {
+            if (isCurrent()) {
+                const message = (error as Partial<ApiError> | null)?.message;
+                setWebhookError(translateBackendErrorMessage(message || '') || t('strategies:create.webhook_load_error'));
             }
+        } finally {
+            if (readingSecret.current === isCurrent) readingSecret.current = null;
+            if (isCurrent()) setIsWebhookLoading(false);
+        }
+    };
 
-            if (!isEditMode) {
-                const secretData: StrategyWebhookSecretResponse = await adminApi.strategies.getWebhookSecret(strategy.id);
-                return { ...strategy, webhookSecret: secretData };
-            }
-
-            return strategy;
-        },
-        onSuccess: (data) => {
-            if (data.webhookSecret) {
-                setWebhookData({
-                    url: buildWebhookUrl(),
-                    secret: data.webhookSecret.secret,
-                    strategy_key: data.strategy_key,
-                });
-                setShowWebhookDialog(true);
-                return;
-            }
-
-            toast({
-                title: t('strategies:create.toast_success'),
-                description: isEditMode ? t('strategies:create.toast_updated') : t('strategies:create.toast_created'),
-            });
+    const handleSubmit = async (data: StrategyFormValues) => {
+        if (saving.current?.() || saved.current?.isCurrent() || isInitialLoading || isInitialError) return;
+        const isCurrent = capture();
+        if (!isCurrent()) return;
+        // Capture the target, mode and payload before async work can switch routes.
+        const targetId = isEditMode && id ? Number(id) : null;
+        let snapshot = { ...data };
+        if (!isEditMode && !snapshot.strategyKey) {
+            // Reuse this draft's identity if a response is lost. This is not server idempotency,
+            // but retrying a blank-key draft must not mint a different identity every time.
+            generatedKey.current ??= buildGeneratedStrategyKey();
+            snapshot = { ...snapshot, strategyKey: generatedKey.current };
+            form.setValue('strategyKey', generatedKey.current, { shouldDirty: true });
+        }
+        const payload = buildStrategyPayload({ form: snapshot, isEditMode, initialConfig: initialData?.config });
+        saving.current = isCurrent;
+        setIsSubmitting(true);
+        try {
+            const strategy = targetId === null
+                ? await adminApi.strategies.create(payload)
+                : await adminApi.strategies.update(targetId, payload);
+            if (!isCurrent()) return;
+            saved.current = { strategy, isCurrent };
+            setIsSaved(true);
             queryClient.invalidateQueries({ queryKey: ['strategies'] });
-            // The list key does not cover the single-strategy cache this editor reads, so without
-            // this a second visit would re-seed the form from the pre-save copy.
-            if (id) queryClient.invalidateQueries({ queryKey: ['strategy', id] });
-            navigate('/admin/strategies');
-        },
-        onError: (error: unknown) => {
-            const apiError = error as Partial<ApiError>;
-            toast({
-                title: t('strategies:detail.toast_error'),
-                description: apiError.message || t('strategies:create.toast_error'),
-                variant: 'destructive',
-            });
-        },
-    });
+            queryClient.invalidateQueries({ queryKey: ['strategy', String(targetId ?? strategy.id)] });
+            if (targetId === null) {
+                setShowWebhookDialog(true);
+                await loadWebhook(strategy, isCurrent);
+            } else {
+                toast({
+                    title: t('strategies:create.toast_success'),
+                    description: t('strategies:create.toast_updated'),
+                });
+                navigate('/admin/strategies');
+            }
+        } catch (error: unknown) {
+            if (isCurrent()) {
+                const message = (error as Partial<ApiError> | null)?.message;
+                toast({
+                    title: t('strategies:detail.toast_error'),
+                    description: translateBackendErrorMessage(message || '') || t('strategies:create.toast_error'),
+                    variant: 'destructive',
+                });
+            }
+        } finally {
+            if (saving.current === isCurrent) saving.current = null;
+            if (isCurrent()) setIsSubmitting(false);
+        }
+    };
 
-    const handleSubmit = (data: StrategyFormValues) => {
-        submitMutation.mutate(data);
+    const retryWebhook = () => {
+        const operation = saved.current;
+        if (operation && !webhookData) void loadWebhook(operation.strategy, operation.isCurrent);
     };
 
     const closeWebhookDialog = (open: boolean) => {
         if (!open) {
+            invalidate();
             setShowWebhookDialog(false);
             navigate('/admin/strategies');
         }
@@ -202,21 +246,27 @@ export const useStrategyCreateModel = ({ t }: UseStrategyCreateModelOptions) => 
         isInitialError,
         // Backend messages go through the same translator every other surface uses, rather than
         // being rendered raw. A paused query has no error object at all, so it needs its own text.
-        initialErrorText: isPausedOffline
+        initialErrorText: id && !hasValidId
+            ? t('strategies:create.record_load_error')
+            : isPausedOffline
             ? t('common:offline_hint')
             : translateBackendErrorMessage((initialError as Partial<ApiError> | null)?.message || '') ||
               (initialError as Partial<ApiError> | null)?.message ||
               t('strategies:detail.toast_error'),
-        retryInitialLoad: refetchInitial,
+        retryInitialLoad: () => { if (hasValidId) void refetchInitial(); },
+        canRetryInitialLoad: hasValidId,
         initialData,
         form,
         watchStatus,
-        submitMutation,
+        isSubmitting,
+        isSaved,
         handleSubmit,
         showWebhookDialog,
-        setShowWebhookDialog,
         closeWebhookDialog,
         webhookData,
+        isWebhookLoading,
+        webhookError,
+        retryWebhook,
         // shouldValidate, because the field can now hold an error. setValue does not clear one on
         // its own, so regenerating after a blocked save would fill the box with a valid key and
         // leave the red border and the "key is required" message sitting under it.
