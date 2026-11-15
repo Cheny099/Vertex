@@ -14,9 +14,6 @@ export function useSettingsPageModel() {
     isProfileLoading,
     accounts,
     isAccountsLoading,
-    turboflowCount,
-    otherCount,
-    isLimitReached,
     invalidateAccountData,
   } = useSettingsQueries();
 
@@ -24,10 +21,7 @@ export function useSettingsPageModel() {
     useSettingsAccountActions({
       accounts,
       invalidateAccountData,
-      isLimitReached,
-      otherCount,
       t,
-      turboflowCount,
     });
 
   const handleCopyUserId = useCallback(() => {

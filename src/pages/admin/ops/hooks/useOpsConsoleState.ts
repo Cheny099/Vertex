@@ -1,13 +1,7 @@
 import { useState } from 'react';
-import type { Order } from '@/api';
-
-export type CloseParams = {
-  account_id: string;
-  symbol: string;
-  pos_side: 'long' | 'short';
-  qty: string;
-  reason: string;
-};
+import type { AdminOrderSummary } from '@/api/admin/operations-contracts';
+import type { CloseParams } from '../close-position';
+export type { CloseParams } from '../close-position';
 
 /** The value this card has always used; also the fallback when the field is left empty. */
 export const DEFAULT_REQUEUE_LIMIT = 50;
@@ -32,6 +26,7 @@ export function useOpsConsoleState() {
     account_id: '',
     symbol: '',
     pos_side: 'long',
+    mode: 'quantity',
     qty: '',
     reason: 'Admin Force Close',
   });
@@ -75,7 +70,7 @@ export function useOpsConsoleState() {
     onConfirm: () => {},
   });
 
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<AdminOrderSummary | null>(null);
 
   return {
     closeDialogOpen,

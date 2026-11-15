@@ -7,6 +7,9 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isLoading: boolean;
+  validationFailed: boolean;
+  preserveReturnTo: boolean;
+  retryValidation: () => void;
   login: (user: User, token: string, rememberMe: boolean) => void;
   logout: () => void;
   updateUser: (user: Partial<User>) => void;

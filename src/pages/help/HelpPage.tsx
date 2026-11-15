@@ -1,5 +1,6 @@
 ﻿import { motion } from "framer-motion";
 import {
+  type LucideIcon,
   BarChart2,
   Book,
   Clock,
@@ -20,14 +21,14 @@ import { cn } from "@/lib/utils";
 import { FaqItem } from "./components/FaqItem";
 import { useHelpPageModel } from "./hooks/useHelpPageModel";
 
-const faqCategoryIcons = {
+const faqCategoryIcons: Partial<Record<string, LucideIcon>> = {
   api: Shield,
   basic: HelpCircle,
   security: AlertTriangle,
   strategy: BarChart2,
 } as const;
 
-const tutorialIcons = {
+const tutorialIcons: Partial<Record<string, LucideIcon>> = {
   api_binding: Shield,
   backtest: TrendingUp,
   data_analysis: FileText,
@@ -63,7 +64,7 @@ function HelpPage() {
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {tutorials.map((tutorial, index) => {
-            const TutorialIcon = tutorialIcons[tutorial.iconKey];
+            const TutorialIcon = tutorialIcons[tutorial.iconKey] ?? Book;
             return (
               <div
                 key={index}
@@ -107,7 +108,7 @@ function HelpPage() {
 
         <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
           {faqCategories.map((category, index) => {
-            const CategoryIcon = faqCategoryIcons[category.iconKey];
+            const CategoryIcon = faqCategoryIcons[category.iconKey] ?? HelpCircle;
             return (
               <button
                 key={index}

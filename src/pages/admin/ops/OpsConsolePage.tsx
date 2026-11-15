@@ -19,6 +19,8 @@ const OpsConsole = () => {
     isLoading,
     orderEvents,
     isLoadingEvents,
+    eventsFailed,
+    orderDetailQuery,
     closePositionPending,
     batchRequeuePending,
     freezeSubPending,
@@ -122,7 +124,7 @@ const OpsConsole = () => {
           onConfirm={handleClosePositionConfirm}
           title={t('admin:confirm_close')}
           desc={t('admin:force_close_confirm_desc', {
-            qty: state.closeParams.qty,
+            qty: state.closeParams.mode === 'all' ? t('admin:close_all') : state.closeParams.qty,
             symbol: state.closeParams.symbol,
             pos_side: state.closeParams.pos_side,
             account_id: state.closeParams.account_id,
@@ -133,9 +135,14 @@ const OpsConsole = () => {
         <OrderDetailDialog
           t={t}
           selectedOrder={state.selectedOrder}
+          orderDetail={orderDetailQuery.data}
+          isLoadingDetail={orderDetailQuery.isFetching}
+          detailFailed={orderDetailQuery.isError}
+          onRetryDetail={() => void orderDetailQuery.refetch()}
           onClose={handleOrderDetailClose}
           orderEvents={orderEvents}
           isLoadingEvents={isLoadingEvents}
+          eventsFailed={eventsFailed}
         />
 
         <ActionConfirmDialog

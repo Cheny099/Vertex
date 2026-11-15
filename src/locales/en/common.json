@@ -197,5 +197,6 @@
   "error_operation_failed": "Operation failed. Please try again.",
   "required": "is required",
   "retry": "Retry",
-  "offline_hint": "No network connection, so this strategy could not be loaded. Reconnect and try again."
+  "offline_hint": "No network connection, so this strategy could not be loaded. Reconnect and try again.",
+  "invalid_api_response": "The server returned an invalid response. Please try again."
 }

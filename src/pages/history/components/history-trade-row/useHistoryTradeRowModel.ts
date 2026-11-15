@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next';
 import { format } from 'date-fns';
 import type { Order } from '@/api';
 import { toast } from 'sonner';
+import { pnlPresentation } from '@/lib/presentation';
 
 type ViewMode = 'system' | 'turboflow';
 
@@ -125,15 +126,7 @@ export function useHistoryTradeRowModel({
   const showMissingNotional =
     isCompletedStatus && (trade.executed_notional_usd === undefined || trade.executed_notional_usd === null);
 
-  const numericPnl = Number(trade.realized_pnl || 0);
-  const pnlValue = trade.realized_pnl === undefined || trade.realized_pnl === null
-    ? '--'
-    : `${numericPnl > 0 ? '+' : ''}${numericPnl.toFixed(2)}`;
-  const pnlColorClass = numericPnl > 0
-    ? 'text-profit'
-    : numericPnl < 0
-      ? 'text-loss'
-      : 'text-muted-foreground';
+  const { text: pnlValue, className: pnlColorClass } = pnlPresentation(trade.realized_pnl);
 
   const isBuy = trade.side === 'buy';
   const createdAtText = trade.created_at

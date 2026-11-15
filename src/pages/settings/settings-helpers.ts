@@ -12,9 +12,6 @@ export type UiAccountStatusKey =
   | 'unknown_exchange'
   | 'unknown';
 
-export const LIMIT_TF = 3;
-export const LIMIT_OTHER = 10;
-
 export const normalizeStatusKey = (raw?: string | null): UiAccountStatusKey => {
   const status = String(raw || '').toLowerCase();
   if (status === 'ok' || status === 'connected' || status === 'api_ready' || status === 'apiready') return 'ok';

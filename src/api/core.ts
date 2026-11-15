@@ -2,7 +2,6 @@ import i18n from '../i18n';
 import { toast } from 'sonner';
 
 import { createApiError } from './contracts';
-import type { JsonObject } from './contracts';
 import { isRecord, isString } from './guards';
 import { AUTH_TOKEN_KEY, clearStoredAuth, getStoredAuthToken } from '../lib/auth-storage';
 
@@ -93,18 +92,16 @@ function formatValidationErrors(details: unknown[]): string {
 
 export async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const token = getStoredAuthToken();
-  const explicitAuthorization = options?.headers
-    ? new Headers(options.headers).get('Authorization')
-    : null;
-  const requestToken = explicitAuthorization?.match(/^Bearer\s+(.+)$/i)?.[1] || token;
+  const headers = new Headers(options?.headers);
+  if (!headers.has('Content-Type') && !(options?.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
+  if (!headers.has('Authorization') && token) headers.set('Authorization', `Bearer ${token}`);
+  const requestToken = headers.get('Authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options?.headers,
-    },
+    headers,
   });
 
   if (response.status === 401) {
@@ -115,15 +112,15 @@ export async function request<T>(endpoint: string, options?: RequestInit): Promi
     // never told, leaving a session that reported isAuthenticated with empty storage.
     const isCredentialCheck = UNAUTHENTICATED_ENDPOINTS.some((prefix) => endpoint.startsWith(prefix));
 
-    if (!isCredentialCheck && requestToken === getStoredAuthToken()) {
+    if (!isCredentialCheck && requestToken && requestToken === getStoredAuthToken()) {
       clearStoredAuth();
+      window.dispatchEvent(new CustomEvent('panda-auth-unauthorized'));
 
       if (
         window.location.pathname !== '/' &&
         window.location.pathname !== '/login' &&
         window.location.pathname !== '/register'
       ) {
-        window.dispatchEvent(new CustomEvent('panda-auth-unauthorized'));
         toast.error(i18n.t('common:session_expired'), { id: 'auth-error' });
       }
     }
@@ -132,58 +129,40 @@ export async function request<T>(endpoint: string, options?: RequestInit): Promi
   }
 
   if (!response.ok) {
+    let errBody: unknown;
     try {
-      const errBody: unknown = await response.json();
-      let errMsg: unknown = response.statusText;
-      if (isRecord(errBody)) {
-        errMsg = errBody.detail ?? errBody.msg ?? errBody.message ?? response.statusText;
-      }
-
-      if (Array.isArray(errMsg)) {
-        errMsg = formatValidationErrors(errMsg) || response.statusText;
-      }
-
-      if (isRecord(errMsg)) {
-        const err = createApiError(
-          typeof errMsg.message === 'string' ? errMsg.message : JSON.stringify(errMsg),
-          { status: response.status, raw: errBody }
-        );
-        if (typeof errMsg.code === 'string') {
-          err.code = errMsg.code;
-        }
-        err.detail = errMsg as JsonObject;
-        throw err;
-      }
-
-      if (isString(errMsg)) {
-        errMsg = translateBackendErrorMessage(errMsg);
-      }
-
-      throw createApiError(String(errMsg), {
-        status: response.status,
-        detail: isRecord(errBody) ? errBody.detail : undefined,
-        raw: errBody,
-      });
-    } catch (e: unknown) {
-      if (
-        e instanceof Error &&
-        !e.message.includes('Unexpected token') &&
-        !e.message.includes('is not valid JSON')
-      ) {
-        throw e;
-      }
-
+      errBody = await response.json();
+    } catch {
       throw createApiError(response.statusText || `Error ${response.status}`, {
         status: response.status,
         raw: null,
       });
     }
+    let detail: unknown = isRecord(errBody) ? errBody.detail ?? errBody.msg ?? errBody.message : undefined;
+    // Validation errors may echo credentials in `input`; retain only safe presentation.
+    if (Array.isArray(detail)) detail = formatValidationErrors(detail);
+    const message = isRecord(detail) ? detail.message : detail;
+    throw createApiError(
+      isString(message) ? translateBackendErrorMessage(message) : response.statusText || `Error ${response.status}`,
+      {
+        status: response.status,
+        code: isRecord(detail) && isString(detail.code) ? detail.code : undefined,
+        detail,
+        raw: isRecord(errBody) && Array.isArray(errBody.detail) ? { detail } : errBody,
+      }
+    );
   }
 
+  // Only protocol-defined bodyless responses are successful without JSON.
+  if (response.status === 204 || response.status === 205 || options?.method?.toUpperCase() === 'HEAD') {
+    return undefined as T;
+  }
   try {
-    const result = await response.json();
-    return result;
+    return await response.json();
   } catch {
-    return {} as T;
+    throw createApiError(i18n.t('common:invalid_api_response'), {
+      status: response.status,
+      code: 'INVALID_API_RESPONSE',
+    });
   }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatOptionalDate } from '@/lib/presentation';
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -105,7 +106,7 @@ export default function AnnouncementList() {
                                             </div>
                                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                                 <Calendar size={14} />
-                                                <span>{new Date(ann.published_at).toLocaleDateString()}</span>
+                                                <span>{formatOptionalDate(ann.published_at, i18n.language, true)}</span>
                                             </div>
                                         </div>
                                     </CardContent>

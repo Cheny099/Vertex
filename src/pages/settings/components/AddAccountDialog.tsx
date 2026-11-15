@@ -34,15 +34,6 @@ interface AddAccountDialogProps {
   canSubmit: boolean;
   isPending: boolean;
   isApiKeyExchange: boolean;
-  limitReachedForSelected: boolean;
-  limitReachedTurboflow: boolean;
-  limitReachedGate: boolean;
-  limitReachedBinance: boolean;
-  limitReachedWeek: boolean;
-  turboflowCount: number;
-  otherCount: number;
-  limitTf: number;
-  limitOther: number;
   t: TranslateFn;
 }
 
@@ -59,15 +50,6 @@ export function AddAccountDialog({
   canSubmit,
   isPending,
   isApiKeyExchange,
-  limitReachedForSelected,
-  limitReachedTurboflow,
-  limitReachedGate,
-  limitReachedBinance,
-  limitReachedWeek,
-  turboflowCount,
-  otherCount,
-  limitTf,
-  limitOther,
   t,
 }: AddAccountDialogProps) {
   return (
@@ -99,25 +81,20 @@ export function AddAccountDialog({
                 <SelectValue placeholder={t('settings:accounts.dialog.exchange_placeholder')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="turboflow" disabled={limitReachedTurboflow}>
-                  {t('common:exchanges.turboflow')} {limitReachedTurboflow ? `(${turboflowCount}/${limitTf} ${t('settings:accounts.limit_full')})` : `(${turboflowCount}/${limitTf})`}
+                <SelectItem value="turboflow">
+                  {t('common:exchanges.turboflow')}
                 </SelectItem>
-                <SelectItem value="gate_futures" disabled={limitReachedGate}>
+                <SelectItem value="gate_futures">
                   {t('common:exchanges.gate_futures')}
                 </SelectItem>
-                <SelectItem value="binance_futures" disabled={limitReachedBinance}>
+                <SelectItem value="binance_futures">
                   {t('common:exchanges.binance_futures')}
                 </SelectItem>
-                <SelectItem value="week" disabled={limitReachedWeek}>
-                  {t('common:exchanges.week')} ({t('settings:accounts.browser_session')}) {limitReachedWeek ? `(${otherCount}/${limitOther} ${t('settings:accounts.limit_full')})` : `(${otherCount}/${limitOther})`}
+                <SelectItem value="week">
+                  {t('common:exchanges.week')} ({t('settings:accounts.browser_session')})
                 </SelectItem>
               </SelectContent>
             </Select>
-            {limitReachedForSelected && (
-              <p className="text-[11px] text-destructive mt-1">
-                {t('settings:accounts.limit_warning')}
-              </p>
-            )}
           </div>
 
           {isApiKeyExchange && (
@@ -158,7 +135,7 @@ export function AddAccountDialog({
           <Button variant="outline" onClick={onClose}>
             {t('settings:accounts.dialog.cancel')}
           </Button>
-          <Button className="gradient-primary" onClick={onCreate} disabled={!canSubmit}>
+          <Button className="gradient-primary" onClick={onCreate} disabled={!canSubmit || isPending}>
             {isPending ? t('settings:accounts.dialog.submitting') : t('settings:accounts.dialog.confirm')}
           </Button>
         </DialogFooter>

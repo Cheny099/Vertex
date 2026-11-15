@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { CloseParams } from '../hooks/useOpsConsoleState';
+import { closePositionRequest } from '../close-position';
 
 interface ForceCloseCardProps {
   t: TFunction;
@@ -52,6 +53,17 @@ export function ForceCloseCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 pt-6">
+        <div className="space-y-1.5">
+          <Label htmlFor="close-mode">{t('admin:close_mode')}</Label>
+          <Select value={closeParams.mode} onValueChange={(mode: CloseParams['mode']) => setCloseParams({ ...closeParams, mode })}>
+            <SelectTrigger id="close-mode"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="quantity">{t('admin:close_quantity')}</SelectItem>
+              <SelectItem value="all">{t('admin:close_all')}</SelectItem>
+            </SelectContent>
+          </Select>
+          {closeParams.mode === 'all' && <p className="text-xs text-muted-foreground">{t('admin:close_all_hint')}</p>}
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('admin:account_id')}</Label>
@@ -94,6 +106,7 @@ export function ForceCloseCard({
               placeholder="0.00"
               type="number"
               step="0.0001"
+              disabled={closeParams.mode === 'all'}
               value={closeParams.qty}
               onChange={(e) => setCloseParams({ ...closeParams, qty: e.target.value })}
               className="h-10 focus-visible:ring-destructive/30"
@@ -102,7 +115,7 @@ export function ForceCloseCard({
         </div>
         <Button
           className="w-full mt-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground h-10 font-bold tracking-wide transition-all active:scale-[0.98] shadow-sm"
-          disabled={!closeParams.account_id || !closeParams.symbol || !closeParams.qty || isSubmitting}
+          disabled={!closePositionRequest(closeParams) || isSubmitting}
           onClick={onRequestConfirm}
         >
           {isSubmitting ? t('common:loading') : t('admin:force_close')}

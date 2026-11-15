@@ -1,13 +1,14 @@
 ﻿import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
+import { SessionValidationError } from './SessionValidationError';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, validationFailed, preserveReturnTo, token } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -18,12 +19,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
+  if (validationFailed) return <SessionValidationError />;
+
   if (!isAuthenticated) {
-    // 鉁?鏈櫥褰曡烦鍒?/login锛屽苟淇濆瓨鍘熸潵鎯宠闂殑浣嶇疆
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={preserveReturnTo ? { from: location } : null} replace />;
   }
 
-  return <>{children}</>;
+  // Remount observers even when a cross-tab identity change validates immediately.
+  return <React.Fragment key={token}>{children}</React.Fragment>;
 };
 
 export default ProtectedRoute;

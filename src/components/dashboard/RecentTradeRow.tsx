@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowDownRight, ArrowUpRight, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { pnlPresentation } from '@/lib/presentation';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface RecentTradeRowProps {
@@ -73,10 +74,10 @@ function RecentTradeRowComponent({
       <td
         className={cn(
           'p-4 text-sm text-right font-mono font-bold',
-          profit !== null ? (profit > 0 ? 'text-profit' : profit < 0 ? 'text-loss' : 'text-muted-foreground') : 'text-muted-foreground'
+          pnlPresentation(profit).className
         )}
       >
-        {profit !== null ? `${profit > 0 ? '+' : ''}${profit.toFixed(2)}` : '--'}
+        {pnlPresentation(profit).text}
       </td>
     </motion.tr>
   );

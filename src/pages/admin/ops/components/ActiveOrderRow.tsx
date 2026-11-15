@@ -2,7 +2,7 @@ import { memo } from 'react';
 import type { TFunction } from 'i18next';
 import { AlertTriangle, Eye, RefreshCw, XCircle } from 'lucide-react';
 
-import type { Order } from '@/api';
+import type { AdminOrderSummary } from '@/api/admin/operations-contracts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
@@ -15,12 +15,12 @@ import {
 
 type ActiveOrderRowProps = {
   t: TFunction;
-  order: Order;
+  order: AdminOrderSummary;
   isRequeuePending: boolean;
   isCancelPending: boolean;
   onRequeue: (orderId: number) => void;
   onCancel: (orderId: number) => void;
-  onView: (order: Order) => void;
+  onView: (order: AdminOrderSummary) => void;
 };
 
 function ActiveOrderRowImpl({
@@ -83,11 +83,10 @@ function ActiveOrderRowImpl({
       <TableCell>
         <div className="flex flex-col">
           <span className="font-mono text-sm">{order.quantity}</span>
-          {order.executed_price > 0 && <span className="text-xs text-muted-foreground line-clamp-1">@ {order.executed_price}</span>}
         </div>
       </TableCell>
       <TableCell className="font-mono text-xs uppercase text-muted-foreground">
-        {order.exchange ? t(`common:exchanges.${order.exchange.toLowerCase()}`, { defaultValue: order.exchange }) : t('common:exchanges.turboflow')}
+        {order.exchange ? t(`common:exchanges.${order.exchange.toLowerCase()}`, { defaultValue: order.exchange }) : '—'}
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">

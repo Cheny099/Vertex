@@ -12,6 +12,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { pnlPresentation } from '@/lib/presentation';
 
 interface AccountPreview {
   exchange?: string;
@@ -133,9 +134,8 @@ export function StrategyMainInfoGrid({
                   <span className="text-sm font-semibold tracking-tight">{item.display_name}</span>
                 </div>
                 <div className="text-right">
-                  <p className={cn('text-xs font-mono font-bold', item.pnl > 0 ? 'text-profit' : 'text-loss')}>
-                    {item.pnl > 0 ? '+' : ''}
-                    {Number(item.pnl).toFixed(2)}
+                  <p className={cn('text-xs font-mono font-bold', pnlPresentation(item.pnl).className)}>
+                    {pnlPresentation(item.pnl).text}
                   </p>
                   <p className="text-[9px] text-muted-foreground uppercase tracking-widest">{t('strategies:detail.total_pnl')} (USDT)</p>
                 </div>

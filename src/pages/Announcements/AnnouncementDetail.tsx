@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { announcementApi, AnnouncementDetail } from "@/api";
 import { logger } from "@/lib/logger";
+import type { ApiError } from '@/api/contracts';
+import { formatOptionalDate } from '@/lib/presentation';
 
 export default function AnnouncementDetailPage() {
     const { id } = useParams<{ id: string }>();
@@ -23,7 +25,11 @@ export default function AnnouncementDetailPage() {
         let cancelled = false;
 
         const fetchDetail = async () => {
-            if (!id) return;
+            if (!id || !Number.isSafeInteger(Number(id)) || Number(id) <= 0) {
+                setError('announcements:not_found');
+                setLoading(false);
+                return;
+            }
             setLoading(true);
             setError("");
             try {
@@ -33,7 +39,7 @@ export default function AnnouncementDetailPage() {
             } catch (err: unknown) {
                 if (cancelled) return;
                 logger.error('Failed to fetch announcement detail', err);
-                setError(err instanceof Error ? err.message : "Failed to load announcement");
+                setError((err as Partial<ApiError>)?.status === 404 ? 'announcements:not_found' : 'announcements:load_failed');
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -56,7 +62,7 @@ export default function AnnouncementDetailPage() {
     if (error || !data) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-                <p className="text-destructive font-medium">{error || t("not_found.title")}</p>
+                <p className="text-destructive font-medium">{t(error || 'announcements:not_found')}</p>
                 <Button variant="outline" onClick={() => navigate("/announcements")}>
                     {t("back_to_list")}
                 </Button>
@@ -78,8 +84,11 @@ export default function AnnouncementDetailPage() {
                     </h1>
                     <div className="flex items-center gap-2 text-muted-foreground text-sm">
                         <Calendar size={16} />
-                        <time>{new Date(data.published_at).toLocaleString()}</time>
+                        <time>{formatOptionalDate(data.published_at, i18n.language)}</time>
                     </div>
+                    {data.lang && data.lang !== 'all' && data.lang !== (i18n.language.startsWith('zh') ? 'zh' : 'en') && (
+                        <p className="mt-2 text-sm text-muted-foreground">{t('announcements:original_language')}</p>
+                    )}
                 </header>
 
                 <Separator className="mb-8" />
@@ -98,9 +107,7 @@ export default function AnnouncementDetailPage() {
                             strong: ({ node, ...props }) => <strong className="font-black text-slate-900 dark:text-white" {...props} />
                         }}
                     >
-                        {typeof data.content_md === 'string'
-                            ? data.content_md.replace(/\\n/g, '\n')
-                            : ''}
+                        {(data.content_md ?? data.content ?? '').replace(/\\n/g, '\n')}
                     </ReactMarkdown>
                 </div>
             </article>

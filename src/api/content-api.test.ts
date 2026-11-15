@@ -57,3 +57,29 @@ describe("content API language normalisation", () => {
     expect(requestedUrl()).not.toContain("fr");
   });
 });
+
+describe('announcement shared links', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it('falls back once on a language-scoped 404', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ detail: 'Announcement not found' }), { status: 404 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 7, title: 'Original', lang: 'zh', content_md: 'Text' })));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(announcementApi.get(7, 'en-US')).resolves.toMatchObject({ title: 'Original', lang: 'zh' });
+    expect(fetchMock.mock.calls.map(call => call[0])).toEqual([
+      '/api/v1/public/announcements/7?lang=en', '/api/v1/public/announcements/7?lang=zh',
+    ]);
+  });
+  it.each([403, 500, 503])('does not hide a %s failure with a language retry', async status => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ detail: 'Failed' }), { status }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(announcementApi.get(7, 'zh')).rejects.toMatchObject({ status });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it('returns a genuine 404 after both languages miss, without retrying indefinitely', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response('{}', { status: 404 })));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(announcementApi.get(7, 'zh')).rejects.toMatchObject({ status: 404 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});

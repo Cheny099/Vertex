@@ -49,8 +49,8 @@ export function useSettingsAccountMutations({
     onError: (error: unknown) => {
       const apiError = error as ApiError;
       const raw = typeof apiError?.message === 'string' ? apiError.message : '';
-      if (/limit reached/i.test(raw) || raw.includes('409')) {
-        toast.error(t('settings:accounts.toast.limit_reached'));
+      if (/limit reached/i.test(raw)) {
+        toast.error(translateBackendErrorForDisplay(raw) || t('settings:accounts.toast.limit_reached'));
         return;
       }
 
@@ -72,7 +72,7 @@ export function useSettingsAccountMutations({
       const apiError = error as ApiError;
       const raw = typeof apiError?.message === 'string' ? apiError.message : '';
       if (/limit reached/i.test(raw)) {
-        toast.error(t('settings:accounts.toast.limit_reached'));
+        toast.error(translateBackendErrorForDisplay(raw) || t('settings:accounts.toast.limit_reached'));
         return;
       }
 

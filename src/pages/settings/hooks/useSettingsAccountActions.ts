@@ -9,19 +9,13 @@ import { useSettingsAddAccountForm } from './useSettingsAddAccountForm';
 type UseSettingsAccountActionsParams = {
   accounts: Account[] | undefined;
   invalidateAccountData: () => void;
-  isLimitReached: (exchange: string) => boolean;
-  otherCount: number;
   t: TFunction;
-  turboflowCount: number;
 };
 
 export function useSettingsAccountActions({
   accounts,
   invalidateAccountData,
-  isLimitReached,
-  otherCount,
   t,
-  turboflowCount,
 }: UseSettingsAccountActionsParams) {
   const {
     newAccount,
@@ -30,10 +24,7 @@ export function useSettingsAccountActions({
     handleCloseAddAccount,
     addAccountDialogBaseProps,
   } = useSettingsAddAccountForm({
-    isLimitReached,
-    otherCount,
     t,
-    turboflowCount,
   });
 
   // A successful create used to blank the fields and leave the dialog open, which reads exactly

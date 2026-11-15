@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
   adminApi,
-  Order,
   Subscription,
   translateBackendErrorMessage,
 } from '@/api';
 import type { ApiError } from '@/api/contracts';
+import type { AdminOrderSummary, ClosePositionRequest } from '@/api/admin/operations-contracts';
+import { closePositionRequest } from '../close-position';
 import {
   TableCell,
   TableRow,
@@ -20,7 +21,6 @@ import { ActiveOrderRow } from '../components/ActiveOrderRow';
 import {
   DEFAULT_REQUEUE_LIMIT,
   type BatchRequeueParams,
-  type CloseParams,
   useOpsConsoleState,
 } from './useOpsConsoleState';
 
@@ -35,6 +35,7 @@ export function useOpsConsoleModel() {
   const { t } = useTranslation(['admin', 'common']);
   const isPageVisible = usePageVisibility();
   const state = useOpsConsoleState();
+  const closeInFlight = useRef(false);
 
   const debouncedSymbolFilter = useDebouncedValue(state.symbolFilter, 300);
   const debouncedAccountIdFilter = useDebouncedValue(state.accountIdFilter, 300);
@@ -77,7 +78,13 @@ export function useOpsConsoleModel() {
     }
   }, [isPageVisible, refetch, state.isAutoRefresh]);
 
-  const { data: orderEvents, isLoading: isLoadingEvents } = useQuery({
+  const orderDetailQuery = useQuery({
+    queryKey: ['adminOrderDetail', state.selectedOrder?.id],
+    queryFn: () => adminApi.ops.getOrder(state.selectedOrder!.id),
+    enabled: !!state.selectedOrder,
+  });
+
+  const { data: orderEvents, isLoading: isLoadingEvents, isError: eventsFailed } = useQuery({
     queryKey: ['adminOrderEvents', state.selectedOrder?.id],
     queryFn: () => (state.selectedOrder ? adminApi.ops.getOrderEvents(state.selectedOrder.id) : null),
     enabled: !!state.selectedOrder,
@@ -110,14 +117,8 @@ export function useOpsConsoleModel() {
   });
 
   const closePositionMutation = useMutation({
-    mutationFn: (data: CloseParams) =>
-      adminApi.ops.closePosition({
-        account_id: parseInt(data.account_id),
-        symbol: data.symbol,
-        pos_side: data.pos_side,
-        qty: parseFloat(data.qty),
-        reason: data.reason,
-      }),
+    mutationFn: (data: ClosePositionRequest) => adminApi.ops.closePosition(data),
+    onSettled: () => { closeInFlight.current = false; },
     onSuccess: () => {
       state.setCloseDialogOpen(false);
       toast.success(t('admin:close_success'));
@@ -189,7 +190,7 @@ export function useOpsConsoleModel() {
   );
 
   const handleViewOrder = useCallback(
-    (order: Order) => {
+    (order: AdminOrderSummary) => {
       state.setSelectedOrder(order);
     },
     [state]
@@ -200,11 +201,16 @@ export function useOpsConsoleModel() {
   }, [refetch]);
 
   const handleClosePositionConfirm = useCallback(() => {
-    // A double click can land before the disabled state re-renders, and closePosition sends a
-    // market order with no idempotency key - a second one would flip the position, not close it.
-    if (closePositionMutation.isPending) return;
-    closePositionMutation.mutate(state.closeParams);
-  }, [closePositionMutation, state.closeParams]);
+    // Two clicks can arrive before mutation state re-renders; guard synchronously.
+    if (closeInFlight.current) return;
+    const request = closePositionRequest(state.closeParams);
+    if (!request) {
+      toast.error(t('admin:close_invalid_input'));
+      return;
+    }
+    closeInFlight.current = true;
+    closePositionMutation.mutate(request);
+  }, [closePositionMutation, state.closeParams, t]);
 
   const handleBatchDryRun = useCallback(() => {
     batchRequeueMutation.mutate({ ...state.batchParams, dry_run: true });
@@ -274,7 +280,7 @@ export function useOpsConsoleModel() {
       );
     }
 
-    return items.map((order: Order) => (
+    return items.map((order: AdminOrderSummary) => (
       <ActiveOrderRow
         key={order.id}
         t={t}
@@ -311,6 +317,8 @@ export function useOpsConsoleModel() {
     isLoading,
     orderEvents,
     isLoadingEvents,
+    eventsFailed,
+    orderDetailQuery,
     closePositionPending: closePositionMutation.isPending,
     batchRequeuePending: batchRequeueMutation.isPending,
     freezeSubPending: freezeSubMutation.isPending,

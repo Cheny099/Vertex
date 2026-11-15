@@ -74,15 +74,18 @@ describe("AuthProvider storage", () => {
     expect(sessionStorage.getItem("user_data")).toBeNull();
   });
 
-  it("restores authentication from sessionStorage on reload", () => {
+  it("does not trust cached identity or admin rights before profile verification", () => {
     sessionStorage.setItem("auth_token", "session-token");
-    sessionStorage.setItem("user_data", JSON.stringify(user));
+    sessionStorage.setItem("user_data", JSON.stringify({ ...user, is_admin: true }));
+    mocks.getProfile.mockReturnValue(new Promise(() => {}));
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    expect(result.current.isAuthenticated).toBe(true);
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.isAdmin).toBe(false);
+    expect(result.current.isLoading).toBe(true);
     expect(result.current.token).toBe("session-token");
-    expect(result.current.user).toEqual(user);
+    expect(result.current.user).toBeNull();
   });
 
   it("updates the user in the active session storage", () => {
@@ -187,5 +190,54 @@ describe("AuthProvider storage", () => {
     expect(sessionStorage.getItem("user_data")).toBeNull();
     expect(localStorage.getItem("panda_quant_user")).toBeNull();
     expect(sessionStorage.getItem("panda_quant_user")).toBeNull();
+    expect(result.current.preserveReturnTo).toBe(false);
+  });
+
+  it("blocks access on a transient validation error and permits a retry without losing the token", async () => {
+    localStorage.setItem("auth_token", "saved-token");
+    mocks.getProfile.mockRejectedValueOnce(new Error("network unavailable"));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.validationFailed).toBe(true));
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.isAdmin).toBe(false);
+    expect(result.current.isLoading).toBe(false);
+    expect(localStorage.getItem("auth_token")).toBe("saved-token");
+    mocks.getProfile.mockResolvedValue({ id: 7, email: user.email, full_name: "Verified", is_admin: false });
+    act(() => result.current.retryValidation());
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
+    expect(result.current.user?.username).toBe("Verified");
+    expect(result.current.validationFailed).toBe(false);
+  });
+
+  it("revalidates a cross-tab replacement and ignores the old identity", async () => {
+    localStorage.setItem("auth_token", "old-token");
+    let resolveOld!: (value: unknown) => void;
+    mocks.getProfile.mockImplementation((token: string) => token === "old-token"
+      ? new Promise(resolve => { resolveOld = resolve; })
+      : Promise.resolve({ id: 8, email: "b@example.com", is_admin: false }));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    act(() => {
+      localStorage.setItem("auth_token", "new-token");
+      window.dispatchEvent(new StorageEvent("storage", { key: "auth_token" }));
+    });
+    expect(result.current.isAuthenticated).toBe(false);
+    await waitFor(() => expect(result.current.user?.id).toBe("8"));
+    await act(async () => resolveOld({ id: 7, email: user.email, is_admin: true }));
+    expect(result.current.isAdmin).toBe(false);
+    expect(result.current.user?.id).toBe("8");
+    act(() => {
+      localStorage.clear();
+      window.dispatchEvent(new StorageEvent("storage", { key: null }));
+    });
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.preserveReturnTo).toBe(false);
+  });
+
+  it("preserves a return path for session expiry, unlike explicit logout", () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    act(() => result.current.login(user, "token", true));
+    act(() => window.dispatchEvent(new CustomEvent("panda-auth-unauthorized")));
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.preserveReturnTo).toBe(true);
   });
 });

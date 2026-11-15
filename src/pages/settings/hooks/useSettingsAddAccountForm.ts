@@ -1,13 +1,9 @@
 import { useCallback, useMemo, useState, type ChangeEvent } from 'react';
 import type { TFunction } from 'i18next';
 import type { AccountCreateDto } from '@/api';
-import { LIMIT_OTHER, LIMIT_TF } from '@/pages/settings/settings-helpers';
 
 type UseSettingsAddAccountFormParams = {
-  isLimitReached: (exchange: string) => boolean;
-  otherCount: number;
   t: TFunction;
-  turboflowCount: number;
 };
 
 const DEFAULT_NEW_ACCOUNT: Partial<AccountCreateDto> = {
@@ -19,10 +15,7 @@ const DEFAULT_NEW_ACCOUNT: Partial<AccountCreateDto> = {
 };
 
 export function useSettingsAddAccountForm({
-  isLimitReached,
-  otherCount,
   t,
-  turboflowCount,
 }: UseSettingsAddAccountFormParams) {
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
   const [newAccount, setNewAccount] = useState<Partial<AccountCreateDto>>(DEFAULT_NEW_ACCOUNT);
@@ -32,7 +25,6 @@ export function useSettingsAddAccountForm({
     selectedExchange === 'turboflow' ||
     selectedExchange === 'gate_futures' ||
     selectedExchange === 'binance_futures';
-  const limitReachedForSelected = isLimitReached(selectedExchange);
 
   const resetNewAccount = useCallback(() => {
     setNewAccount(DEFAULT_NEW_ACCOUNT);
@@ -85,11 +77,9 @@ export function useSettingsAddAccountForm({
   const canSubmitNewAccount = useMemo(() => {
     if (!newAccount.name) return false;
     if (isApiKeyExchange && (!newAccount.api_key || !newAccount.api_secret)) return false;
-    if (limitReachedForSelected) return false;
     return true;
   }, [
     isApiKeyExchange,
-    limitReachedForSelected,
     newAccount.api_key,
     newAccount.api_secret,
     newAccount.name,
@@ -107,15 +97,6 @@ export function useSettingsAddAccountForm({
       newAccount,
       canSubmit: canSubmitNewAccount,
       isApiKeyExchange,
-      limitReachedForSelected,
-      limitReachedTurboflow: isLimitReached('turboflow'),
-      limitReachedGate: isLimitReached('gate_futures'),
-      limitReachedBinance: isLimitReached('binance_futures'),
-      limitReachedWeek: isLimitReached('week'),
-      turboflowCount,
-      otherCount,
-      limitTf: LIMIT_TF,
-      limitOther: LIMIT_OTHER,
       t,
     }),
     [
@@ -128,12 +109,8 @@ export function useSettingsAddAccountForm({
       handleNameInputChange,
       isAddAccountOpen,
       isApiKeyExchange,
-      isLimitReached,
-      limitReachedForSelected,
       newAccount,
-      otherCount,
       t,
-      turboflowCount,
     ]
   );
 

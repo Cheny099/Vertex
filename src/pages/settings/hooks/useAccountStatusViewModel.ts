@@ -81,11 +81,11 @@ export function useAccountStatusViewModel({
   }, [accounts, accountStatusQueries, t]);
 
   const translateBackendErrorForDisplay = useCallback(
-    (raw?: string | null): string | null => {
-      if (typeof raw !== 'string') return null;
+    (raw?: string | null): string => {
+      if (typeof raw !== 'string') return '';
 
       const msg = raw.trim();
-      if (!msg) return null;
+      if (!msg) return '';
 
       const directKey = `common:backend_errors.${msg}`;
       if (i18n.exists(directKey)) return t(directKey);

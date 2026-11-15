@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next';
 import { AlertTriangle, Clock, RefreshCw, Zap } from 'lucide-react';
-import type { AdminOrderEventItem, Order } from '@/api';
+import type { AdminOrderEventItem } from '@/api';
+import type { AdminOrderSummary, AdminOrderDetail } from '@/api/admin/operations-contracts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,7 +22,12 @@ import {
 
 interface OrderDetailDialogProps {
   t: TFunction;
-  selectedOrder: Order | null;
+  selectedOrder: AdminOrderSummary | null;
+  orderDetail?: AdminOrderDetail;
+  isLoadingDetail: boolean;
+  detailFailed: boolean;
+  onRetryDetail: () => void;
+  eventsFailed: boolean;
   onClose: () => void;
   orderEvents?: { events: AdminOrderEventItem[] } | null;
   isLoadingEvents: boolean;
@@ -30,10 +36,17 @@ interface OrderDetailDialogProps {
 export function OrderDetailDialog({
   t,
   selectedOrder,
+  orderDetail,
+  isLoadingDetail,
+  detailFailed,
+  onRetryDetail,
+  eventsFailed,
   onClose,
   orderEvents,
   isLoadingEvents,
 }: OrderDetailDialogProps) {
+  const order = !detailFailed && orderDetail?.id === selectedOrder?.id ? orderDetail : undefined;
+  const summary = order ?? selectedOrder;
   return (
     <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden flex flex-col p-0 bg-white/95 backdrop-blur-3xl border-slate-200/60 shadow-2xl rounded-3xl">
@@ -43,70 +56,73 @@ export function OrderDetailDialog({
               <div className="p-2 bg-primary/10 rounded-xl shadow-sm border border-primary/20">
                 <Zap className="h-5 w-5 text-primary" />
               </div>
-              {t('admin:order_detail_title', { id: selectedOrder?.id })}
+              {t('admin:order_detail_title', { id: summary?.id })}
             </DialogTitle>
             <DialogDescription className="text-xs font-semibold flex items-center gap-4">
               <span className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-slate-500 shadow-sm">
                 <span className="opacity-60">{t('admin:column_strategy')}:</span>
-                <span className="text-slate-900 font-bold">{selectedOrder?.strategy_id || t('admin:none')}</span>
+                <span className="text-slate-900 font-bold">{summary?.strategy_id ?? t('admin:none')}</span>
               </span>
               <span className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-slate-500 shadow-sm">
                 <span className="opacity-60">{t('admin:column_account')}:</span>
-                <span className="text-slate-900 font-bold">{selectedOrder?.account_id}</span>
+                <span className="text-slate-900 font-bold">{summary?.account_id}</span>
               </span>
             </DialogDescription>
           </div>
         </DialogHeader>
 
-        {selectedOrder && (
+        {summary && (
           <ScrollArea className="flex-1 px-8 py-6">
             <div className="space-y-8 pb-8">
+              {isLoadingDetail && <p role="status">{t('common:loading')}</p>}
+              {detailFailed && <div role="alert" className="flex items-center gap-3 text-destructive">
+                {t('admin:order_detail_failed')}
+                <Button variant="outline" onClick={onRetryDetail}>{t('common:retry')}</Button>
+              </div>}
               <div className="grid grid-cols-2 gap-y-6 gap-x-12 bg-slate-50/80 p-6 rounded-2xl border border-slate-100 shadow-inner">
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">{t('admin:column_status')}</span>
-                  <Badge variant={selectedOrder.status === 'COMPLETED' ? 'default' : selectedOrder.status === 'FAILED' ? 'destructive' : 'secondary'} className="w-fit px-3 py-1 text-xs font-bold shadow-sm">
-                    {t(`admin:status_labels.${selectedOrder.status}`)}
+                  <Badge variant={summary.status === 'COMPLETED' ? 'default' : summary.status === 'FAILED' ? 'destructive' : 'secondary'} className="w-fit px-3 py-1 text-xs font-bold shadow-sm">
+                    {t(`admin:status_labels.${summary.status}`)}
                   </Badge>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">{t('admin:symbol')}</span>
-                  <span className="font-mono text-base font-black tracking-tight text-slate-900">{selectedOrder.symbol}</span>
+                  <span className="font-mono text-base font-black tracking-tight text-slate-900">{summary.symbol}</span>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">{t('admin:exchange')}</span>
                   <Badge variant="outline" className="w-fit uppercase font-mono text-xs tracking-wider border-slate-200 bg-white">
-                    {selectedOrder.exchange ? t(`common:exchanges.${selectedOrder.exchange.toLowerCase()}`, { defaultValue: selectedOrder.exchange }) : t('common:exchanges.turboflow')}
+                    {summary.exchange ? t(`common:exchanges.${summary.exchange.toLowerCase()}`, { defaultValue: summary.exchange }) : '—'}
                   </Badge>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">{t('admin:order_action')} / {t('admin:side')}</span>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="capitalize text-xs font-bold bg-white border-slate-200">{selectedOrder.action || '-'}</Badge>
-                    <Badge variant={selectedOrder.side.toLowerCase() === 'buy' ? 'default' : 'destructive'} className="text-xs uppercase font-bold px-2">{selectedOrder.side}</Badge>
+                    <Badge variant="outline" className="capitalize text-xs font-bold bg-white border-slate-200">{summary.action || '-'}</Badge>
+                    <Badge variant={summary.side.toLowerCase() === 'buy' ? 'default' : 'destructive'} className="text-xs uppercase font-bold px-2">{summary.side}</Badge>
                   </div>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">{t('admin:qty_plan_exec')}</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">{t('admin:planned_qty')}</span>
                   <div className="font-mono text-sm tracking-tighter">
-                    <span className="font-black text-slate-900">{selectedOrder.quantity}</span>
-                    <span className="mx-2 text-slate-300">/</span>
-                    <span className={`${selectedOrder.status === 'COMPLETED' ? 'text-green-600 font-bold' : 'text-slate-500'}`}>{selectedOrder.executed_qty || 0}</span>
+                    <span className="font-black text-slate-900">{summary.quantity}</span>
                   </div>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">{t('admin:exec_price_label')}</span>
-                  <span className="font-mono text-sm font-black text-slate-900">{selectedOrder.executed_price || '-'}</span>
+                  <span className="font-mono text-sm font-black text-slate-900">{order?.executed_price ?? '—'}</span>
                 </div>
 
                 <div className="col-span-2 pt-4 border-t border-slate-200/60 mt-2">
                   <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t('admin:external_order_id')}</span>
-                    <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{selectedOrder.tf_order_id || 'N/A'}</span>
+                    <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{order?.tf_order_id ?? '—'}</span>
                   </div>
-                  {(selectedOrder.error_message || selectedOrder.last_error) && (
+                  {(summary.error_message || summary.last_error) && (
                     <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs italic flex gap-3 items-start animate-in fade-in slide-in-from-top-2 duration-300">
                       <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                      <p className="leading-relaxed font-medium">{selectedOrder.error_message || selectedOrder.last_error}</p>
+                      <p className="leading-relaxed font-medium">{summary.error_message || summary.last_error}</p>
                     </div>
                   )}
                 </div>
@@ -123,7 +139,7 @@ export function OrderDetailDialog({
                       <RefreshCw className="h-4 w-4 animate-spin" />
                       {t('admin:loading_events')}
                     </div>
-                  ) : (
+                  ) : eventsFailed ? <p role="alert">{t('admin:order_events_failed')}</p> : (
                     orderEvents?.events?.map((event: AdminOrderEventItem, idx: number) => (
                       <div key={idx} className="relative group/evt">
                         <div className={`absolute -left-[31px] top-1 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm transition-transform group-hover/evt:scale-125
@@ -140,7 +156,7 @@ export function OrderDetailDialog({
                             <p className="text-xs text-slate-500 leading-relaxed bg-slate-50/50 p-2 rounded-lg border border-slate-100/50">{event.note}</p>
                           )}
 
-                          {event.data && (
+                          {event.data != null && (
                             <Accordion type="single" collapsible className="w-full">
                               <AccordionItem value={`item-${idx}`} className="border-none">
                                 <AccordionTrigger className="py-0 text-xs font-bold text-blue-500 hover:no-underline justify-start gap-2 h-6 opacity-60 hover:opacity-100 transition-opacity">
@@ -164,7 +180,7 @@ export function OrderDetailDialog({
                       </div>
                     ))
                   )}
-                  {(!orderEvents?.events || orderEvents.events.length === 0) && !isLoadingEvents && (
+                  {(!orderEvents?.events || orderEvents.events.length === 0) && !isLoadingEvents && !eventsFailed && (
                     <div className="flex flex-col items-center justify-center p-8 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 text-slate-400 italic text-sm">
                       {t('admin:no_events')}
                     </div>

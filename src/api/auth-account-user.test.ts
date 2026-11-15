@@ -23,7 +23,10 @@ describe("authApi.getProfile", () => {
   });
 
   it("uses a newly issued token before authentication is persisted", async () => {
-    mocks.request.mockResolvedValue({ id: 7, email: "user@example.com" });
+    mocks.request.mockResolvedValue({
+      id: 7, email: "user@example.com", is_active: true,
+      created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z",
+    });
 
     await authApi.getProfile("fresh-token");
 

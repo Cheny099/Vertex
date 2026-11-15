@@ -1,7 +1,9 @@
 import i18n from '../i18n';
 import { createApiError } from './contracts';
 import { isRecord } from './guards';
-import { API_BASE_URL, request } from './core';
+import { request } from './core';
+import { decodeResponse } from './response-validation';
+import { accountSchema, authResponseSchema, profileSchema } from './account-schema';
 import type {
   Account,
   AccountBalance,
@@ -34,22 +36,12 @@ export const authApi = {
     formData.append('username', credentials.username);
     formData.append('password', credentials.password);
 
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const response = await request<unknown>('/auth/login', {
       method: 'POST',
       body: formData,
     });
 
-    if (!response.ok) {
-      let errorMsg = 'Login failed';
-      try {
-        const errBody = await response.json();
-        errorMsg = errBody.detail || errBody.msg || errorMsg;
-      } catch {
-        // ignore
-      }
-      throw new Error(errorMsg);
-    }
-    return response.json();
+    return decodeResponse(authResponseSchema, response);
   },
 
   sendRegisterCode: async (data: SendRegisterCodeRequest) => {
@@ -67,10 +59,11 @@ export const authApi = {
   },
 
   getProfile: async (token?: string) => {
-    return request<UserProfile>(
+    const profile = await request<unknown>(
       '/auth/me',
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
     );
+    return decodeResponse(profileSchema, profile);
   },
 
   forgotPassword: async (data: ForgotPasswordRequest) => {
@@ -95,10 +88,11 @@ export const authApi = {
   },
 
   loginWithCode: async (data: LoginWithCodeRequest) => {
-    return request<AuthResponse>('/auth/login-with-code', {
+    const response = await request<unknown>('/auth/login-with-code', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    return decodeResponse(authResponseSchema, response);
   },
 
   redeemInvite: async (data: InviteRedeemRequest) => {
@@ -111,16 +105,17 @@ export const authApi = {
 
 export const accountApi = {
   list: async () => {
-    const accounts = await request<Account[]>('/accounts/');
+    const accounts = decodeResponse(accountSchema.array(), await request<unknown>('/accounts/'));
     // Backend uses soft delete; filter records with deleted_at
     return accounts.filter((acc) => !acc.deleted_at);
   },
 
   create: async (data: AccountCreateDto) => {
-    return request<Account>('/accounts/', {
+    const account = await request<unknown>('/accounts/', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    return decodeResponse(accountSchema, account);
   },
 
   get: async (id: number) => {

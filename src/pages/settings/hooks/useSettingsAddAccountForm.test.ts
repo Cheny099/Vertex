@@ -4,10 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { useSettingsAddAccountForm } from "./useSettingsAddAccountForm";
 
 const params = {
-  isLimitReached: () => false,
-  otherCount: 0,
   t: ((key: string) => key) as never,
-  turboflowCount: 0,
 };
 
 // useSettingsAccountActions calls handleCloseAddAccount when a create succeeds. It was consumed
