@@ -41,6 +41,16 @@ function wrapper({ children }: PropsWithChildren) {
 }
 
 describe("AuthProvider storage", () => {
+  it("rejects identity updates captured by an earlier session", () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    act(() => result.current.beginLogin().complete(user, "a-token", true));
+    const updateOldUser = result.current.updateUser;
+    act(() => result.current.logout());
+    act(() => result.current.beginLogin().complete({ ...user, id: "8", can_subscribe: false }, "b-token", true));
+    act(() => updateOldUser({ can_subscribe: true, invite_channel: "old-user-channel" }));
+    expect(result.current.user?.can_subscribe).toBe(false);
+    expect(JSON.parse(localStorage.getItem("user_data")!)).not.toHaveProperty("invite_channel");
+  });
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();

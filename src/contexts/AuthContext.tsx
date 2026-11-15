@@ -102,14 +102,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [invalidateLogin, queryClient]);
 
+  const sessionGeneration = generation.current;
   const updateUser = useCallback((fields: Partial<User>) => {
+    const isCurrent = () => sessionGeneration === generation.current && session.token !== null &&
+      session.token === activeToken.current && session.token === getStoredAuthToken();
+    if (!isCurrent()) return;
     setSession(previous => {
-      if (previous.status !== 'authenticated') return previous;
+      if (!isCurrent() || previous.status !== 'authenticated' || previous.token !== session.token) return previous;
       const user = { ...previous.user, ...fields };
       updateStoredUser(user);
       return { ...previous, user };
     });
-  }, []);
+  }, [session.token, sessionGeneration]);
 
   useEffect(() => {
     const handleUnauthorized = () => endSession(true);

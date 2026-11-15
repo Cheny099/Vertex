@@ -1,10 +1,11 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
 import { accountApi, type Account, type AccountCreateDto } from '@/api';
 import { useAccountStatusViewModel } from '@/pages/settings/hooks/useAccountStatusViewModel';
 import { useSettingsAccountMutations } from './useSettingsAccountMutations';
 import { useSettingsAddAccountForm } from './useSettingsAddAccountForm';
+import { useAsyncScope, type IsCurrent } from '@/hooks/use-async-scope';
 
 type UseSettingsAccountActionsParams = {
   accounts: Account[] | undefined;
@@ -19,6 +20,7 @@ export function useSettingsAccountActions({
 }: UseSettingsAccountActionsParams) {
   const {
     newAccount,
+    formRevision,
     resetNewAccount,
     handleOpenAddAccount,
     handleCloseAddAccount,
@@ -26,6 +28,9 @@ export function useSettingsAccountActions({
   } = useSettingsAddAccountForm({
     t,
   });
+  const { capture: capturePage } = useAsyncScope();
+  const { capture: captureEditor } = useAsyncScope(formRevision);
+  const creating = useRef<IsCurrent | null>(null);
 
   // A successful create used to blank the fields and leave the dialog open, which reads exactly
   // like a rejected submission - users retried and created duplicate accounts, burning one of the
@@ -68,13 +73,19 @@ export function useSettingsAccountActions({
   });
 
   const handleCreateAccount = useCallback(() => {
+    if (!addAccountDialogBaseProps.canSubmit || creating.current?.()) return;
+    const isCurrent = capturePage();
+    const isCurrentEditor = captureEditor();
+    creating.current = isCurrentEditor;
     const payload = { ...newAccount } as AccountCreateDto;
     if (payload.exchange === 'week') {
       delete payload.api_key;
       delete payload.api_secret;
     }
-    createAccountMutation.mutate(payload);
-  }, [createAccountMutation, newAccount]);
+    createAccountMutation.mutate({ data: payload, isCurrent, isCurrentEditor }, {
+      onSettled: () => { if (creating.current === isCurrentEditor) creating.current = null; },
+    });
+  }, [addAccountDialogBaseProps.canSubmit, captureEditor, capturePage, createAccountMutation, newAccount]);
 
   const accountsSectionProps = useMemo(
     () => ({

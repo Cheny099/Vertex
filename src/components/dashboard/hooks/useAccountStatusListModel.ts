@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { accountApi, translateBackendErrorMessage } from '@/api';
 import type { AccountStatusResponse } from '@/api';
 import type { ApiError } from '@/api/contracts';
+import { normalizeStatusKey } from '@/lib/account-status';
 
 export interface DashboardAccount {
   id?: number;
@@ -73,7 +74,7 @@ export const useAccountStatusListModel = (rawAccounts: DashboardAccount[]) => {
   });
 
   const getDerivedStatus = useCallback((response: StatusLike): DerivedStatus => {
-    const status = response?.status;
+    const status = normalizeStatusKey(response?.status);
     const detail = response?.detail || {};
     const localizedHint = toLocalizedError(detail?.hint as string | null | undefined);
     const localizedMessage = toLocalizedError(detail?.message as string | null | undefined);
@@ -152,7 +153,7 @@ export const useAccountStatusListModel = (rawAccounts: DashboardAccount[]) => {
       return { level: 'warning', label: t('account_status.inactive_badge') };
     }
 
-    if (isReady === false) {
+    if (status === 'not_ready' || isReady === false) {
       return {
         level: 'warning',
         label: t('account_status.derived.not_ready'),
@@ -160,7 +161,9 @@ export const useAccountStatusListModel = (rawAccounts: DashboardAccount[]) => {
       };
     }
 
-    return { level: 'ok', label: t('account_status.derived.ok') };
+    return status === 'ok'
+      ? { level: 'ok', label: t('account_status.derived.ok') }
+      : { level: 'warning', label: t('account_status.derived.unknown'), hint: t('account_status.hints.unknown') };
   }, [t, toLocalizedError]);
 
   const accountRows = useMemo<AccountStatusRowModel[]>(() => {

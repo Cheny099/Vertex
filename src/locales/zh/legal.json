@@ -9,5 +9,6 @@
     "scroll_to_read_all": "请滑动阅读到底部",
     "accept_and_continue": "签署并继续",
     "accept_success": "签署成功",
-    "high_risk_warning": "高风险提示"
+    "high_risk_warning": "高风险提示",
+    "document_version_mismatch": "所需协议版本无法读取或已更新。请关闭弹窗并重新提交，获取当前版本后再阅读确认。"
 }

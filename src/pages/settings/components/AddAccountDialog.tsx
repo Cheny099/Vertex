@@ -60,7 +60,7 @@ export function AddAccountDialog({
           <DialogDescription>{t('settings:accounts.dialog.desc')}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <fieldset disabled={isPending} className="grid gap-4 py-4">
           <div className="grid gap-2">
             <Label htmlFor="account-name">{t('settings:accounts.dialog.name_label')}</Label>
             <Input
@@ -74,6 +74,7 @@ export function AddAccountDialog({
           <div className="grid gap-2">
             <Label htmlFor="exchange">{t('settings:accounts.dialog.exchange_label')}</Label>
             <Select
+              disabled={isPending}
               value={newAccount.exchange}
               onValueChange={(value) => onExchangeChange(value as AccountCreateDto['exchange'])}
             >
@@ -129,7 +130,7 @@ export function AddAccountDialog({
               </p>
             </div>
           )}
-        </div>
+        </fieldset>
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>

@@ -22,6 +22,8 @@ export const useStrategyDetailModel = () => {
 
   const {
     isAddSubOpen,
+    editorId,
+    setEditorId,
     setIsAddSubOpen,
     activePeriod,
     setActivePeriod,
@@ -64,9 +66,9 @@ export const useStrategyDetailModel = () => {
   });
 
   const {
-    addSubMutation,
-    updateSubMutation,
+    isSubmitting,
     handleLegalAccepted,
+    handleLegalOpenChange,
     handleRemoveSub,
     handleSubmitSub,
   } = useStrategySubscriptionActions({
@@ -75,6 +77,7 @@ export const useStrategyDetailModel = () => {
     fixedAmountMax,
     editingSub,
     newSub,
+    editorId,
     setIsAddSubOpen,
     setEditingSub,
     setLegalError,
@@ -90,6 +93,8 @@ export const useStrategyDetailModel = () => {
 
   const handleEditSub = useCallback(
     (sub: Subscription) => {
+      setEditorId(value => value + 1);
+      setLegalError(null);
       setEditingSub(sub);
       setNewSub(toSubscriptionDraft(sub));
 
@@ -99,7 +104,7 @@ export const useStrategyDetailModel = () => {
 
       setIsAddSubOpen(true);
     },
-    [setEditingSub, setIsAddSubOpen, setNewSub, t]
+    [setEditingSub, setEditorId, setIsAddSubOpen, setLegalError, setNewSub, t]
   );
 
   const handleAddSub = useCallback(
@@ -115,6 +120,8 @@ export const useStrategyDetailModel = () => {
       }
 
       setEditingSub(null);
+      setEditorId(value => value + 1);
+      setLegalError(null);
       setNewSub({
         // The dialog's Select filters inactive accounts out, so preselecting accounts[0] blindly
         // could seed a deactivated account that only stays visible via the Select's
@@ -128,7 +135,7 @@ export const useStrategyDetailModel = () => {
       });
       setIsAddSubOpen(true);
     },
-    [accounts, isAdmin, setEditingSub, setIsAddSubOpen, setIsInviteModalOpen, setNewSub, user]
+    [accounts, isAdmin, setEditingSub, setEditorId, setIsAddSubOpen, setIsInviteModalOpen, setLegalError, setNewSub, user]
   );
 
   const copyWebhook = useCallback(() => {
@@ -138,7 +145,14 @@ export const useStrategyDetailModel = () => {
 
   const handleBackToList = useCallback(() => navigate('/strategies'), [navigate]);
   const handleOpenSecret = useCallback(() => setIsSecretOpen(true), [setIsSecretOpen]);
-  const handleCloseAddSub = useCallback(() => setIsAddSubOpen(false), [setIsAddSubOpen]);
+  const handleCloseAddSub = useCallback(() => {
+    setEditorId(value => value + 1);
+    setIsAddSubOpen(false);
+  }, [setEditorId, setIsAddSubOpen]);
+  const handleSubscriptionOpenChange = useCallback((open: boolean) => {
+    if (open) setIsAddSubOpen(true);
+    else handleCloseAddSub();
+  }, [handleCloseAddSub, setIsAddSubOpen]);
   const handleOpenInviteModal = useCallback(() => handleAddSub(true), [handleAddSub]);
   const handleSignalHistory = useCallback(() => navigate(`/strategies/${id}/signals`), [id, navigate]);
   const handlePrimaryAction = useCallback(() => {
@@ -162,7 +176,7 @@ export const useStrategyDetailModel = () => {
     subscribed,
     currentSubscription,
     isAddSubOpen,
-    setIsAddSubOpen,
+    setIsAddSubOpen: handleSubscriptionOpenChange,
     activePeriod,
     setActivePeriod,
     isSecretOpen,
@@ -189,8 +203,7 @@ export const useStrategyDetailModel = () => {
     webhookUrl,
     showWebhook,
     displayParams,
-    addSubMutation,
-    updateSubMutation,
+    isSubmitting,
     handleBackToList,
     handleSignalHistory,
     handlePrimaryAction,
@@ -202,6 +215,7 @@ export const useStrategyDetailModel = () => {
     handleOpenSecret,
     handleOpenInviteModal,
     handleLegalAccepted,
+    handleLegalOpenChange,
     copyWebhook,
   };
 };

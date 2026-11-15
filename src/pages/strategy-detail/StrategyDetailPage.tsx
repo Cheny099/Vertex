@@ -2,10 +2,10 @@
  * @anchor-id STRATEGY_DETAIL_PAGE
  * @module-type page
  * @disposable false
- * @mock-data 策略详情数据�?Mock，后端对接时替换
  */
 
 import { lazy, Suspense } from 'react';
+import { useParams } from 'react-router-dom';
 import { Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -44,7 +44,6 @@ const StrategyDetail = () => {
     newSub,
     setNewSub,
     legalError,
-    setLegalError,
     subscriptions,
     isSubsLoading,
     accounts,
@@ -60,8 +59,7 @@ const StrategyDetail = () => {
     webhookUrl,
     showWebhook,
     displayParams,
-    addSubMutation,
-    updateSubMutation,
+    isSubmitting,
     handleBackToList,
     handleSignalHistory,
     handlePrimaryAction,
@@ -73,6 +71,7 @@ const StrategyDetail = () => {
     handleOpenSecret,
     handleOpenInviteModal,
     handleLegalAccepted,
+    handleLegalOpenChange,
     copyWebhook,
   } = useStrategyDetailModel();
 
@@ -169,7 +168,7 @@ const StrategyDetail = () => {
         availableMargin={availableMargin}
         isMinNotionalViolated={isMinNotionalViolated}
         minNotional={minNotional}
-        isSubmitting={addSubMutation.isPending || updateSubMutation.isPending}
+        isSubmitting={isSubmitting}
         onSubmit={handleSubmitSub}
         onCancel={handleCloseAddSub}
       />
@@ -187,7 +186,7 @@ const StrategyDetail = () => {
       <Suspense fallback={null}>
         <RiskDisclosureDialog
           open={!!legalError}
-          onOpenChange={(open) => !open && setLegalError(null)}
+          onOpenChange={handleLegalOpenChange}
           docKey={legalError?.docKey ?? 'auto_trade_notice'}
           requiredVersion={legalError?.version || ''}
           onAccept={handleLegalAccepted}
@@ -197,4 +196,7 @@ const StrategyDetail = () => {
   );
 };
 
-export default StrategyDetail;
+export default function StrategyDetailRoute() {
+  const { id } = useParams();
+  return <StrategyDetail key={id} />;
+}

@@ -8,6 +8,7 @@ import { legalApi, type LegalDocKey } from '@/api';
 import { toast } from 'sonner';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAsyncScope } from '@/hooks/use-async-scope';
 
 interface RiskDisclosureDialogProps {
     open: boolean;
@@ -17,59 +18,55 @@ interface RiskDisclosureDialogProps {
     onAccept: () => void;
 }
 
-const RiskDisclosureDialog: React.FC<RiskDisclosureDialogProps> = ({
+const DisclosureSession: React.FC<RiskDisclosureDialogProps & { lang: string }> = ({
     open,
     onOpenChange,
     docKey = 'auto_trade_notice',
     requiredVersion,
     onAccept,
+    lang,
 }) => {
-    const { t, i18n } = useTranslation(['common', 'legal']);
+    const { t } = useTranslation(['common', 'legal']);
     const [content, setContent] = useState<string>('');
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [accepting, setAccepting] = useState(false);
+    const acceptingRef = useRef(false);
+    const { capture, invalidate } = useAsyncScope();
     const [hasScrolledBottom, setHasScrolledBottom] = useState(false);
     const [agreed, setAgreed] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // `onOpenChange` and `t` are recreated by the parent on every one of its renders, and the
-    // strategy detail page behind this dialog polls every 5s. Keeping them out of the fetch
-    // effect's deps stops each poll from re-fetching the document, which would swap the article
-    // for the spinner and reset `hasScrolledBottom` — re-locking the agree checkbox so a long
-    // disclosure could never be read to the end and signed.
-    const onOpenChangeRef = useRef(onOpenChange);
-    const tRef = useRef(t);
-    useEffect(() => {
-        onOpenChangeRef.current = onOpenChange;
-        tRef.current = t;
-    });
-
-    const lang = i18n.language;
-
+    // Parent polling must not reload the document or discard consent in the same session.
     useEffect(() => {
         if (!open || !docKey) return;
 
+        const isCurrent = capture();
         let cancelled = false;
         setLoading(true);
         // Default to current language, backend handles fallback
         legalApi
             .getPublicDoc(docKey, lang)
             .then((doc) => {
-                if (!cancelled) setContent(doc.content_md);
+                if (cancelled || !isCurrent()) return;
+                if (doc?.key !== docKey || !requiredVersion || doc.version !== requiredVersion || typeof doc.content_md !== 'string' || !doc.content_md.trim()) {
+                    setLoadError('legal:document_version_mismatch');
+                    return;
+                }
+                setContent(doc.content_md);
             })
             .catch(() => {
-                if (cancelled) return;
-                toast.error(tRef.current('common:error_load_failed'));
-                onOpenChangeRef.current(false);
+                if (cancelled || !isCurrent()) return;
+                setLoadError('common:error_load_failed');
             })
             .finally(() => {
-                if (!cancelled) setLoading(false);
+                if (!cancelled && isCurrent()) setLoading(false);
             });
 
         return () => {
             cancelled = true;
         };
-    }, [open, docKey, lang]);
+    }, [capture, open, docKey, lang, requiredVersion]);
 
     // Check if content is scrollable when loaded
     useEffect(() => {
@@ -91,6 +88,7 @@ const RiskDisclosureDialog: React.FC<RiskDisclosureDialogProps> = ({
     }, [loading, content, open]);
 
     const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
+        if (loading || loadError || !content) return;
         const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
         // Allow 50px tolerance for mobile friendliness
         if (scrollHeight - scrollTop - clientHeight < 50) {
@@ -99,22 +97,31 @@ const RiskDisclosureDialog: React.FC<RiskDisclosureDialogProps> = ({
     };
 
     const handleAccept = async () => {
-        if (!agreed) return;
+        if (!agreed || !hasScrolledBottom || loading || loadError || !content || acceptingRef.current) return;
+        const isCurrent = capture();
+        acceptingRef.current = true;
         setAccepting(true);
         try {
             await legalApi.accept(docKey, requiredVersion);
+            if (!isCurrent()) return;
             toast.success(t('legal:accept_success') || 'Signed successfully');
             onAccept();
             onOpenChange(false);
         } catch (error) {
-            toast.error(t('common:error_operation_failed'));
+            if (isCurrent()) toast.error(t('common:error_operation_failed'));
         } finally {
-            setAccepting(false);
+            acceptingRef.current = false;
+            if (isCurrent()) setAccepting(false);
         }
     };
 
+    const handleOpenChange = (nextOpen: boolean) => {
+        if (!nextOpen) invalidate();
+        onOpenChange(nextOpen);
+    };
+
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="max-w-2xl h-[80vh] flex flex-col gap-0 p-0 overflow-hidden">
                 <DialogHeader className="p-6 pb-4 border-b">
                     <DialogTitle className="flex items-center gap-2 text-xl text-destructive">
@@ -135,6 +142,8 @@ const RiskDisclosureDialog: React.FC<RiskDisclosureDialogProps> = ({
                         <div className="flex justify-center items-center h-40">
                             <Loader2 className="w-8 h-8 animate-spin text-primary" />
                         </div>
+                    ) : loadError ? (
+                        <p role="alert" className="text-destructive">{t(loadError)}</p>
                     ) : (
                         <article className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-li:text-muted-foreground">
                             <ReactMarkdown
@@ -159,7 +168,7 @@ const RiskDisclosureDialog: React.FC<RiskDisclosureDialogProps> = ({
                             id="agree-risk"
                             checked={agreed}
                             onCheckedChange={(c) => setAgreed(!!c)}
-                            disabled={!hasScrolledBottom}
+                            disabled={loading || !!loadError || !hasScrolledBottom || accepting}
                         />
                         <label
                             htmlFor="agree-risk"
@@ -175,13 +184,13 @@ const RiskDisclosureDialog: React.FC<RiskDisclosureDialogProps> = ({
                     </div>
 
                     <div className="flex gap-3 justify-end">
-                        <Button variant="outline" onClick={() => onOpenChange(false)}>
+                        <Button variant="outline" onClick={() => handleOpenChange(false)}>
                             {t('common:cancel')}
                         </Button>
                         <Button
                             variant="destructive"
                             onClick={handleAccept}
-                            disabled={!agreed || accepting}
+                            disabled={loading || !!loadError || !content || !hasScrolledBottom || !agreed || accepting}
                             className="px-8"
                         >
                             {accepting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
@@ -192,6 +201,14 @@ const RiskDisclosureDialog: React.FC<RiskDisclosureDialogProps> = ({
             </DialogContent>
         </Dialog>
     );
+};
+
+const RiskDisclosureDialog: React.FC<RiskDisclosureDialogProps> = props => {
+    const { i18n } = useTranslation();
+    // Each opening/document/language has its own consent and async lifetime.
+    return props.open
+        ? <DisclosureSession key={`${props.docKey}:${props.requiredVersion}:${i18n.language}`} {...props} lang={i18n.language} />
+        : null;
 };
 
 export default RiskDisclosureDialog;

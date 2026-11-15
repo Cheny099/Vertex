@@ -302,5 +302,6 @@
     "6m": "6M",
     "1y": "1Y",
     "all": "All"
-  }
+  },
+  "invalid_subscription": "Invalid subscription configuration. Check the execution account, position amount or ratio, and leverage."
 }

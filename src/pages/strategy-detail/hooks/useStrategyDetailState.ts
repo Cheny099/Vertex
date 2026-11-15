@@ -7,7 +7,7 @@ export interface StrategySubscriptionDraft {
   accountId: string;
   positionMode: UiMode;
   // null is "the field is empty or mid-edit", which a number input needs to be able to express -
-  // see #30. Every consumer already reads it as `Number(positionValue || fallback)`.
+  // see #30. It is validated before submission rather than replaced by a trading amount.
   positionValue: number | null;
   positionPct: number;
   leverage: number;
@@ -15,6 +15,7 @@ export interface StrategySubscriptionDraft {
 
 export function useStrategyDetailState() {
   const [isAddSubOpen, setIsAddSubOpen] = useState(false);
+  const [editorId, setEditorId] = useState(0);
   const [activePeriod, setActivePeriod] = useState<PeriodKey>('all');
   const [isSecretOpen, setIsSecretOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -31,6 +32,8 @@ export function useStrategyDetailState() {
   const [legalError, setLegalError] = useState<{ docKey: LegalDocKey; version: string } | null>(null);
 
   return {
+    editorId,
+    setEditorId,
     isAddSubOpen,
     setIsAddSubOpen,
     activePeriod,

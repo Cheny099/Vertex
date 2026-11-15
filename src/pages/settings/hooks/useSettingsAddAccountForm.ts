@@ -18,6 +18,7 @@ export function useSettingsAddAccountForm({
   t,
 }: UseSettingsAddAccountFormParams) {
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+  const [formRevision, setFormRevision] = useState(0);
   const [newAccount, setNewAccount] = useState<Partial<AccountCreateDto>>(DEFAULT_NEW_ACCOUNT);
 
   const selectedExchange = (newAccount.exchange || 'turboflow') as AccountCreateDto['exchange'];
@@ -35,14 +36,17 @@ export function useSettingsAddAccountForm({
   }, []);
 
   const handleOpenAddAccount = useCallback(() => {
+    setFormRevision(value => value + 1);
     setIsAddAccountOpen(true);
   }, []);
 
   const handleCloseAddAccount = useCallback(() => {
+    setFormRevision(value => value + 1);
     setIsAddAccountOpen(false);
   }, []);
 
   const handleAddAccountOpenChange = useCallback((open: boolean) => {
+    setFormRevision(value => value + 1);
     setIsAddAccountOpen(open);
   }, []);
 
@@ -115,6 +119,7 @@ export function useSettingsAddAccountForm({
   );
 
   return {
+    formRevision,
     newAccount,
     resetNewAccount,
     handleOpenAddAccount,
