@@ -14,6 +14,9 @@ export function useSettingsPageModel() {
     isProfileLoading,
     accounts,
     isAccountsLoading,
+    accountsFailed,
+    isAccountsFetching,
+    retryAccounts,
     invalidateAccountData,
   } = useSettingsQueries();
 
@@ -77,8 +80,11 @@ export function useSettingsPageModel() {
     () => ({
       ...rawAccountsSectionProps,
       isLoading: isAccountsLoading,
+      isError: accountsFailed,
+      isFetching: isAccountsFetching,
+      onRetry: () => { void retryAccounts(); },
     }),
-    [isAccountsLoading, rawAccountsSectionProps]
+    [accountsFailed, isAccountsFetching, isAccountsLoading, rawAccountsSectionProps, retryAccounts]
   );
 
   return {

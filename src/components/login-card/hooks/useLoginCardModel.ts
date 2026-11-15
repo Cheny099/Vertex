@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { authApi } from "@/api";
@@ -6,6 +6,7 @@ import type { ApiError } from "@/api/contracts";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import type { User as AppUser } from "@/types";
+import type { LoginAttempt } from '@/contexts/auth-context';
 import { useTranslation } from "react-i18next";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -29,7 +30,7 @@ function useLoginCardModel() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { beginLogin } = useAuth();
   const { t } = useTranslation(["auth", "common"]);
 
   const [email, setEmail] = useState("");
@@ -41,6 +42,14 @@ function useLoginCardModel() {
   const [code, setCode] = useState("");
   const [cooldown, setCooldown] = useState(0);
   const [isSendingCode, setIsSendingCode] = useState(false);
+  const activeAttempt = useRef<LoginAttempt | null>(null);
+
+  // Invalidation is required even when an adapter/mock ignores AbortSignal.
+  useEffect(() => () => {
+    const attempt = activeAttempt.current;
+    activeAttempt.current = null;
+    attempt?.cancel();
+  }, []);
 
   useEffect(() => {
     if (cooldown <= 0) {
@@ -82,6 +91,7 @@ function useLoginCardModel() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (activeAttempt.current?.isCurrent()) return;
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
@@ -97,6 +107,16 @@ function useLoginCardModel() {
       return;
     }
 
+    if (loginMode === 'otp' && (!code || code.length !== 4)) {
+      toast({ title: t('common:error'), description: t('login.enter_code_hint'), variant: 'destructive' });
+      return;
+    }
+    const attempt = beginLogin();
+    activeAttempt.current = attempt;
+    const onAbort = () => {
+      if (activeAttempt.current === attempt) setIsLoading(false);
+    };
+    attempt.signal.addEventListener('abort', onAbort, { once: true });
     setIsLoading(true);
     try {
       let accessToken = "";
@@ -105,29 +125,25 @@ function useLoginCardModel() {
         const response = await authApi.login({
           username: trimmedEmail,
           password,
-        });
+        }, attempt.signal);
         accessToken = response.access_token;
       } else {
-        if (!code || code.length !== 4) {
-          toast({ title: t("common:error"), description: t("login.enter_code_hint"), variant: "destructive" });
-          setIsLoading(false);
-          return;
-        }
         const response = await authApi.loginWithCode({
           email: trimmedEmail,
           password,
           code,
-        });
+        }, attempt.signal);
         accessToken = response.access_token;
       }
 
-      const user = await authApi.getProfile(accessToken);
+      if (!attempt.isCurrent()) return;
+      const user = await authApi.getProfile(accessToken, attempt.signal);
       const mappedUser: AppUser = {
         ...user,
         id: String(user.id),
         username: user.full_name || user.email.split("@")[0],
       };
-      login(mappedUser, accessToken, rememberMe);
+      if (!attempt.complete(mappedUser, accessToken, rememberMe)) return;
 
       toast({
         title: t("errors.login_success"),
@@ -138,6 +154,7 @@ function useLoginCardModel() {
       const redirectTo = from?.pathname ? `${from.pathname}${from.search || ""}${from.hash || ""}` : "/dashboard";
       navigate(redirectTo, { replace: true });
     } catch (error: unknown) {
+      if (!attempt.isCurrent()) return;
       const errorKeyOrMessage = normalizeErrorMessage(error);
       toast({
         title: t("common:error"),
@@ -145,11 +162,17 @@ function useLoginCardModel() {
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      attempt.signal.removeEventListener('abort', onAbort);
+      if (activeAttempt.current === attempt) {
+        activeAttempt.current = null;
+        setIsLoading(false);
+      }
+      attempt.cancel();
     }
   };
 
   const toggleLoginMode = () => {
+    activeAttempt.current?.cancel();
     setLoginMode((mode) => (mode === "password" ? "otp" : "password"));
   };
 

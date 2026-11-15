@@ -1,18 +1,10 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useEffect, type FormEvent } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
 import { useToast } from '@/components/ui/use-toast';
-import {
-  adminApi,
-  type StrategySwitchBulkExecuteRequest,
-  type StrategySwitchBulkPreviewRequest,
-} from '@/api';
-
-type BulkForm = {
-  from_strategy_id: number;
-  to_strategy_id: number;
-  symbol: string;
-};
+import { adminApi } from '@/api';
+import { bulkSwitchFormSchema } from '../switch-forms';
+import { useSwitchOperation } from './useSwitchOperation';
 
 type UseStrategySwitchBulkFlowParams = {
   isPageVisible: boolean;
@@ -20,188 +12,61 @@ type UseStrategySwitchBulkFlowParams = {
   toErrorText: (err: unknown) => string;
 };
 
-export function useStrategySwitchBulkFlow({
-  isPageVisible,
-  t,
-  toErrorText,
-}: UseStrategySwitchBulkFlowParams) {
+export function useStrategySwitchBulkFlow({ isPageVisible, t, toErrorText }: UseStrategySwitchBulkFlowParams) {
   const { toast } = useToast();
-  const [bulkForm, setBulkForm] = useState<BulkForm>({
-    from_strategy_id: 0,
-    to_strategy_id: 0,
-    symbol: '',
+  const operation = useSwitchOperation({
+    kind: 'bulk',
+    initialForm: { from_strategy_id: 0, to_strategy_id: 0, symbol: '', handover_mode: 'FLAT_THEN_SWITCH' as const },
+    schema: bulkSwitchFormSchema,
+    reason: t('admin:strategy_switch.reason_manual_bulk'),
+    preview: form => adminApi.strategySwitch.bulkPreview({ ...form, reason: t('admin:strategy_switch.reason_manual_bulk') }),
+    execute: adminApi.strategySwitch.bulkExecute,
+    invalidFormMessage: t('admin:strategy_switch_invalid_form'),
+    storageErrorMessage: t('admin:strategy_switch_storage_failed'),
+    onError: (error: unknown) => toast({ title: t('common:error'), description: toErrorText(error), variant: 'destructive' }),
+    onSuccess: data => toast({ title: t('common:success'), description: data.idempotent_reused
+      ? t('admin:strategy_switch.bulk_idempotent_msg') : t('admin:strategy_switch.bulk_success_msg') }),
   });
-
-  const patchBulkForm = useCallback((patch: Partial<BulkForm>) => {
-    setBulkForm((prev) => ({ ...prev, ...patch }));
-  }, []);
-
-  const bulkPreviewMutation = useMutation({
-    mutationFn: (data: StrategySwitchBulkPreviewRequest) => adminApi.strategySwitch.bulkPreview(data),
-    onError: (err: Error) => {
-      toast({ title: t('common:error'), description: toErrorText(err), variant: 'destructive' });
-    },
-  });
-
-  const bulkExecuteMutation = useMutation({
-    mutationFn: (data: StrategySwitchBulkExecuteRequest) => adminApi.strategySwitch.bulkExecute(data),
-    onSuccess: (data) => {
-      toast({
-        title: t('common:success'),
-        description: data.idempotent_reused
-          ? t('admin:strategy_switch.bulk_idempotent_msg')
-          : t('admin:strategy_switch.bulk_success_msg'),
-      });
-    },
-    onError: (err: Error) => {
-      toast({ title: t('common:error'), description: toErrorText(err), variant: 'destructive' });
-    },
-  });
-
-  const campaignId = bulkExecuteMutation.data?.campaign_id;
+  const campaignId = operation.result?.campaign_id;
   const { data: campaignStatus, refetch: refetchCampaignStatus } = useQuery({
     queryKey: ['bulk_switch_campaign', campaignId],
     queryFn: () => adminApi.strategySwitch.getCampaign(campaignId!),
     enabled: !!campaignId,
     refetchInterval: (query) => {
       if (!isPageVisible) return false;
-      const current = query.state.data as { status?: string } | undefined;
-      const status = String(current?.status || '').toUpperCase();
+      const status = String(query.state.data?.status || '').toUpperCase();
       return !status || status === 'PENDING' || status === 'RUNNING' ? 3000 : false;
     },
     refetchOnWindowFocus: false,
   });
-
   useEffect(() => {
-    if (!isPageVisible || !campaignId) return;
-    void refetchCampaignStatus();
+    if (isPageVisible && campaignId) void refetchCampaignStatus();
   }, [campaignId, isPageVisible, refetchCampaignStatus]);
+  const preview = operation.previewData;
+  const bulkPreviewStats = preview ? [
+    { label: t('admin:strategy_switch.total_candidates'), value: preview.total_candidates },
+    { label: t('admin:strategy_switch.will_create_runs'), value: preview.will_create_runs },
+    { label: t('admin:strategy_switch.will_reuse_runs'), value: preview.will_reuse_runs },
+    { label: t('admin:strategy_switch.will_create_subs'), value: preview.will_create_to_sub },
+    { label: t('admin:strategy_switch.will_update_params'), value: preview.will_update_to_sub_params },
+  ] : [];
+  const canStartNew = !!campaignStatus && ['SUCCESS', 'FAILED', 'CANCELLED'].includes(campaignStatus.status);
 
-  const validateBulkForm = useCallback(() => {
-    if (!bulkForm.from_strategy_id || bulkForm.from_strategy_id <= 0) {
-      toast({
-        title: t('common:error'),
-        description: `${t('admin:strategy_switch.from_strategy_id')} ${t('common:required')}`,
-        variant: 'destructive',
-      });
-      return false;
-    }
-    if (!bulkForm.to_strategy_id || bulkForm.to_strategy_id <= 0) {
-      toast({
-        title: t('common:error'),
-        description: `${t('admin:strategy_switch.to_strategy_id')} ${t('common:required')}`,
-        variant: 'destructive',
-      });
-      return false;
-    }
-    if (!bulkForm.symbol || bulkForm.symbol.length < 2) {
-      toast({
-        title: t('common:error'),
-        description: `${t('admin:strategy_switch.symbol')} ${t('common:required')}`,
-        variant: 'destructive',
-      });
-      return false;
-    }
-    return true;
-  }, [bulkForm, t, toast]);
-
-  const handlePreview = useCallback(() => {
-    if (!validateBulkForm()) return;
-    bulkPreviewMutation.mutate({
-      ...bulkForm,
-      handover_mode: 'FLAT_THEN_SWITCH',
-      reason: t('admin:strategy_switch.reason_manual_bulk'),
-    });
-  }, [bulkForm, bulkPreviewMutation, t, validateBulkForm]);
-
-  const handleSubmit = useCallback(
-    (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      if (!validateBulkForm()) return;
-
-      bulkExecuteMutation.mutate({
-        ...bulkForm,
-        request_id: crypto.randomUUID(),
-        handover_mode: 'FLAT_THEN_SWITCH',
-        reason: t('admin:strategy_switch.reason_manual_bulk'),
-      });
-    },
-    [bulkExecuteMutation, bulkForm, t, validateBulkForm]
-  );
-
-  const handleFromStrategyChange = useCallback(
-    (value: string) => {
-      patchBulkForm({ from_strategy_id: Number(value) });
-    },
-    [patchBulkForm]
-  );
-
-  const handleToStrategyChange = useCallback(
-    (value: string) => {
-      patchBulkForm({ to_strategy_id: Number(value) });
-    },
-    [patchBulkForm]
-  );
-
-  const handleSymbolChange = useCallback(
-    (value: string) => {
-      patchBulkForm({ symbol: value.toUpperCase() });
-    },
-    [patchBulkForm]
-  );
-
-  const bulkPreviewStats = useMemo(() => {
-    if (!bulkPreviewMutation.data) return [];
-    return [
-      {
-        label: t('admin:strategy_switch.total_candidates', 'Total Candidates'),
-        value: bulkPreviewMutation.data.total_candidates,
-      },
-      {
-        label: t('admin:strategy_switch.will_create_runs', 'New Runs'),
-        value: bulkPreviewMutation.data.will_create_runs,
-      },
-      {
-        label: t('admin:strategy_switch.will_reuse_runs', 'Reused Runs'),
-        value: bulkPreviewMutation.data.will_reuse_runs,
-      },
-      {
-        label: t('admin:strategy_switch.will_create_subs', 'New Subs'),
-        value: bulkPreviewMutation.data.will_create_to_sub,
-      },
-      {
-        label: t('admin:strategy_switch.will_update_params', 'Update Subs'),
-        value: bulkPreviewMutation.data.will_update_to_sub_params,
-      },
-    ];
-  }, [bulkPreviewMutation.data, t]);
-
-  return useMemo(
-    () => ({
-      form: bulkForm,
-      campaignStatus,
-      bulkPreviewData: bulkPreviewMutation.data,
-      bulkPreviewStats,
-      bulkPreviewPending: bulkPreviewMutation.isPending,
-      bulkExecutePending: bulkExecuteMutation.isPending,
-      onPreview: handlePreview,
-      onSubmit: handleSubmit,
-      onFromStrategyChange: handleFromStrategyChange,
-      onToStrategyChange: handleToStrategyChange,
-      onSymbolChange: handleSymbolChange,
-    }),
-    [
-      bulkExecuteMutation.isPending,
-      bulkForm,
-      bulkPreviewMutation.data,
-      bulkPreviewMutation.isPending,
-      bulkPreviewStats,
-      campaignStatus,
-      handleFromStrategyChange,
-      handlePreview,
-      handleSubmit,
-      handleSymbolChange,
-      handleToStrategyChange,
-    ]
-  );
+  return {
+    form: operation.form,
+    campaignStatus,
+    bulkPreviewData: preview,
+    bulkPreviewStats,
+    bulkPreviewPending: operation.previewPending,
+    bulkExecutePending: operation.executePending,
+    canExecute: operation.canExecute,
+    recovering: operation.hasSubmitted && !operation.result,
+    canStartNew,
+    onStartNew: () => { if (canStartNew) operation.startNew(); },
+    onPreview: () => { void operation.preview(); },
+    onSubmit: (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); void operation.execute(); },
+    onFromStrategyChange: (value: string) => operation.patchForm({ from_strategy_id: Number(value) }),
+    onToStrategyChange: (value: string) => operation.patchForm({ to_strategy_id: Number(value) }),
+    onSymbolChange: (value: string) => operation.patchForm({ symbol: value.toUpperCase() }),
+  };
 }

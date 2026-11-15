@@ -19,6 +19,9 @@ type AccountViewModel = {
 
 interface AccountsSectionProps {
   isLoading: boolean;
+  isError: boolean;
+  isFetching: boolean;
+  onRetry: () => void;
   accounts: Account[] | undefined;
   accountViewModels: AccountViewModel[];
   verifyPending: boolean;
@@ -36,6 +39,9 @@ interface AccountsSectionProps {
 
 export function AccountsSection({
   isLoading,
+  isError,
+  isFetching,
+  onRetry,
   accounts,
   accountViewModels,
   verifyPending,
@@ -69,12 +75,18 @@ export function AccountsSection({
       </div>
 
       <div className="space-y-4">
+        {isError && <div role="alert" className="rounded-lg border border-destructive/30 p-4 space-y-3">
+          <p>{t(accounts ? 'settings:accounts_refresh_failed' : 'settings:accounts_load_failed')}</p>
+          <Button variant="outline" onClick={onRetry} disabled={isFetching}>
+            {isFetching ? t('common:loading') : t('common:retry')}
+          </Button>
+        </div>}
         {isLoading ? (
           <div className="space-y-2">
             <Skeleton className="h-16 w-full" />
             <Skeleton className="h-16 w-full" />
           </div>
-        ) : !accounts || accounts.length === 0 ? (
+        ) : isError && !accounts ? null : accounts?.length === 0 ? (
           <div className="text-center py-10 border border-dashed rounded-lg border-border/50">
             <p className="text-muted-foreground">{t('settings:accounts.no_accounts')}</p>
           </div>

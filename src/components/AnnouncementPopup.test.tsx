@@ -10,7 +10,7 @@ function view(id: string) {
   const value: AuthContextType = {
     user: { id, email: `${id}@example.com`, username: id }, token: id, isAuthenticated: true,
     isAdmin: false, isLoading: false, validationFailed: false, preserveReturnTo: true,
-    retryValidation: vi.fn(), login: vi.fn(), logout: vi.fn(), updateUser: vi.fn(),
+    retryValidation: vi.fn(), beginLogin: vi.fn(), logout: vi.fn(), updateUser: vi.fn(),
   };
   return <AuthContext.Provider value={value}><AnnouncementPopup /></AuthContext.Provider>;
 }

@@ -624,5 +624,11 @@
     "order_detail_failed": "订单详情加载失败，成交价暂不可用。",
     "order_events_failed": "订单事件加载失败。",
     "local_minus_remote": "本地 − 远端",
-    "notional_mismatch": "金额不一致"
+    "notional_mismatch": "金额不一致",
+  "strategy_switch_invalid_form": "请填写有效的整数 ID 和交易对。",
+  "strategy_switch_storage_failed": "无法保存操作恢复信息，请允许本站使用浏览器存储后重试。尚未发送操作。",
+  "strategy_switch_recover": "恢复上次操作",
+  "strategy_switch_recovery_hint": "上次提交的结果尚未确认。恢复操作将使用原参数，不会创建新的操作标识。",
+  "strategy_switch_preview_hint": "执行前请先预览；更改参数后需要重新预览。",
+  "strategy_switch_new_operation": "新建同参数操作"
 }

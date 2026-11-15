@@ -17,6 +17,10 @@ interface SingleSwitchPanelProps {
   runStatus?: StrategySwitchRun;
   singlePreviewPending: boolean;
   executePending: boolean;
+  canExecute: boolean;
+  recovering: boolean;
+  canStartNew: boolean;
+  onStartNew: () => void;
   cancelPending: boolean;
   isCancelableRun: boolean;
   getStatusLabel: (status?: string) => string;
@@ -36,6 +40,10 @@ export const SingleSwitchPanel = memo(({
   runStatus,
   singlePreviewPending,
   executePending,
+  canExecute,
+  recovering,
+  canStartNew,
+  onStartNew,
   cancelPending,
   isCancelableRun,
   getStatusLabel,
@@ -60,88 +68,92 @@ export const SingleSwitchPanel = memo(({
           </CardHeader>
           <CardContent>
             <form onSubmit={onSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{t('admin:strategy_switch.account_id')}</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={form.account_id || ''}
-                    onChange={(event) => onAccountChange(event.target.value)}
-                    className="h-10"
-                    required
-                  />
+              <fieldset disabled={executePending} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{t('admin:strategy_switch.account_id')}</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={form.account_id || ''}
+                      onChange={(event) => onAccountChange(event.target.value)}
+                      className="h-10"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t('admin:strategy_switch.symbol')}</Label>
+                    <Input
+                      value={form.symbol}
+                      onChange={(event) => onSymbolChange(event.target.value)}
+                      placeholder={t('admin:strategy_switch.symbol_placeholder')}
+                      className="h-10"
+                      required
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>{t('admin:strategy_switch.symbol')}</Label>
-                  <Input
-                    value={form.symbol}
-                    onChange={(event) => onSymbolChange(event.target.value)}
-                    placeholder={t('admin:strategy_switch.symbol_placeholder')}
-                    className="h-10"
-                    required
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{t('admin:strategy_switch.from_sub_id')}</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={form.from_subscription_id || ''}
-                    onChange={(event) => onFromSubChange(event.target.value)}
-                    className="h-10"
-                    required
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{t('admin:strategy_switch.from_sub_id')}</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={form.from_subscription_id || ''}
+                      onChange={(event) => onFromSubChange(event.target.value)}
+                      className="h-10"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t('admin:strategy_switch.to_sub_id')}</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={form.to_subscription_id || ''}
+                      onChange={(event) => onToSubChange(event.target.value)}
+                      className="h-10"
+                      required
+                    />
+                  </div>
                 </div>
+
                 <div className="space-y-2">
-                  <Label>{t('admin:strategy_switch.to_sub_id')}</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={form.to_subscription_id || ''}
-                    onChange={(event) => onToSubChange(event.target.value)}
-                    className="h-10"
-                    required
-                  />
+                  <Label>{t('admin:strategy_switch.handover_mode')}</Label>
+                  <Select value={form.handover_mode} onValueChange={onHandoverModeChange}>
+                    <SelectTrigger className="h-10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FLAT_THEN_SWITCH">{t('admin:strategy_switch.mode_flat')}</SelectItem>
+                      <SelectItem value="KEEP_POSITION_ADOPT">{t('admin:strategy_switch.mode_adopt')}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label>{t('admin:strategy_switch.handover_mode')}</Label>
-                <Select value={form.handover_mode} onValueChange={onHandoverModeChange}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="FLAT_THEN_SWITCH">{t('admin:strategy_switch.mode_flat')}</SelectItem>
-                    <SelectItem value="KEEP_POSITION_ADOPT">{t('admin:strategy_switch.mode_adopt')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="w-full h-10 rounded-xl"
-                  onClick={onPreview}
-                  disabled={singlePreviewPending}
-                >
-                  {singlePreviewPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4 mr-2" />}
-                  {t('admin:strategy_switch.btn_preview')}
-                </Button>
-                <Button
-                  type="submit"
-                  className="w-full h-10 rounded-xl"
-                  disabled={executePending}
-                >
-                  {executePending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
-                  {t('admin:strategy_switch.btn_execute')}
-                </Button>
-              </div>
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full h-10 rounded-xl"
+                    onClick={onPreview}
+                    disabled={singlePreviewPending || executePending}
+                  >
+                    {singlePreviewPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4 mr-2" />}
+                    {t('admin:strategy_switch.btn_preview')}
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="w-full h-10 rounded-xl"
+                    disabled={!canExecute}
+                  >
+                    {executePending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+                    {t(recovering ? 'admin:strategy_switch_recover' : 'admin:strategy_switch.btn_execute')}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">{t(recovering ? 'admin:strategy_switch_recovery_hint' : 'admin:strategy_switch_preview_hint')}</p>
+                {canStartNew && <Button type="button" variant="outline" onClick={onStartNew}>{t('admin:strategy_switch_new_operation')}</Button>}
+              </fieldset>
             </form>
           </CardContent>
         </Card>

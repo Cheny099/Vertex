@@ -34,4 +34,16 @@ describe("authApi.getProfile", () => {
       headers: { Authorization: "Bearer fresh-token" },
     });
   });
+
+  it("forwards cancellation through password, OTP and profile requests", async () => {
+    const { signal } = new AbortController();
+    mocks.request.mockResolvedValue({ access_token: "token", token_type: "bearer" });
+    await authApi.login({ username: "user@example.com", password: "password" }, signal);
+    expect(mocks.request).toHaveBeenLastCalledWith("/auth/login", expect.objectContaining({ signal }));
+    await authApi.loginWithCode({ email: "user@example.com", password: "password", code: "1234" }, signal);
+    expect(mocks.request).toHaveBeenLastCalledWith("/auth/login-with-code", expect.objectContaining({ signal }));
+    mocks.request.mockResolvedValue({ id: 7, email: "user@example.com", is_active: true, created_at: "", updated_at: "" });
+    await authApi.getProfile("token", signal);
+    expect(mocks.request).toHaveBeenLastCalledWith("/auth/me", { signal, headers: { Authorization: "Bearer token" } });
+  });
 });

@@ -10,7 +10,7 @@ export function useSettingsQueries() {
     queryFn: () => userApi.getProfile(),
   });
 
-  const { data: accounts, isLoading: isAccountsLoading } = useQuery({
+  const { data: accounts, isLoading: isAccountsLoading, isError: accountsFailed, isFetching: isAccountsFetching, refetch: retryAccounts } = useQuery({
     queryKey: ['accounts'],
     queryFn: () => accountApi.list(),
   });
@@ -25,6 +25,9 @@ export function useSettingsQueries() {
     isProfileLoading,
     accounts,
     isAccountsLoading,
+    accountsFailed,
+    isAccountsFetching,
+    retryAccounts,
     invalidateAccountData,
   };
 }

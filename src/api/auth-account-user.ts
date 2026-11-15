@@ -31,7 +31,7 @@ export interface AuthResponse {
 }
 
 export const authApi = {
-  login: async (credentials: AuthCredentials) => {
+  login: async (credentials: AuthCredentials, signal?: AbortSignal) => {
     const formData = new FormData();
     formData.append('username', credentials.username);
     formData.append('password', credentials.password);
@@ -39,6 +39,7 @@ export const authApi = {
     const response = await request<unknown>('/auth/login', {
       method: 'POST',
       body: formData,
+      signal,
     });
 
     return decodeResponse(authResponseSchema, response);
@@ -58,10 +59,10 @@ export const authApi = {
     });
   },
 
-  getProfile: async (token?: string) => {
+  getProfile: async (token?: string, signal?: AbortSignal) => {
     const profile = await request<unknown>(
       '/auth/me',
-      token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+      token || signal ? { ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}), ...(signal ? { signal } : {}) } : undefined,
     );
     return decodeResponse(profileSchema, profile);
   },
@@ -87,10 +88,11 @@ export const authApi = {
     });
   },
 
-  loginWithCode: async (data: LoginWithCodeRequest) => {
+  loginWithCode: async (data: LoginWithCodeRequest, signal?: AbortSignal) => {
     const response = await request<unknown>('/auth/login-with-code', {
       method: 'POST',
       body: JSON.stringify(data),
+      signal,
     });
     return decodeResponse(authResponseSchema, response);
   },

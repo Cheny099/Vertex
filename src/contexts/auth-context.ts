@@ -1,6 +1,13 @@
 import { createContext } from 'react';
 import { User } from '@/types';
 
+export interface LoginAttempt {
+  signal: AbortSignal;
+  isCurrent: () => boolean;
+  cancel: () => void;
+  complete: (user: User, token: string, rememberMe: boolean) => boolean;
+}
+
 export interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -10,7 +17,7 @@ export interface AuthContextType {
   validationFailed: boolean;
   preserveReturnTo: boolean;
   retryValidation: () => void;
-  login: (user: User, token: string, rememberMe: boolean) => void;
+  beginLogin: () => LoginAttempt;
   logout: () => void;
   updateUser: (user: Partial<User>) => void;
 }
